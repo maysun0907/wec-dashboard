@@ -12,43 +12,102 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ClassBadge } from "@/components/class-badge";
 import {
-  DRIVER_STANDINGS,
-  MANUFACTURER_STANDINGS,
-  TEAM_STANDINGS,
+  CURRENT_SEASON,
+  EVENTS,
+  RACE_CLASSES,
+  STANDINGS,
+  type ClassStandings,
+  type RaceClass,
   type StandingRow,
 } from "@/lib/mock-data";
 
 export const metadata = { title: "Standings" };
 
 export default function StandingsPage() {
+  const completedRounds = EVENTS.filter((e) => e.status === "completed").length;
+
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Standings</h1>
-        <p className="text-muted-foreground">Hypercar championship · 2026</p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">Standings</h1>
+          <p className="text-muted-foreground">
+            {CURRENT_SEASON} season · After R{completedRounds}
+          </p>
+        </div>
       </header>
 
-      <div className="grid gap-6 xl:grid-cols-3">
-        <StandingsTable title="Drivers" rows={DRIVER_STANDINGS} />
-        <StandingsTable title="Teams" rows={TEAM_STANDINGS} />
-        <StandingsTable title="Manufacturers" rows={MANUFACTURER_STANDINGS} />
-      </div>
+      <Tabs defaultValue="HYPERCAR">
+        <TabsList>
+          {RACE_CLASSES.map((c) => (
+            <TabsTrigger key={c} value={c}>
+              {c}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+
+        {RACE_CLASSES.map((c) => (
+          <TabsContent key={c} value={c} className="mt-4">
+            <ClassStandingsView raceClass={c} data={STANDINGS[c]} />
+          </TabsContent>
+        ))}
+      </Tabs>
+    </div>
+  );
+}
+
+function ClassStandingsView({
+  raceClass,
+  data,
+}: {
+  raceClass: RaceClass;
+  data: ClassStandings;
+}) {
+  const cols = data.manufacturers ? 3 : 2;
+  return (
+    <div
+      className={
+        cols === 3
+          ? "grid gap-6 xl:grid-cols-3"
+          : "grid gap-6 xl:grid-cols-2"
+      }
+    >
+      <StandingsTable
+        title="Drivers"
+        raceClass={raceClass}
+        rows={data.drivers}
+      />
+      <StandingsTable title="Teams" raceClass={raceClass} rows={data.teams} />
+      {data.manufacturers && (
+        <StandingsTable
+          title="Manufacturers"
+          raceClass={raceClass}
+          rows={data.manufacturers}
+        />
+      )}
     </div>
   );
 }
 
 function StandingsTable({
   title,
+  raceClass,
   rows,
 }: {
   title: string;
+  raceClass: RaceClass;
   rows: StandingRow[];
 }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle>{title}</CardTitle>
+          <ClassBadge raceClass={raceClass} />
+        </div>
       </CardHeader>
       <CardContent className="px-0">
         <Table>

@@ -185,29 +185,84 @@ export const DRIVERS: Driver[] = [
   { id: "vanthoor", name: "Laurens Vanthoor", nationality: "BEL", carNumber: 6, teamId: "porsche-6", raceClass: "HYPERCAR" },
 ];
 
-export const DRIVER_STANDINGS: StandingRow[] = [
-  { position: 1, entityId: "kubica", name: "Kubica / Ye / Hanson", detail: "AF Corse — Ferrari", raceClass: "HYPERCAR", points: 50 },
-  { position: 2, entityId: "pier-guidi", name: "Pier Guidi / Calado / Giovinazzi", detail: "Ferrari AF Corse", raceClass: "HYPERCAR", points: 38 },
-  { position: 3, entityId: "fuoco", name: "Fuoco / Molina / Nielsen", detail: "Ferrari AF Corse", raceClass: "HYPERCAR", points: 32 },
-  { position: 4, entityId: "kobayashi", name: "Kobayashi / López", detail: "Toyota Gazoo Racing", raceClass: "HYPERCAR", points: 28 },
-  { position: 5, entityId: "estre", name: "Estre / Vanthoor", detail: "Porsche Penske Motorsport", raceClass: "HYPERCAR", points: 24 },
-];
+export type ClassStandings = {
+  drivers: StandingRow[];
+  teams: StandingRow[];
+  manufacturers?: StandingRow[];
+};
 
-export const TEAM_STANDINGS: StandingRow[] = [
-  { position: 1, entityId: "ferrari-83", name: "AF Corse #83", detail: "Ferrari", raceClass: "HYPERCAR", points: 50 },
-  { position: 2, entityId: "ferrari-51", name: "Ferrari AF Corse #51", detail: "Ferrari", raceClass: "HYPERCAR", points: 38 },
-  { position: 3, entityId: "ferrari-50", name: "Ferrari AF Corse #50", detail: "Ferrari", raceClass: "HYPERCAR", points: 32 },
-  { position: 4, entityId: "toyota-7", name: "Toyota Gazoo Racing #7", detail: "Toyota", raceClass: "HYPERCAR", points: 28 },
-  { position: 5, entityId: "porsche-6", name: "Porsche Penske Motorsport #6", detail: "Porsche", raceClass: "HYPERCAR", points: 24 },
-];
+export const RACE_CLASSES: RaceClass[] = ["HYPERCAR", "LMP2", "LMGT3"];
 
-export const MANUFACTURER_STANDINGS: StandingRow[] = [
-  { position: 1, entityId: "ferrari", name: "Ferrari", raceClass: "HYPERCAR", points: 95 },
-  { position: 2, entityId: "toyota", name: "Toyota", raceClass: "HYPERCAR", points: 58 },
-  { position: 3, entityId: "porsche", name: "Porsche", raceClass: "HYPERCAR", points: 47 },
-  { position: 4, entityId: "cadillac", name: "Cadillac", raceClass: "HYPERCAR", points: 31 },
-  { position: 5, entityId: "bmw", name: "BMW", raceClass: "HYPERCAR", points: 22 },
-];
+export const STANDINGS: Record<RaceClass, ClassStandings> = {
+  HYPERCAR: {
+    drivers: [
+      { position: 1, entityId: "kubica", name: "Kubica / Ye / Hanson", detail: "AF Corse — Ferrari", raceClass: "HYPERCAR", points: 50 },
+      { position: 2, entityId: "pier-guidi", name: "Pier Guidi / Calado / Giovinazzi", detail: "Ferrari AF Corse", raceClass: "HYPERCAR", points: 38 },
+      { position: 3, entityId: "fuoco", name: "Fuoco / Molina / Nielsen", detail: "Ferrari AF Corse", raceClass: "HYPERCAR", points: 32 },
+      { position: 4, entityId: "kobayashi", name: "Kobayashi / López", detail: "Toyota Gazoo Racing", raceClass: "HYPERCAR", points: 28 },
+      { position: 5, entityId: "estre", name: "Estre / Vanthoor", detail: "Porsche Penske Motorsport", raceClass: "HYPERCAR", points: 24 },
+    ],
+    teams: [
+      { position: 1, entityId: "ferrari-83", name: "AF Corse #83", detail: "Ferrari", raceClass: "HYPERCAR", points: 50 },
+      { position: 2, entityId: "ferrari-51", name: "Ferrari AF Corse #51", detail: "Ferrari", raceClass: "HYPERCAR", points: 38 },
+      { position: 3, entityId: "ferrari-50", name: "Ferrari AF Corse #50", detail: "Ferrari", raceClass: "HYPERCAR", points: 32 },
+      { position: 4, entityId: "toyota-7", name: "Toyota Gazoo Racing #7", detail: "Toyota", raceClass: "HYPERCAR", points: 28 },
+      { position: 5, entityId: "porsche-6", name: "Porsche Penske Motorsport #6", detail: "Porsche", raceClass: "HYPERCAR", points: 24 },
+    ],
+    manufacturers: [
+      { position: 1, entityId: "ferrari", name: "Ferrari", raceClass: "HYPERCAR", points: 95 },
+      { position: 2, entityId: "toyota", name: "Toyota", raceClass: "HYPERCAR", points: 58 },
+      { position: 3, entityId: "porsche", name: "Porsche", raceClass: "HYPERCAR", points: 47 },
+      { position: 4, entityId: "cadillac", name: "Cadillac", raceClass: "HYPERCAR", points: 31 },
+      { position: 5, entityId: "bmw", name: "BMW", raceClass: "HYPERCAR", points: 22 },
+    ],
+  },
+  LMP2: {
+    drivers: [
+      { position: 1, entityId: "ao-tf-22", name: "Vautier / Costa / Doquin", detail: "AO by TF — Oreca 07", raceClass: "LMP2", points: 44 },
+      { position: 2, entityId: "ieurop-43", name: "Pin / Yifei / Caldwell", detail: "Inter Europol — Oreca 07", raceClass: "LMP2", points: 36 },
+      { position: 3, entityId: "vector-10", name: "Cullen / Bell / Ricci", detail: "Vector Sport — Oreca 07", raceClass: "LMP2", points: 30 },
+      { position: 4, entityId: "idec-28", name: "Lapierre / Chatin / Andrade", detail: "IDEC Sport — Oreca 07", raceClass: "LMP2", points: 24 },
+      { position: 5, entityId: "nielsen-24", name: "Hodes / Cassidy / Nielsen", detail: "Nielsen Racing — Oreca 07", raceClass: "LMP2", points: 18 },
+    ],
+    teams: [
+      { position: 1, entityId: "ao-tf-22", name: "AO by TF #22", detail: "Oreca 07", raceClass: "LMP2", points: 44 },
+      { position: 2, entityId: "ieurop-43", name: "Inter Europol Competition #43", detail: "Oreca 07", raceClass: "LMP2", points: 36 },
+      { position: 3, entityId: "vector-10", name: "Vector Sport #10", detail: "Oreca 07", raceClass: "LMP2", points: 30 },
+      { position: 4, entityId: "idec-28", name: "IDEC Sport #28", detail: "Oreca 07", raceClass: "LMP2", points: 24 },
+      { position: 5, entityId: "nielsen-24", name: "Nielsen Racing #24", detail: "Oreca 07", raceClass: "LMP2", points: 18 },
+    ],
+  },
+  LMGT3: {
+    drivers: [
+      { position: 1, entityId: "manthey-92", name: "Andlauer / Schuring / Lietz", detail: "Manthey EMA — Porsche", raceClass: "LMGT3", points: 46 },
+      { position: 2, entityId: "wrt-46", name: "Rossi / Martin / van der Linde", detail: "Team WRT — BMW", raceClass: "LMGT3", points: 40 },
+      { position: 3, entityId: "vista-21", name: "Mann / Rovera / Riccitelli", detail: "Vista AF Corse — Ferrari", raceClass: "LMGT3", points: 34 },
+      { position: 4, entityId: "united-59", name: "Cottingham / Caygill / Sales", detail: "United Autosports — McLaren", raceClass: "LMGT3", points: 28 },
+      { position: 5, entityId: "ironlynx-77", name: "Frey / Bovy / Gatting", detail: "Iron Dames — Mercedes-AMG", raceClass: "LMGT3", points: 20 },
+    ],
+    teams: [
+      { position: 1, entityId: "manthey-92", name: "Manthey EMA #92", detail: "Porsche 911 GT3 R", raceClass: "LMGT3", points: 46 },
+      { position: 2, entityId: "wrt-46", name: "Team WRT #46", detail: "BMW M4 GT3 EVO", raceClass: "LMGT3", points: 40 },
+      { position: 3, entityId: "vista-21", name: "Vista AF Corse #21", detail: "Ferrari 296 GT3", raceClass: "LMGT3", points: 34 },
+      { position: 4, entityId: "united-59", name: "United Autosports #59", detail: "McLaren 720S GT3 EVO", raceClass: "LMGT3", points: 28 },
+      { position: 5, entityId: "ironlynx-77", name: "Iron Dames #77", detail: "Mercedes-AMG GT3", raceClass: "LMGT3", points: 20 },
+    ],
+    manufacturers: [
+      { position: 1, entityId: "porsche", name: "Porsche", raceClass: "LMGT3", points: 72 },
+      { position: 2, entityId: "bmw", name: "BMW", raceClass: "LMGT3", points: 58 },
+      { position: 3, entityId: "ferrari", name: "Ferrari", raceClass: "LMGT3", points: 49 },
+      { position: 4, entityId: "mclaren", name: "McLaren", raceClass: "LMGT3", points: 36 },
+      { position: 5, entityId: "mercedes", name: "Mercedes-AMG", raceClass: "LMGT3", points: 28 },
+    ],
+  },
+};
+
+// Backwards-compat aliases — home page reads top Hypercar rows.
+export const DRIVER_STANDINGS: StandingRow[] = STANDINGS.HYPERCAR.drivers;
+export const TEAM_STANDINGS: StandingRow[] = STANDINGS.HYPERCAR.teams;
+export const MANUFACTURER_STANDINGS: StandingRow[] =
+  STANDINGS.HYPERCAR.manufacturers ?? [];
 
 // Last completed event: R2 Imola — top 5 in Hypercar
 export const LAST_RACE_RESULT: SessionResultRow[] = [
