@@ -336,6 +336,16 @@ export function getNextEvent(today: Date = new Date()): WecEvent | undefined {
   return EVENTS.find((e) => e.startDate >= todayIso && e.status !== "completed");
 }
 
+export function getUpcomingEvents(
+  count: number,
+  today: Date = new Date(),
+): WecEvent[] {
+  const todayIso = today.toISOString().slice(0, 10);
+  return EVENTS.filter(
+    (e) => e.startDate >= todayIso && e.status !== "completed",
+  ).slice(0, count);
+}
+
 export function getLastCompletedEvent(): WecEvent | undefined {
   const completed = EVENTS.filter((e) => e.status === "completed");
   return completed[completed.length - 1];

@@ -24,19 +24,25 @@ import {
   EVENTS,
   LAST_RACE_RESULT,
   TEAM_STANDINGS,
+  type WecEvent,
   getCircuit,
   getLastCompletedEvent,
   getNextEvent,
+  getUpcomingEvents,
 } from "@/lib/mock-data";
 
 export default function HomePage() {
   const next = getNextEvent();
   const last = getLastCompletedEvent();
+  const upcoming = getUpcomingEvents(3);
+  const remaining = upcoming.slice(1); // exclude the one already in the hero
   const completedRounds = EVENTS.filter((e) => e.status === "completed").length;
 
   return (
     <div className="space-y-8">
       {next && <NextRaceHero event={next} />}
+
+      {remaining.length > 0 && <UpcomingCard events={remaining} />}
 
       <section className="grid gap-6 lg:grid-cols-2">
         <StandingsCard
@@ -97,6 +103,55 @@ function NextRaceHero({
             View schedule →
           </Link>
         </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function UpcomingCard({ events }: { events: WecEvent[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle>Up next</CardTitle>
+          <Link
+            href="/races"
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Full schedule →
+          </Link>
+        </div>
+      </CardHeader>
+      <CardContent className="px-0">
+        <ul className="divide-y divide-border">
+          {events.map((e) => {
+            const circuit = getCircuit(e.circuitId);
+            return (
+              <li key={e.id}>
+                <Link
+                  href={`/races/${e.id}`}
+                  className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-secondary/40"
+                >
+                  <span className="w-8 shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
+                    R{e.round}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-medium">{e.name}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {circuit ? `${circuit.name} · ${circuit.country}` : "—"}
+                    </span>
+                  </span>
+                  <span className="hidden text-right text-xs text-muted-foreground sm:block">
+                    <span className="block">
+                      {format(parseISO(e.startDate), "MMM d, yyyy")}
+                    </span>
+                    <span className="block">{e.format}</span>
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       </CardContent>
     </Card>
   );
