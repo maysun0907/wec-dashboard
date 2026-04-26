@@ -264,14 +264,72 @@ export const TEAM_STANDINGS: StandingRow[] = STANDINGS.HYPERCAR.teams;
 export const MANUFACTURER_STANDINGS: StandingRow[] =
   STANDINGS.HYPERCAR.manufacturers ?? [];
 
-// Last completed event: R2 Imola — top 5 in Hypercar
-export const LAST_RACE_RESULT: SessionResultRow[] = [
-  { position: 1, carNumber: 83, team: "AF Corse", drivers: "Kubica / Ye / Hanson", raceClass: "HYPERCAR", laps: 174, gap: "—" },
-  { position: 2, carNumber: 51, team: "Ferrari AF Corse", drivers: "Pier Guidi / Calado / Giovinazzi", raceClass: "HYPERCAR", laps: 174, gap: "+8.412" },
-  { position: 3, carNumber: 7, team: "Toyota Gazoo Racing", drivers: "Kobayashi / López", raceClass: "HYPERCAR", laps: 174, gap: "+15.207" },
-  { position: 4, carNumber: 6, team: "Porsche Penske Motorsport", drivers: "Estre / Vanthoor", raceClass: "HYPERCAR", laps: 174, gap: "+22.843" },
-  { position: 5, carNumber: 50, team: "Ferrari AF Corse", drivers: "Fuoco / Molina / Nielsen", raceClass: "HYPERCAR", laps: 174, gap: "+31.106" },
-];
+export type SessionType = "FP1" | "FP2" | "FP3" | "Q" | "RACE";
+
+export const SESSION_LABELS: Record<SessionType, string> = {
+  FP1: "Practice 1",
+  FP2: "Practice 2",
+  FP3: "Practice 3",
+  Q: "Qualifying",
+  RACE: "Race",
+};
+
+export const SESSION_ORDER: SessionType[] = ["FP1", "FP2", "FP3", "Q", "RACE"];
+
+export const SESSION_RESULTS: Record<
+  string,
+  Partial<Record<SessionType, SessionResultRow[]>>
+> = {
+  "2026-r1-qatar": {
+    RACE: [
+      { position: 1, carNumber: 51, team: "Ferrari AF Corse", drivers: "Pier Guidi / Calado / Giovinazzi", raceClass: "HYPERCAR", laps: 380, gap: "—" },
+      { position: 2, carNumber: 7, team: "Toyota Gazoo Racing", drivers: "Kobayashi / López", raceClass: "HYPERCAR", laps: 380, gap: "+5.234" },
+      { position: 3, carNumber: 50, team: "Ferrari AF Corse", drivers: "Fuoco / Molina / Nielsen", raceClass: "HYPERCAR", laps: 380, gap: "+12.881" },
+      { position: 4, carNumber: 6, team: "Porsche Penske Motorsport", drivers: "Estre / Vanthoor", raceClass: "HYPERCAR", laps: 380, gap: "+19.444" },
+      { position: 5, carNumber: 83, team: "AF Corse", drivers: "Kubica / Ye / Hanson", raceClass: "HYPERCAR", laps: 380, gap: "+24.118" },
+    ],
+  },
+  "2026-r2-imola": {
+    FP1: [
+      { position: 1, carNumber: 51, team: "Ferrari AF Corse", drivers: "Pier Guidi / Calado / Giovinazzi", raceClass: "HYPERCAR", laps: 28, gap: "—" },
+      { position: 2, carNumber: 50, team: "Ferrari AF Corse", drivers: "Fuoco / Molina / Nielsen", raceClass: "HYPERCAR", laps: 30, gap: "+0.245" },
+      { position: 3, carNumber: 6, team: "Porsche Penske Motorsport", drivers: "Estre / Vanthoor", raceClass: "HYPERCAR", laps: 26, gap: "+0.418" },
+      { position: 4, carNumber: 7, team: "Toyota Gazoo Racing", drivers: "Kobayashi / López", raceClass: "HYPERCAR", laps: 31, gap: "+0.612" },
+      { position: 5, carNumber: 83, team: "AF Corse", drivers: "Kubica / Ye / Hanson", raceClass: "HYPERCAR", laps: 27, gap: "+0.823" },
+    ],
+    FP2: [
+      { position: 1, carNumber: 50, team: "Ferrari AF Corse", drivers: "Fuoco / Molina / Nielsen", raceClass: "HYPERCAR", laps: 24, gap: "—" },
+      { position: 2, carNumber: 51, team: "Ferrari AF Corse", drivers: "Pier Guidi / Calado / Giovinazzi", raceClass: "HYPERCAR", laps: 25, gap: "+0.122" },
+      { position: 3, carNumber: 83, team: "AF Corse", drivers: "Kubica / Ye / Hanson", raceClass: "HYPERCAR", laps: 23, gap: "+0.298" },
+      { position: 4, carNumber: 7, team: "Toyota Gazoo Racing", drivers: "Kobayashi / López", raceClass: "HYPERCAR", laps: 26, gap: "+0.475" },
+      { position: 5, carNumber: 6, team: "Porsche Penske Motorsport", drivers: "Estre / Vanthoor", raceClass: "HYPERCAR", laps: 25, gap: "+0.611" },
+    ],
+    Q: [
+      { position: 1, carNumber: 51, team: "Ferrari AF Corse", drivers: "Pier Guidi", raceClass: "HYPERCAR", laps: 4, gap: "—" },
+      { position: 2, carNumber: 50, team: "Ferrari AF Corse", drivers: "Fuoco", raceClass: "HYPERCAR", laps: 4, gap: "+0.087" },
+      { position: 3, carNumber: 83, team: "AF Corse", drivers: "Ye", raceClass: "HYPERCAR", laps: 4, gap: "+0.211" },
+      { position: 4, carNumber: 7, team: "Toyota Gazoo Racing", drivers: "Kobayashi", raceClass: "HYPERCAR", laps: 4, gap: "+0.355" },
+      { position: 5, carNumber: 6, team: "Porsche Penske Motorsport", drivers: "Estre", raceClass: "HYPERCAR", laps: 4, gap: "+0.502" },
+    ],
+    RACE: [
+      { position: 1, carNumber: 83, team: "AF Corse", drivers: "Kubica / Ye / Hanson", raceClass: "HYPERCAR", laps: 174, gap: "—" },
+      { position: 2, carNumber: 51, team: "Ferrari AF Corse", drivers: "Pier Guidi / Calado / Giovinazzi", raceClass: "HYPERCAR", laps: 174, gap: "+8.412" },
+      { position: 3, carNumber: 7, team: "Toyota Gazoo Racing", drivers: "Kobayashi / López", raceClass: "HYPERCAR", laps: 174, gap: "+15.207" },
+      { position: 4, carNumber: 6, team: "Porsche Penske Motorsport", drivers: "Estre / Vanthoor", raceClass: "HYPERCAR", laps: 174, gap: "+22.843" },
+      { position: 5, carNumber: 50, team: "Ferrari AF Corse", drivers: "Fuoco / Molina / Nielsen", raceClass: "HYPERCAR", laps: 174, gap: "+31.106" },
+      { position: 6, carNumber: 92, team: "Manthey EMA", drivers: "Andlauer / Schuring / Lietz", raceClass: "LMGT3", laps: 165, gap: "+1 lap" },
+      { position: 7, carNumber: 46, team: "Team WRT", drivers: "Rossi / Martin / van der Linde", raceClass: "LMGT3", laps: 165, gap: "+1 lap" },
+      { position: 8, carNumber: 21, team: "Vista AF Corse", drivers: "Mann / Rovera / Riccitelli", raceClass: "LMGT3", laps: 165, gap: "+1 lap" },
+      { position: 9, carNumber: 59, team: "United Autosports", drivers: "Cottingham / Caygill / Sales", raceClass: "LMGT3", laps: 165, gap: "+1 lap" },
+      { position: 10, carNumber: 77, team: "Iron Dames", drivers: "Frey / Bovy / Gatting", raceClass: "LMGT3", laps: 165, gap: "+1 lap" },
+    ],
+  },
+};
+
+// Backwards-compat: home page shows latest race top 5.
+export const LAST_RACE_RESULT: SessionResultRow[] = (
+  SESSION_RESULTS["2026-r2-imola"]?.RACE ?? []
+).slice(0, 5);
 
 export function getNextEvent(today: Date = new Date()): WecEvent | undefined {
   const todayIso = today.toISOString().slice(0, 10);
@@ -285,6 +343,16 @@ export function getLastCompletedEvent(): WecEvent | undefined {
 
 export function getCircuit(id: string): Circuit | undefined {
   return CIRCUITS.find((c) => c.id === id);
+}
+
+export function getEventById(id: string): WecEvent | undefined {
+  return EVENTS.find((e) => e.id === id);
+}
+
+export function getAvailableSessions(eventId: string): SessionType[] {
+  const data = SESSION_RESULTS[eventId];
+  if (!data) return [];
+  return SESSION_ORDER.filter((t) => (data[t]?.length ?? 0) > 0);
 }
 
 export const CLASS_COLOR: Record<RaceClass, string> = {

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import {
   Card,
@@ -57,11 +58,18 @@ export default function RacesPage() {
               {EVENTS.map((e) => {
                 const circuit = getCircuit(e.circuitId);
                 return (
-                  <TableRow key={e.id}>
+                  <TableRow key={e.id} className="cursor-pointer">
                     <TableCell className="pl-4 font-mono tabular-nums">
                       {e.round}
                     </TableCell>
-                    <TableCell className="font-medium">{e.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link
+                        href={`/races/${e.id}`}
+                        className="hover:text-[var(--racing-red)]"
+                      >
+                        {e.name}
+                      </Link>
+                    </TableCell>
                     <TableCell className="hidden text-muted-foreground md:table-cell">
                       {circuit ? `${circuit.name} · ${circuit.country}` : "—"}
                     </TableCell>
