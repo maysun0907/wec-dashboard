@@ -3,7 +3,7 @@
 Importing this package registers all models with `Base.metadata`, which is
 what Alembic introspects for autogenerate.
 """
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -83,3 +83,110 @@ class Driver(Base):
     nationality: Mapped[str | None] = mapped_column(String(3), default=None)
     dob: Mapped[date | None] = mapped_column(default=None)
     photo_url: Mapped[str | None] = mapped_column(default=None)
+
+
+class Session(Base):
+    __tablename__ = "sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), index=True)
+    type: Mapped[str] = mapped_column(String(10))  # FP1/FP2/FP3/Q/RACE
+    start_time: Mapped[datetime | None] = mapped_column(default=None)
+    weather: Mapped[str | None] = mapped_column(String(50), default=None)
+
+    event: Mapped["Event"] = relationship()
+
+
+class Car(Base):
+    __tablename__ = "cars"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), index=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
+    race_class_id: Mapped[int] = mapped_column(ForeignKey("race_classes.id"))
+    number: Mapped[int]
+    model: Mapped[str | None] = mapped_column(String(100), default=None)
+
+    season: Mapped["Season"] = relationship()
+    team: Mapped["Team"] = relationship()
+    race_class: Mapped["RaceClass"] = relationship()
+
+
+class CarDriver(Base):
+    """Junction table: which drivers race a given car in a given season."""
+
+    __tablename__ = "car_drivers"
+
+    car_id: Mapped[int] = mapped_column(ForeignKey("cars.id"), primary_key=True)
+    driver_id: Mapped[int] = mapped_column(
+        ForeignKey("drivers.id"), primary_key=True
+    )
+    season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), index=True)
+
+    car: Mapped["Car"] = relationship()
+    driver: Mapped["Driver"] = relationship()
+    season: Mapped["Season"] = relationship()
+
+
+class SessionResult(Base):
+    __tablename__ = "session_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("sessions.id"), index=True)
+    car_id: Mapped[int] = mapped_column(ForeignKey("cars.id"))
+    position: Mapped[int]  # overall position in session
+    laps: Mapped[int | None] = mapped_column(default=None)
+    gap: Mapped[str | None] = mapped_column(String(20), default=None)
+    best_lap: Mapped[str | None] = mapped_column(String(20), default=None)
+    status: Mapped[str | None] = mapped_column(String(50), default=None)
+
+    session: Mapped["Session"] = relationship()
+    car: Mapped["Car"] = relationship()
+
+
+class StandingDriver(Base):
+    __tablename__ = "standings_drivers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), index=True)
+    driver_id: Mapped[int] = mapped_column(ForeignKey("drivers.id"))
+    after_event_id: Mapped[int | None] = mapped_column(
+        ForeignKey("events.id"), default=None
+    )
+    position: Mapped[int]
+    points: Mapped[float]
+
+    season: Mapped["Season"] = relationship()
+    driver: Mapped["Driver"] = relationship()
+
+
+class StandingTeam(Base):
+    __tablename__ = "standings_teams"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), index=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
+    after_event_id: Mapped[int | None] = mapped_column(
+        ForeignKey("events.id"), default=None
+    )
+    position: Mapped[int]
+    points: Mapped[float]
+
+    season: Mapped["Season"] = relationship()
+    team: Mapped["Team"] = relationship()
+
+
+class StandingManufacturer(Base):
+    __tablename__ = "standings_manufacturers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), index=True)
+    manufacturer_id: Mapped[int] = mapped_column(ForeignKey("manufacturers.id"))
+    after_event_id: Mapped[int | None] = mapped_column(
+        ForeignKey("events.id"), default=None
+    )
+    position: Mapped[int]
+    points: Mapped[float]
+
+    season: Mapped["Season"] = relationship()
+    manufacturer: Mapped["Manufacturer"] = relationship()
