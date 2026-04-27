@@ -506,12 +506,13 @@ def parse_standings_drivers(table: Tag, race_class: str) -> list[dict]:
 def _dedupe_standings(rows: list[dict]) -> list[dict]:
     """Wikipedia manufacturer/team standings often emit two consecutive rows per
     entity (one for finish positions, one for points scored). Both expand to
-    the same (position, name, points) after rowspan resolution. Keep only the
-    first occurrence."""
-    seen: set[tuple[int, str]] = set()
+    the same data after rowspan resolution. Keep only the first occurrence."""
+    seen: set[tuple] = set()
     out: list[dict] = []
     for r in rows:
-        key = (r["position"], r["name"])
+        # Include car_number in the dedupe key so a team running two cars
+        # (e.g., LMGT3 Team WRT #46 and #69) keeps both rows.
+        key = (r["position"], r["name"], r.get("car_number"))
         if key in seen:
             continue
         seen.add(key)
@@ -569,6 +570,9 @@ def parse_standings_teams(table: Tag, race_class: str) -> list[dict]:
         out.append({
             "position": int(pos_raw),
             "name": row[cols["Team"]],
+            "car_number": (
+                row[cols["Car"]].strip() if "Car" in cols else None
+            ),
             "race_class": race_class,
             "points": pts,
         })
@@ -942,6 +946,7 @@ def _ingest_standings(
                     after_event_id=after_event_id,
                     position=row["position"],
                     points=row["points"],
+                    car_number=row.get("car_number"),
                 )
             )
             counts["teams"] += 1

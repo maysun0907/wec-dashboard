@@ -56,6 +56,7 @@ def team_standings(
             position=r.position,
             team_id=r.team_id,
             team_name=r.team.name,
+            car_number=r.car_number,
             manufacturer=(
                 r.team.manufacturer.name if r.team.manufacturer is not None else None
             ),

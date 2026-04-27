@@ -223,6 +223,7 @@ class StandingTeamOut(_BaseSchema):
     position: int
     team_id: int
     team_name: str
+    car_number: str | None = None
     manufacturer: str | None = None
     race_class: str
     points: float

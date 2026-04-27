@@ -189,6 +189,9 @@ class StandingTeam(Base):
     )
     position: Mapped[int]
     points: Mapped[float]
+    # In LMGT3 the trophy is per-car, so a team that runs two cars has two
+    # standing rows — `car_number` disambiguates them.
+    car_number: Mapped[str | None] = mapped_column(String(10), default=None)
 
     season: Mapped["Season"] = relationship()
     team: Mapped["Team"] = relationship()
