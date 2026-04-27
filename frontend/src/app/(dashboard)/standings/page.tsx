@@ -15,19 +15,41 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
 import {
-  CURRENT_SEASON,
-  EVENTS,
   RACE_CLASSES,
-  STANDINGS,
-  type ClassStandings,
+  getDriverStandings,
+  getEvents,
+  getManufacturerStandings,
+  getTeamStandings,
   type RaceClass,
-  type StandingRow,
-} from "@/lib/mock-data";
+  type StandingDriver,
+  type StandingTeam,
+  type StandingManufacturer,
+} from "@/lib/api";
 
 export const metadata = { title: "Standings" };
 
-export default function StandingsPage() {
-  const completedRounds = EVENTS.filter((e) => e.status === "completed").length;
+type AnyStanding = StandingDriver | StandingTeam | StandingManufacturer;
+
+function groupByClass<T extends { raceClass: RaceClass }>(rows: T[]) {
+  const out: Record<RaceClass, T[]> = { HYPERCAR: [], LMP2: [], LMGT3: [] };
+  for (const r of rows) out[r.raceClass].push(r);
+  return out;
+}
+
+export default async function StandingsPage() {
+  const [drivers, teams, manufacturers, events] = await Promise.all([
+    getDriverStandings(),
+    getTeamStandings(),
+    getManufacturerStandings(),
+    getEvents(),
+  ]);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const completedRounds = events.filter((e) => e.dateEnd < today).length;
+
+  const driversByClass = groupByClass(drivers);
+  const teamsByClass = groupByClass(teams);
+  const manufacturersByClass = groupByClass(manufacturers);
 
   return (
     <div className="space-y-6">
@@ -35,7 +57,7 @@ export default function StandingsPage() {
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">Standings</h1>
           <p className="text-muted-foreground">
-            {CURRENT_SEASON} season · After R{completedRounds}
+            2026 season · After R{completedRounds}
           </p>
         </div>
       </header>
@@ -49,57 +71,85 @@ export default function StandingsPage() {
           ))}
         </TabsList>
 
-        {RACE_CLASSES.map((c) => (
-          <TabsContent key={c} value={c} className="mt-4">
-            <ClassStandingsView raceClass={c} data={STANDINGS[c]} />
-          </TabsContent>
-        ))}
+        {RACE_CLASSES.map((c) => {
+          const d = driversByClass[c];
+          const t = teamsByClass[c];
+          const m = manufacturersByClass[c];
+          const cols = m.length > 0 ? 3 : 2;
+          return (
+            <TabsContent key={c} value={c} className="mt-4">
+              <div
+                className={
+                  cols === 3
+                    ? "grid gap-6 xl:grid-cols-3"
+                    : "grid gap-6 xl:grid-cols-2"
+                }
+              >
+                <StandingsTable
+                  title="Drivers"
+                  raceClass={c}
+                  rows={d.map((r) => ({
+                    key: `d-${r.driverId}`,
+                    position: r.position,
+                    name: r.driverName,
+                    detail: undefined,
+                    points: r.points,
+                  }))}
+                  emptyMessage="No driver standings published for this class yet."
+                />
+                <StandingsTable
+                  title="Teams"
+                  raceClass={c}
+                  rows={t.map((r) => ({
+                    key: `t-${r.teamId}`,
+                    position: r.position,
+                    name: r.teamName,
+                    detail: r.manufacturer ?? undefined,
+                    points: r.points,
+                  }))}
+                  emptyMessage="No team standings published for this class yet."
+                />
+                {m.length > 0 && (
+                  <StandingsTable
+                    title="Manufacturers"
+                    raceClass={c}
+                    rows={m.map((r) => ({
+                      key: `m-${r.manufacturerId}`,
+                      position: r.position,
+                      name: r.manufacturerName,
+                      detail: undefined,
+                      points: r.points,
+                    }))}
+                    emptyMessage=""
+                  />
+                )}
+              </div>
+            </TabsContent>
+          );
+        })}
       </Tabs>
     </div>
   );
 }
 
-function ClassStandingsView({
-  raceClass,
-  data,
-}: {
-  raceClass: RaceClass;
-  data: ClassStandings;
-}) {
-  const cols = data.manufacturers ? 3 : 2;
-  return (
-    <div
-      className={
-        cols === 3
-          ? "grid gap-6 xl:grid-cols-3"
-          : "grid gap-6 xl:grid-cols-2"
-      }
-    >
-      <StandingsTable
-        title="Drivers"
-        raceClass={raceClass}
-        rows={data.drivers}
-      />
-      <StandingsTable title="Teams" raceClass={raceClass} rows={data.teams} />
-      {data.manufacturers && (
-        <StandingsTable
-          title="Manufacturers"
-          raceClass={raceClass}
-          rows={data.manufacturers}
-        />
-      )}
-    </div>
-  );
-}
+type Row = {
+  key: string;
+  position: number;
+  name: string;
+  detail?: string;
+  points: number;
+};
 
 function StandingsTable({
   title,
   raceClass,
   rows,
+  emptyMessage,
 }: {
   title: string;
   raceClass: RaceClass;
-  rows: StandingRow[];
+  rows: Row[];
+  emptyMessage: string;
 }) {
   return (
     <Card>
@@ -110,35 +160,41 @@ function StandingsTable({
         </div>
       </CardHeader>
       <CardContent className="px-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12 pl-4">Pos</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead className="pr-4 text-right">Pts</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.entityId}>
-                <TableCell className="pl-4 font-mono tabular-nums">
-                  {row.position}
-                </TableCell>
-                <TableCell>
-                  <div className="font-medium">{row.name}</div>
-                  {row.detail && (
-                    <div className="text-xs text-muted-foreground">
-                      {row.detail}
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell className="pr-4 text-right font-mono tabular-nums">
-                  {row.points}
-                </TableCell>
+        {rows.length === 0 ? (
+          <p className="px-4 pb-4 text-sm text-muted-foreground">
+            {emptyMessage}
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12 pl-4">Pos</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead className="pr-4 text-right">Pts</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => (
+                <TableRow key={r.key}>
+                  <TableCell className="pl-4 font-mono tabular-nums">
+                    {r.position}
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">{r.name}</div>
+                    {r.detail && (
+                      <div className="text-xs text-muted-foreground">
+                        {r.detail}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="pr-4 text-right font-mono tabular-nums">
+                    {r.points}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
     </Card>
   );
