@@ -5,22 +5,24 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { CIRCUITS } from "@/lib/mock-data";
+import { getCircuits } from "@/lib/api";
 
 export const metadata = { title: "Circuits" };
 
-export default function CircuitsPage() {
+export default async function CircuitsPage() {
+  const circuits = await getCircuits();
+
   return (
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Circuits</h1>
         <p className="text-muted-foreground">
-          {CIRCUITS.length} circuits · 2026 calendar
+          {circuits.length} circuits · 2026 calendar
         </p>
       </header>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {CIRCUITS.map((c) => (
+        {circuits.map((c) => (
           <Card key={c.id}>
             <CardHeader>
               <CardTitle>{c.name}</CardTitle>
