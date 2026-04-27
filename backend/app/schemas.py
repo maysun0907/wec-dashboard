@@ -1,16 +1,33 @@
 """Pydantic v2 response schemas for the API.
 
-Use `model_config = ConfigDict(from_attributes=True)` (via the _OrmBase) on
-schemas that map directly from a SQLAlchemy ORM instance — that's what makes
-`MyModel.model_validate(row)` work.
+All responses use camelCase keys (via alias_generator) to match the
+frontend's existing TypeScript types. Internally we still use snake_case
+attribute names; pydantic translates on serialize.
+
+Use `_OrmBase` for schemas that hydrate from SQLAlchemy ORM rows.
 """
 from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
+from pydantic.alias_generators import to_camel
+
+_CAMEL_CONFIG = ConfigDict(
+    alias_generator=to_camel,
+    populate_by_name=True,
+)
+_ORM_CAMEL_CONFIG = ConfigDict(
+    from_attributes=True,
+    alias_generator=to_camel,
+    populate_by_name=True,
+)
+
+
+class _BaseSchema(BaseModel):
+    model_config = _CAMEL_CONFIG
 
 
 class _OrmBase(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
+    model_config = _ORM_CAMEL_CONFIG
 
 
 # --- Reference entities ---
@@ -38,7 +55,7 @@ class ManufacturerOut(_OrmBase):
 # --- Listings tailored to frontend pages ---
 
 
-class DriverEntryOut(BaseModel):
+class DriverEntryOut(_BaseSchema):
     """Row for the /drivers page — driver joined with current-season car."""
 
     id: int
@@ -49,7 +66,7 @@ class DriverEntryOut(BaseModel):
     race_class: str
 
 
-class TeamEntryOut(BaseModel):
+class TeamEntryOut(_BaseSchema):
     """Row for the /teams page — one entry per car in the current season."""
 
     id: int  # team id
@@ -78,7 +95,7 @@ class SessionOut(_OrmBase):
     start_time: datetime | None = None
 
 
-class EventDetailOut(BaseModel):
+class EventDetailOut(_BaseSchema):
     id: int
     round: int
     name: str
@@ -89,7 +106,7 @@ class EventDetailOut(BaseModel):
     sessions: list[SessionOut]
 
 
-class SessionResultOut(BaseModel):
+class SessionResultOut(_BaseSchema):
     """Flattened result row matching the frontend mock shape."""
 
     position: int
@@ -105,7 +122,7 @@ class SessionResultOut(BaseModel):
 # --- Standings ---
 
 
-class StandingDriverOut(BaseModel):
+class StandingDriverOut(_BaseSchema):
     position: int
     driver_id: int
     driver_name: str
@@ -113,7 +130,7 @@ class StandingDriverOut(BaseModel):
     points: float
 
 
-class StandingTeamOut(BaseModel):
+class StandingTeamOut(_BaseSchema):
     position: int
     team_id: int
     team_name: str
@@ -122,7 +139,7 @@ class StandingTeamOut(BaseModel):
     points: float
 
 
-class StandingManufacturerOut(BaseModel):
+class StandingManufacturerOut(_BaseSchema):
     position: int
     manufacturer_id: int
     manufacturer_name: str
