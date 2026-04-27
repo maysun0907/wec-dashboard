@@ -17,7 +17,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClassBadge } from "@/components/class-badge";
-import { describeRounds, getDriver, type DriverDetail } from "@/lib/api";
+import {
+  describeRounds,
+  getDriver,
+  type DriverDetail,
+  type DriverResult,
+} from "@/lib/api";
 
 type Params = { id: string };
 
@@ -83,24 +88,42 @@ export default async function DriverDetailPage({
               .join(" · ") || "—"}
           </CardDescription>
         </CardHeader>
-        {driver.standing && (
-          <CardContent>
-            <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2 text-sm">
-              <Stat
-                label="Championship pos."
-                value={`P${driver.standing.position}`}
-              />
-              <Stat
-                label="Points"
-                value={driver.standing.points.toString()}
-              />
-              <Stat
-                label="Races finished"
-                value={driver.results.length.toString()}
-              />
-            </div>
-          </CardContent>
-        )}
+        <CardContent>
+          <div className="flex flex-wrap items-baseline gap-x-6 gap-y-3 text-sm">
+            {driver.standing && (
+              <>
+                <Stat
+                  label="Championship pos."
+                  value={`P${driver.standing.position}`}
+                />
+                <Stat
+                  label="Points"
+                  value={driver.standing.points.toString()}
+                />
+              </>
+            )}
+            <Stat
+              label="Races finished"
+              value={driver.results.length.toString()}
+            />
+            {driver.results.length > 0 && (
+              <>
+                <Stat
+                  label="Best class result"
+                  value={`P${bestClassPosition(driver.results)}`}
+                />
+                <Stat
+                  label="Avg class result"
+                  value={averageClassPosition(driver.results).toFixed(1)}
+                />
+                <Stat
+                  label="Points scored"
+                  value={pointsScored(driver.results).toString()}
+                />
+              </>
+            )}
+          </div>
+        </CardContent>
       </Card>
 
       <section className="grid gap-6 lg:grid-cols-2">
@@ -157,11 +180,12 @@ export default async function DriverDetailPage({
                   <TableRow>
                     <TableHead className="w-12 pl-4">Rd</TableHead>
                     <TableHead>Event</TableHead>
-                    <TableHead className="w-12 text-right">Pos</TableHead>
+                    <TableHead className="w-16 text-right">Class</TableHead>
+                    <TableHead className="w-14 text-right">Pos</TableHead>
                     <TableHead className="hidden w-16 text-right sm:table-cell">
                       Laps
                     </TableHead>
-                    <TableHead className="pr-4 text-right">Gap</TableHead>
+                    <TableHead className="pr-4 text-right">Pts</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -179,13 +203,23 @@ export default async function DriverDetailPage({
                         </Link>
                       </TableCell>
                       <TableCell className="text-right font-mono tabular-nums">
-                        {r.position}
+                        P{r.classPosition}
+                      </TableCell>
+                      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+                        P{r.position}
                       </TableCell>
                       <TableCell className="hidden text-right font-mono tabular-nums sm:table-cell">
                         {r.laps ?? "—"}
                       </TableCell>
-                      <TableCell className="pr-4 text-right font-mono tabular-nums">
-                        {r.gap ?? "—"}
+                      <TableCell
+                        className={
+                          "pr-4 text-right font-mono tabular-nums " +
+                          (r.pointsAwarded > 0
+                            ? "text-foreground"
+                            : "text-muted-foreground")
+                        }
+                      >
+                        {r.pointsAwarded > 0 ? r.pointsAwarded : "—"}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -197,6 +231,21 @@ export default async function DriverDetailPage({
       </section>
     </div>
   );
+}
+
+function bestClassPosition(results: DriverResult[]): number {
+  return Math.min(...results.map((r) => r.classPosition));
+}
+
+function averageClassPosition(results: DriverResult[]): number {
+  if (results.length === 0) return 0;
+  return (
+    results.reduce((sum, r) => sum + r.classPosition, 0) / results.length
+  );
+}
+
+function pointsScored(results: DriverResult[]): number {
+  return results.reduce((sum, r) => sum + r.pointsAwarded, 0);
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

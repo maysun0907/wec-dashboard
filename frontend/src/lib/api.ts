@@ -79,7 +79,9 @@ export type DriverResult = {
   eventId: number;
   round: number;
   eventName: string;
-  position: number;
+  position: number; // overall
+  classPosition: number; // rank within race_class
+  pointsAwarded: number; // WEC points scored
   laps: number | null;
   gap: string | null;
 };

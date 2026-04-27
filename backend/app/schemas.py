@@ -132,7 +132,9 @@ class DriverResultOut(_BaseSchema):
     event_id: int
     round: int
     event_name: str
-    position: int
+    position: int  # overall position
+    class_position: int  # rank within race_class
+    points_awarded: float  # WEC points scored for this result
     laps: int | None = None
     gap: str | None = None
 

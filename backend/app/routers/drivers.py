@@ -1,8 +1,25 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.db import get_db
+
+
+# WEC points awarded per class position. Endurance rounds (Le Mans 24h,
+# Bahrain 8h, Qatar 1812 km roughly 10h) use the long table.
+_POINTS_LONG = [38, 27, 23, 18, 15, 12, 9, 6, 3, 2]
+_POINTS_STANDARD = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
+_LONG_RACE_RE = re.compile(r"24 Hours|1812 km|8 Hours", re.IGNORECASE)
+
+
+def _points_for(event_name: str, class_position: int) -> float:
+    table = _POINTS_LONG if _LONG_RACE_RE.search(event_name) else _POINTS_STANDARD
+    if 1 <= class_position <= len(table):
+        return float(table[class_position - 1])
+    return 0.0
 
 router = APIRouter(prefix="/drivers", tags=["drivers"])
 
@@ -102,6 +119,22 @@ def get_driver(
         .all()
     )
 
+    # Class position per result = how many cars in the same session and same
+    # class finished ahead, plus one. One extra query per finished round.
+    def _class_position(sr: models.SessionResult) -> int:
+        better = (
+            db.query(func.count(models.SessionResult.id))
+            .join(models.Car, models.SessionResult.car_id == models.Car.id)
+            .filter(
+                models.SessionResult.session_id == sr.session_id,
+                models.Car.race_class_id == car.race_class_id,
+                models.SessionResult.position < sr.position,
+            )
+            .scalar()
+            or 0
+        )
+        return int(better) + 1
+
     standing = (
         db.query(models.StandingDriver)
         .filter_by(driver_id=driver_id, season_id=season.id)
@@ -127,6 +160,8 @@ def get_driver(
                 round=ev.round,
                 event_name=ev.name,
                 position=sr.position,
+                class_position=_class_position(sr),
+                points_awarded=_points_for(ev.name, _class_position(sr)),
                 laps=sr.laps,
                 gap=sr.gap,
             )
