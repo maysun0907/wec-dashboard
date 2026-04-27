@@ -192,11 +192,14 @@ function ResultsCard({
           <TableHeader>
             <TableRow>
               <TableHead className="w-12 pl-4">Pos</TableHead>
+              <TableHead className="hidden w-14 sm:table-cell">Cls</TableHead>
               <TableHead className="w-12">#</TableHead>
               <TableHead>Team</TableHead>
               <TableHead className="hidden md:table-cell">Drivers</TableHead>
               <TableHead className="w-16">Class</TableHead>
-              <TableHead className="hidden w-16 sm:table-cell">Laps</TableHead>
+              <TableHead className="hidden w-12 text-right sm:table-cell">
+                Pts
+              </TableHead>
               <TableHead className="pr-4 text-right">Gap</TableHead>
             </TableRow>
           </TableHeader>
@@ -205,6 +208,9 @@ function ResultsCard({
               <TableRow key={`${row.position}-${row.carNumber}`}>
                 <TableCell className="pl-4 font-mono tabular-nums">
                   {row.position}
+                </TableCell>
+                <TableCell className="hidden font-mono tabular-nums sm:table-cell">
+                  P{row.classPosition}
                 </TableCell>
                 <TableCell className="font-mono tabular-nums">
                   {row.carNumber}
@@ -216,8 +222,15 @@ function ResultsCard({
                 <TableCell>
                   <ClassBadge raceClass={row.raceClass} />
                 </TableCell>
-                <TableCell className="hidden font-mono tabular-nums sm:table-cell">
-                  {row.laps ?? "—"}
+                <TableCell
+                  className={
+                    "hidden text-right font-mono tabular-nums sm:table-cell " +
+                    (row.pointsAwarded > 0
+                      ? "text-foreground"
+                      : "text-muted-foreground")
+                  }
+                >
+                  {row.pointsAwarded > 0 ? row.pointsAwarded : "—"}
                 </TableCell>
                 <TableCell className="pr-4 text-right font-mono tabular-nums">
                   {row.gap ?? "—"}

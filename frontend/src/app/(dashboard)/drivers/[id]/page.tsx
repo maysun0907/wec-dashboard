@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClassBadge } from "@/components/class-badge";
+import { FormChart } from "@/components/form-chart";
 import {
   describeRounds,
   getDriver,
@@ -125,6 +126,25 @@ export default async function DriverDetailPage({
           </div>
         </CardContent>
       </Card>
+
+      {driver.results.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Form</CardTitle>
+            <CardDescription>
+              Class position by round — lower is better.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pb-4">
+            <FormChart
+              data={driver.results.map((r) => ({
+                round: r.round,
+                classPosition: r.classPosition,
+              }))}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       <section className="grid gap-6 lg:grid-cols-2">
         <Card>

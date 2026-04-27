@@ -143,8 +143,11 @@ export default async function TeamDetailPage({
                   <TableHead>Event</TableHead>
                   <TableHead className="w-12">#</TableHead>
                   <TableHead className="w-16">Class</TableHead>
-                  <TableHead className="w-12 text-right">Pos</TableHead>
-                  <TableHead className="pr-4 text-right">Gap</TableHead>
+                  <TableHead className="w-14 text-right">Cls</TableHead>
+                  <TableHead className="w-12 text-right text-muted-foreground">
+                    Pos
+                  </TableHead>
+                  <TableHead className="pr-4 text-right">Pts</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -168,10 +171,20 @@ export default async function TeamDetailPage({
                       <ClassBadge raceClass={r.raceClass} />
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
-                      {r.position}
+                      P{r.classPosition}
                     </TableCell>
-                    <TableCell className="pr-4 text-right font-mono tabular-nums">
-                      {r.gap ?? "—"}
+                    <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+                      P{r.position}
+                    </TableCell>
+                    <TableCell
+                      className={
+                        "pr-4 text-right font-mono tabular-nums " +
+                        (r.pointsAwarded > 0
+                          ? "text-foreground"
+                          : "text-muted-foreground")
+                      }
+                    >
+                      {r.pointsAwarded > 0 ? r.pointsAwarded : "—"}
                     </TableCell>
                   </TableRow>
                 ))}

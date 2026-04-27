@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
+from app.scoring import class_position_for, points_for
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
@@ -127,6 +128,15 @@ def get_team(
                 car_number=car.number,
                 race_class=rc.name,
                 position=sr.position,
+                class_position=class_position_for(
+                    db, sr.session_id, car.race_class_id, sr.position
+                ),
+                points_awarded=points_for(
+                    ev.name,
+                    class_position_for(
+                        db, sr.session_id, car.race_class_id, sr.position
+                    ),
+                ),
                 laps=sr.laps,
                 gap=sr.gap,
             )

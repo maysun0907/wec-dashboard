@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 from app import models, schemas
 from app.db import get_db
 from app.rounds import driver_in_round
+from app.scoring import class_position_for, points_for
 
 router = APIRouter(tags=["events"])
 
@@ -95,16 +96,29 @@ def session_results(
                 continue
             drivers_by_car.setdefault(cd.car_id, []).append(d.name)
 
-    return [
-        schemas.SessionResultOut(
-            position=r.position,
-            car_number=r.car.number,
-            team=r.car.team.name,
-            drivers=r.drivers or " / ".join(drivers_by_car.get(r.car_id, [])),
-            race_class=r.car.race_class.name,
-            laps=r.laps,
-            gap=r.gap,
-            best_lap=r.best_lap,
+    out: list[schemas.SessionResultOut] = []
+    for r in results:
+        cp = class_position_for(
+            db, session_id, r.car.race_class_id, r.position
         )
-        for r in results
-    ]
+        # Only race sessions award championship points.
+        pts = (
+            points_for(event.name, cp)
+            if (event is not None and session.type == "RACE")
+            else 0.0
+        )
+        out.append(
+            schemas.SessionResultOut(
+                position=r.position,
+                class_position=cp,
+                points_awarded=pts,
+                car_number=r.car.number,
+                team=r.car.team.name,
+                drivers=r.drivers or " / ".join(drivers_by_car.get(r.car_id, [])),
+                race_class=r.car.race_class.name,
+                laps=r.laps,
+                gap=r.gap,
+                best_lap=r.best_lap,
+            )
+        )
+    return out

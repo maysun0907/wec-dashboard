@@ -109,7 +109,9 @@ class EventDetailOut(_BaseSchema):
 class SessionResultOut(_BaseSchema):
     """Flattened result row matching the frontend mock shape."""
 
-    position: int
+    position: int  # overall position
+    class_position: int = 0  # rank within race_class
+    points_awarded: float = 0.0
     car_number: str
     team: str
     drivers: str  # "Robert Kubica / Yifei Ye / Phil Hanson"
@@ -175,7 +177,9 @@ class TeamResultOut(_BaseSchema):
     event_name: str
     car_number: str
     race_class: str
-    position: int
+    position: int  # overall
+    class_position: int = 0
+    points_awarded: float = 0.0
     laps: int | None = None
     gap: str | None = None
 

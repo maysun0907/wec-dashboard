@@ -41,7 +41,9 @@ export type Session = {
 export type EventDetail = Event & { sessions: Session[] };
 
 export type SessionResult = {
-  position: number;
+  position: number; // overall
+  classPosition: number;
+  pointsAwarded: number;
   carNumber: string;
   team: string;
   drivers: string;
@@ -119,7 +121,9 @@ export type TeamResult = {
   eventName: string;
   carNumber: string;
   raceClass: RaceClass;
-  position: number;
+  position: number; // overall
+  classPosition: number;
+  pointsAwarded: number;
   laps: number | null;
   gap: string | null;
 };
