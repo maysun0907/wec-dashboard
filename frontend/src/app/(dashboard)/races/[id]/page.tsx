@@ -21,20 +21,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { ClassBadge } from "@/components/class-badge";
 import {
-  CURRENT_SEASON,
-  EVENTS,
-  SESSION_LABELS,
-  SESSION_RESULTS,
-  getAvailableSessions,
-  getCircuit,
-  getEventById,
-  type SessionResultRow,
-} from "@/lib/mock-data";
+  eventStatus,
+  getEvent,
+  getEvents,
+  getSessionResults,
+  type EventStatus,
+  type SessionResult,
+} from "@/lib/api";
 
 type Params = { id: string };
 
+const SESSION_LABELS: Record<string, string> = {
+  FP1: "Practice 1",
+  FP2: "Practice 2",
+  FP3: "Practice 3",
+  Q: "Qualifying",
+  RACE: "Race",
+};
+
 export async function generateStaticParams(): Promise<Params[]> {
-  return EVENTS.map((e) => ({ id: e.id }));
+  const events = await getEvents();
+  return events.map((e) => ({ id: e.id.toString() }));
 }
 
 export async function generateMetadata({
@@ -43,8 +50,14 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const event = getEventById(id);
-  return { title: event?.name ?? "Race" };
+  const numId = Number(id);
+  if (!Number.isFinite(numId)) return { title: "Race" };
+  try {
+    const event = await getEvent(numId);
+    return { title: event.name };
+  } catch {
+    return { title: "Race" };
+  }
 }
 
 export default async function RaceDetailPage({
@@ -53,12 +66,34 @@ export default async function RaceDetailPage({
   params: Promise<Params>;
 }) {
   const { id } = await params;
-  const event = getEventById(id);
-  if (!event) notFound();
+  const numId = Number(id);
+  if (!Number.isFinite(numId)) notFound();
 
-  const circuit = getCircuit(event.circuitId);
-  const sessions = getAvailableSessions(id);
-  const sessionData = SESSION_RESULTS[id];
+  let event;
+  try {
+    event = await getEvent(numId);
+  } catch {
+    notFound();
+  }
+
+  const status = eventStatus(event);
+  const sessions = event.sessions; // already in canonical order
+
+  // Pre-fetch results for every session in parallel so each tab is instant.
+  const resultsBySession = await Promise.all(
+    sessions.map(async (s) => ({
+      sessionId: s.id,
+      results: await getSessionResults(s.id).catch(
+        () => [] as SessionResult[],
+      ),
+    })),
+  );
+  const resultMap = new Map(
+    resultsBySession.map((r) => [r.sessionId, r.results]),
+  );
+  const sessionsWithResults = sessions.filter(
+    (s) => (resultMap.get(s.id)?.length ?? 0) > 0,
+  );
 
   return (
     <div className="space-y-6">
@@ -72,37 +107,42 @@ export default async function RaceDetailPage({
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-            Round {event.round} · {CURRENT_SEASON}
-            <StatusBadge status={event.status} />
+            Round {event.round} · 2026
+            <StatusBadge status={status} />
           </div>
           <CardTitle className="text-2xl sm:text-3xl">{event.name}</CardTitle>
           <CardDescription>
-            {circuit ? `${circuit.name} · ${circuit.country}` : "—"} ·{" "}
-            {event.format}
+            {event.circuit.name} · {event.circuit.country} ·{" "}
+            {event.format ?? "—"}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          {format(parseISO(event.startDate), "EEEE, MMMM d, yyyy")}
-          {event.endDate !== event.startDate &&
-            ` – ${format(parseISO(event.endDate), "MMMM d, yyyy")}`}
+          {format(parseISO(event.dateStart), "EEEE, MMMM d, yyyy")}
+          {event.dateEnd !== event.dateStart &&
+            ` – ${format(parseISO(event.dateEnd), "MMMM d, yyyy")}`}
         </CardContent>
       </Card>
 
-      {sessions.length > 0 ? (
-        <Tabs defaultValue={sessions[sessions.length - 1]}>
+      {sessionsWithResults.length > 0 ? (
+        <Tabs
+          defaultValue={sessionsWithResults[sessionsWithResults.length - 1].type}
+        >
           <TabsList>
-            {sessions.map((s) => (
-              <TabsTrigger key={s} value={s}>
-                {SESSION_LABELS[s]}
+            {sessionsWithResults.map((s) => (
+              <TabsTrigger key={s.id} value={s.type}>
+                {SESSION_LABELS[s.type] ?? s.type}
               </TabsTrigger>
             ))}
           </TabsList>
 
-          {sessions.map((s) => {
-            const rows = sessionData?.[s] ?? [];
+          {sessionsWithResults.map((s) => {
+            const rows = resultMap.get(s.id) ?? [];
             return (
-              <TabsContent key={s} value={s} className="mt-4">
-                <ResultsCard label={SESSION_LABELS[s]} rows={rows} />
+              <TabsContent key={s.id} value={s.type} className="mt-4">
+                <ResultsCard
+                  label={SESSION_LABELS[s.type] ?? s.type}
+                  rows={rows}
+                />
               </TabsContent>
             );
           })}
@@ -112,7 +152,7 @@ export default async function RaceDetailPage({
           <CardHeader>
             <CardTitle>Results not yet available</CardTitle>
             <CardDescription>
-              {event.status === "upcoming"
+              {status === "upcoming"
                 ? "Session times and results will appear here once the weekend begins."
                 : "No timing data has been published for this event yet."}
             </CardDescription>
@@ -123,11 +163,7 @@ export default async function RaceDetailPage({
   );
 }
 
-function StatusBadge({
-  status,
-}: {
-  status: "completed" | "upcoming" | "live";
-}) {
+function StatusBadge({ status }: { status: EventStatus }) {
   if (status === "live") return <Badge variant="destructive">Live</Badge>;
   if (status === "completed") return <Badge variant="outline">Completed</Badge>;
   return <Badge variant="default">Upcoming</Badge>;
@@ -138,7 +174,7 @@ function ResultsCard({
   rows,
 }: {
   label: string;
-  rows: SessionResultRow[];
+  rows: SessionResult[];
 }) {
   return (
     <Card>
@@ -175,10 +211,10 @@ function ResultsCard({
                   <ClassBadge raceClass={row.raceClass} />
                 </TableCell>
                 <TableCell className="hidden font-mono tabular-nums sm:table-cell">
-                  {row.laps}
+                  {row.laps ?? "—"}
                 </TableCell>
                 <TableCell className="pr-4 text-right font-mono tabular-nums">
-                  {row.gap}
+                  {row.gap ?? "—"}
                 </TableCell>
               </TableRow>
             ))}

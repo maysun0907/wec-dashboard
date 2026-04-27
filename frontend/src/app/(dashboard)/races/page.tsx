@@ -15,12 +15,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { CURRENT_SEASON, EVENTS, getCircuit } from "@/lib/mock-data";
+import { eventStatus, getEvents, type EventStatus } from "@/lib/api";
 
 export const metadata = { title: "Schedule" };
 
 const STATUS_VARIANT: Record<
-  "completed" | "upcoming" | "live",
+  EventStatus,
   "outline" | "default" | "destructive"
 > = {
   completed: "outline",
@@ -28,13 +28,16 @@ const STATUS_VARIANT: Record<
   live: "destructive",
 };
 
-export default function RacesPage() {
+export default async function RacesPage() {
+  const events = await getEvents();
+  const today = new Date();
+
   return (
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Schedule</h1>
         <p className="text-muted-foreground">
-          {CURRENT_SEASON} season · {EVENTS.length} rounds
+          2026 season · {events.length} rounds
         </p>
       </header>
 
@@ -55,8 +58,8 @@ export default function RacesPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {EVENTS.map((e) => {
-                const circuit = getCircuit(e.circuitId);
+              {events.map((e) => {
+                const status = eventStatus(e, today);
                 return (
                   <TableRow key={e.id} className="cursor-pointer">
                     <TableCell className="pl-4 font-mono tabular-nums">
@@ -71,20 +74,20 @@ export default function RacesPage() {
                       </Link>
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground md:table-cell">
-                      {circuit ? `${circuit.name} · ${circuit.country}` : "—"}
+                      {e.circuit.name} · {e.circuit.country}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {format(parseISO(e.startDate), "MMM d, yyyy")}
+                      {format(parseISO(e.dateStart), "MMM d, yyyy")}
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground sm:table-cell">
-                      {e.format}
+                      {e.format ?? "—"}
                     </TableCell>
                     <TableCell className="pr-4 text-right">
                       <Badge
-                        variant={STATUS_VARIANT[e.status]}
+                        variant={STATUS_VARIANT[status]}
                         className="capitalize"
                       >
-                        {e.status}
+                        {status}
                       </Badge>
                     </TableCell>
                   </TableRow>
