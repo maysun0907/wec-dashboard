@@ -13,23 +13,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClassBadge } from "@/components/class-badge";
-import { TEAMS } from "@/lib/mock-data";
+import { getTeams } from "@/lib/api";
 
 export const metadata = { title: "Teams" };
 
-export default function TeamsPage() {
+export default async function TeamsPage() {
+  const teams = await getTeams();
+
   return (
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Teams</h1>
         <p className="text-muted-foreground">
-          {TEAMS.length} entries shown · 2026 season
+          {teams.length} entries shown · 2026 season
         </p>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle>Hypercar entries</CardTitle>
+          <CardTitle>Entries</CardTitle>
         </CardHeader>
         <CardContent className="px-0">
           <Table>
@@ -42,14 +44,14 @@ export default function TeamsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {TEAMS.map((t) => (
-                <TableRow key={t.id}>
+              {teams.map((t) => (
+                <TableRow key={`${t.id}-${t.carNumber}`}>
                   <TableCell className="pl-4 font-mono tabular-nums">
                     {t.carNumber}
                   </TableCell>
                   <TableCell className="font-medium">{t.name}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {t.manufacturer}
+                    {t.manufacturer ?? "—"}
                   </TableCell>
                   <TableCell className="pr-4">
                     <ClassBadge raceClass={t.raceClass} />

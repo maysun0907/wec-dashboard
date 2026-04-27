@@ -13,17 +13,19 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClassBadge } from "@/components/class-badge";
-import { DRIVERS, TEAMS } from "@/lib/mock-data";
+import { getDrivers } from "@/lib/api";
 
 export const metadata = { title: "Drivers" };
 
-export default function DriversPage() {
+export default async function DriversPage() {
+  const drivers = await getDrivers();
+
   return (
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Drivers</h1>
         <p className="text-muted-foreground">
-          {DRIVERS.length} entries shown · 2026 season
+          {drivers.length} entries shown · 2026 season
         </p>
       </header>
 
@@ -43,26 +45,23 @@ export default function DriversPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {DRIVERS.map((d) => {
-                const team = TEAMS.find((t) => t.id === d.teamId);
-                return (
-                  <TableRow key={d.id}>
-                    <TableCell className="pl-4 font-mono tabular-nums">
-                      {d.carNumber}
-                    </TableCell>
-                    <TableCell className="font-medium">{d.name}</TableCell>
-                    <TableCell className="hidden text-muted-foreground md:table-cell">
-                      {team?.name ?? "—"}
-                    </TableCell>
-                    <TableCell className="hidden font-mono text-muted-foreground sm:table-cell">
-                      {d.nationality}
-                    </TableCell>
-                    <TableCell className="pr-4">
-                      <ClassBadge raceClass={d.raceClass} />
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {drivers.map((d) => (
+                <TableRow key={d.id}>
+                  <TableCell className="pl-4 font-mono tabular-nums">
+                    {d.carNumber}
+                  </TableCell>
+                  <TableCell className="font-medium">{d.name}</TableCell>
+                  <TableCell className="hidden text-muted-foreground md:table-cell">
+                    {d.team}
+                  </TableCell>
+                  <TableCell className="hidden font-mono text-muted-foreground sm:table-cell">
+                    {d.nationality ?? "—"}
+                  </TableCell>
+                  <TableCell className="pr-4">
+                    <ClassBadge raceClass={d.raceClass} />
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>
