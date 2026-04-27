@@ -177,6 +177,17 @@ export type StandingDriver = {
   points: number;
 };
 
+export type ProgressionPoint = {
+  round: number;
+  cumulativePoints: number;
+};
+
+export type DriverProgression = {
+  driverId: number;
+  driverName: string;
+  points: ProgressionPoint[];
+};
+
 export type StandingTeam = {
   position: number;
   teamId: number;
@@ -246,6 +257,12 @@ export const getSessionResults = (sessionId: number) =>
 export const getDriverStandings = (raceClass?: RaceClass) =>
   api<StandingDriver[]>(
     `/api/v1/standings/drivers${raceClass ? `?raceClass=${raceClass}` : ""}`,
+    { revalidate: 300 },
+  );
+
+export const getDriverProgression = (raceClass: RaceClass, limit = 5) =>
+  api<DriverProgression[]>(
+    `/api/v1/standings/drivers/progression?raceClass=${raceClass}&limit=${limit}`,
     { revalidate: 300 },
   );
 

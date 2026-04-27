@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -15,12 +16,15 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
+import { ProgressionChart } from "@/components/progression-chart";
 import {
   RACE_CLASSES,
+  getDriverProgression,
   getDriverStandings,
   getEvents,
   getManufacturerStandings,
   getTeamStandings,
+  type DriverProgression,
   type RaceClass,
   type StandingDriver,
   type StandingTeam,
@@ -38,12 +42,27 @@ function groupByClass<T extends { raceClass: RaceClass }>(rows: T[]) {
 }
 
 export default async function StandingsPage() {
-  const [drivers, teams, manufacturers, events] = await Promise.all([
+  const [
+    drivers,
+    teams,
+    manufacturers,
+    events,
+    hyperProgression,
+    lmgt3Progression,
+  ] = await Promise.all([
     getDriverStandings(),
     getTeamStandings(),
     getManufacturerStandings(),
     getEvents(),
+    // Backend redeploy may lag the frontend build; fall back to empty so
+    // the rest of /standings still prerenders.
+    getDriverProgression("HYPERCAR").catch(() => [] as DriverProgression[]),
+    getDriverProgression("LMGT3").catch(() => [] as DriverProgression[]),
   ]);
+  const progressionByClass: Partial<Record<RaceClass, DriverProgression[]>> = {
+    HYPERCAR: hyperProgression,
+    LMGT3: lmgt3Progression,
+  };
 
   const today = new Date().toISOString().slice(0, 10);
   const completedRounds = events.filter((e) => e.dateEnd < today).length;
@@ -94,8 +113,22 @@ export default async function StandingsPage() {
               : cards === 2
                 ? "grid gap-6 xl:grid-cols-2"
                 : "grid gap-6";
+          const progression = progressionByClass[c] ?? [];
           return (
-            <TabsContent key={c} value={c} className="mt-4">
+            <TabsContent key={c} value={c} className="mt-4 space-y-6">
+              {progression.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Drivers&rsquo; championship · Top 5</CardTitle>
+                    <CardDescription>
+                      Cumulative points by round.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pb-4">
+                    <ProgressionChart progressions={progression} />
+                  </CardContent>
+                </Card>
+              )}
               <div className={gridClass}>
                 {d.length > 0 && (
                   <StandingsTable

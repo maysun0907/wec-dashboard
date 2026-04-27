@@ -1,8 +1,12 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
+from app.rounds import driver_in_round
+from app.scoring import class_position_for, points_for
 
 router = APIRouter(prefix="/standings", tags=["standings"])
 
@@ -64,6 +68,129 @@ def team_standings(
             points=r.points,
         )
         for r in rows
+    ]
+
+
+@router.get(
+    "/drivers/progression", response_model=list[schemas.DriverProgressionOut]
+)
+def driver_progression(
+    race_class: str | None = RaceClassParam,
+    limit: int = Query(5, ge=1, le=20),
+    db: Session = Depends(get_db),
+) -> list[schemas.DriverProgressionOut]:
+    """Cumulative championship points per driver after each completed round.
+    Returns the top `limit` drivers by current total."""
+    if race_class is None:
+        return []
+    rc = (
+        db.query(models.RaceClass)
+        .filter(models.RaceClass.name == race_class.upper())
+        .first()
+    )
+    if rc is None:
+        return []
+    season = (
+        db.query(models.Season).order_by(models.Season.year.desc()).first()
+    )
+    if season is None:
+        return []
+
+    today = date.today()
+    completed_events = (
+        db.query(models.Event)
+        .filter(models.Event.season_id == season.id)
+        .filter(models.Event.date_end < today)
+        .order_by(models.Event.round)
+        .all()
+    )
+    if not completed_events:
+        return []
+
+    running: dict[int, float] = {}
+    name_by_id: dict[int, str] = {}
+    progression: dict[int, list[dict]] = {}
+
+    for event in completed_events:
+        race_session = (
+            db.query(models.Session)
+            .filter_by(event_id=event.id, type="RACE")
+            .first()
+        )
+        if race_session is None:
+            continue
+
+        results = (
+            db.query(models.SessionResult, models.Car)
+            .join(models.Car, models.SessionResult.car_id == models.Car.id)
+            .filter(models.SessionResult.session_id == race_session.id)
+            .filter(models.Car.race_class_id == rc.id)
+            .all()
+        )
+
+        round_pts: dict[int, float] = {}
+        for sr, car in results:
+            cp = class_position_for(db, race_session.id, rc.id, sr.position)
+            pts = points_for(event.name, cp)
+            if pts <= 0:
+                continue
+            cd_rows = (
+                db.query(models.CarDriver, models.Driver)
+                .join(models.Driver, models.CarDriver.driver_id == models.Driver.id)
+                .filter(models.CarDriver.car_id == car.id)
+                .filter(models.CarDriver.season_id == season.id)
+                .all()
+            )
+            for cd, d in cd_rows:
+                if not driver_in_round(cd.rounds, event.round):
+                    continue
+                round_pts[d.id] = round_pts.get(d.id, 0.0) + pts
+                name_by_id[d.id] = d.name
+
+        # Make sure every driver who's been in any class car shows up,
+        # even with zero progress this round.
+        class_drivers = (
+            db.query(models.Driver)
+            .join(models.CarDriver, models.CarDriver.driver_id == models.Driver.id)
+            .join(models.Car, models.CarDriver.car_id == models.Car.id)
+            .filter(models.Car.race_class_id == rc.id)
+            .filter(models.CarDriver.season_id == season.id)
+            .distinct()
+            .all()
+        )
+        for d in class_drivers:
+            running.setdefault(d.id, 0.0)
+            name_by_id.setdefault(d.id, d.name)
+
+        for did, pts in round_pts.items():
+            running[did] = running.get(did, 0.0) + pts
+
+        for did, total in running.items():
+            progression.setdefault(did, []).append(
+                {"round": event.round, "cumulative_points": total}
+            )
+
+    if not progression:
+        return []
+
+    top = sorted(
+        progression.items(),
+        key=lambda kv: kv[1][-1]["cumulative_points"],
+        reverse=True,
+    )[:limit]
+
+    return [
+        schemas.DriverProgressionOut(
+            driver_id=did,
+            driver_name=name_by_id[did],
+            points=[
+                schemas.ProgressionPointOut(
+                    round=p["round"], cumulative_points=p["cumulative_points"]
+                )
+                for p in pts
+            ],
+        )
+        for did, pts in top
     ]
 
 

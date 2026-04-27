@@ -217,6 +217,17 @@ class CircuitDetailOut(_BaseSchema):
     events: list[CircuitEventOut] = []
 
 
+class ProgressionPointOut(_BaseSchema):
+    round: int
+    cumulative_points: float
+
+
+class DriverProgressionOut(_BaseSchema):
+    driver_id: int
+    driver_name: str
+    points: list[ProgressionPointOut] = []
+
+
 class StandingDriverOut(_BaseSchema):
     position: int
     driver_id: int
