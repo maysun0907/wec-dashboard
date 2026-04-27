@@ -2,8 +2,13 @@
 builder = "NIXPACKS"
 
 [deploy]
+# Migrations run on every deploy of services that share this config (API
+# + cron). Idempotent, so the cron's repeated runs are harmless.
 preDeployCommand = "alembic upgrade head"
-startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+# startCommand intentionally omitted so each service can set its own
+# command in the Railway dashboard. The API service falls back to the
+# Procfile (web: uvicorn ...); the cron service overrides with
+# `python -m app.ingest.wikipedia`.
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
