@@ -172,30 +172,61 @@ SESSION_RESULTS = {
     ],
 }
 
-# (driver_slug, points) — Hypercar after R2
-DRIVER_STANDINGS = [
-    (1, "kubica", 50),
-    (2, "pier-guidi", 38),
-    (3, "fuoco", 32),
-    (4, "kobayashi", 28),
-    (5, "estre", 24),
-]
-
-TEAM_STANDINGS = [
-    (1, "ferrari-83", 50),
-    (2, "ferrari-51", 38),
-    (3, "ferrari-50", 32),
-    (4, "toyota-7", 28),
-    (5, "porsche-6", 24),
-]
-
-MANUFACTURER_STANDINGS = [
-    (1, "ferrari", 95),
-    (2, "toyota", 58),
-    (3, "porsche", 47),
-    (4, "cadillac", 31),
-    (5, "bmw", 22),
-]
+# Standings as of after R2 (Imola). Keyed by race class.
+# Each row: (position, slug, points). Driver slug refers to DRIVERS,
+# team slug to TEAMS, manufacturer slug to MANUFACTURERS.
+# LMP2/LMGT3 driver standings deferred — clean per-class driver source data
+# isn't in the mock yet.
+STANDINGS = {
+    "HYPERCAR": {
+        "drivers": [
+            (1, "kubica", 50),
+            (2, "pier-guidi", 38),
+            (3, "fuoco", 32),
+            (4, "kobayashi", 28),
+            (5, "estre", 24),
+        ],
+        "teams": [
+            (1, "ferrari-83", 50),
+            (2, "ferrari-51", 38),
+            (3, "ferrari-50", 32),
+            (4, "toyota-7", 28),
+            (5, "porsche-6", 24),
+        ],
+        "manufacturers": [
+            (1, "ferrari", 95),
+            (2, "toyota", 58),
+            (3, "porsche", 47),
+            (4, "cadillac", 31),
+            (5, "bmw", 22),
+        ],
+    },
+    "LMP2": {
+        "teams": [
+            (1, "ao-tf-22", 44),
+            (2, "ieurop-43", 36),
+            (3, "vector-10", 30),
+            (4, "idec-28", 24),
+            (5, "nielsen-24", 18),
+        ],
+    },
+    "LMGT3": {
+        "teams": [
+            (1, "manthey-92", 46),
+            (2, "wrt-46", 40),
+            (3, "vista-21", 34),
+            (4, "united-59", 28),
+            (5, "ironlynx-77", 20),
+        ],
+        "manufacturers": [
+            (1, "porsche", 72),
+            (2, "bmw", 58),
+            (3, "ferrari", 49),
+            (4, "mclaren", 36),
+            (5, "mercedes", 28),
+        ],
+    },
+}
 
 
 # ---------------------------------------------------------------------------
@@ -351,43 +382,47 @@ def _seed_sessions_and_results(db, event_ids, car_ids):
     db.flush()
 
 
-def _seed_standings(db, season_ids, event_ids, driver_ids, team_ids, manufacturer_ids):
-    # Standings as of after R2 (Imola).
+def _seed_standings(
+    db, season_ids, event_ids, class_ids, driver_ids, team_ids, manufacturer_ids
+):
     after = event_ids["2026-r2-imola"]
+    season_id = season_ids["s2026"]
 
-    for position, driver_slug, points in DRIVER_STANDINGS:
-        db.add(
-            models.StandingDriver(
-                season_id=season_ids["s2026"],
-                driver_id=driver_ids[driver_slug],
-                after_event_id=after,
-                position=position,
-                points=points,
+    for class_slug, data in STANDINGS.items():
+        rc_id = class_ids[class_slug]
+        for position, dslug, points in data.get("drivers", []):
+            db.add(
+                models.StandingDriver(
+                    season_id=season_id,
+                    driver_id=driver_ids[dslug],
+                    race_class_id=rc_id,
+                    after_event_id=after,
+                    position=position,
+                    points=points,
+                )
             )
-        )
-
-    for position, team_slug, points in TEAM_STANDINGS:
-        db.add(
-            models.StandingTeam(
-                season_id=season_ids["s2026"],
-                team_id=team_ids[team_slug],
-                after_event_id=after,
-                position=position,
-                points=points,
+        for position, tslug, points in data.get("teams", []):
+            db.add(
+                models.StandingTeam(
+                    season_id=season_id,
+                    team_id=team_ids[tslug],
+                    race_class_id=rc_id,
+                    after_event_id=after,
+                    position=position,
+                    points=points,
+                )
             )
-        )
-
-    for position, manuf_slug, points in MANUFACTURER_STANDINGS:
-        db.add(
-            models.StandingManufacturer(
-                season_id=season_ids["s2026"],
-                manufacturer_id=manufacturer_ids[manuf_slug],
-                after_event_id=after,
-                position=position,
-                points=points,
+        for position, mslug, points in data.get("manufacturers", []):
+            db.add(
+                models.StandingManufacturer(
+                    season_id=season_id,
+                    manufacturer_id=manufacturer_ids[mslug],
+                    race_class_id=rc_id,
+                    after_event_id=after,
+                    position=position,
+                    points=points,
+                )
             )
-        )
-
     db.flush()
 
 
@@ -405,6 +440,7 @@ def main() -> None:
             db,
             season_ids,
             event_ids,
+            class_ids,
             driver_ids,
             team_ids,
             manufacturer_ids,
@@ -419,13 +455,11 @@ def main() -> None:
         print(
             "  session_results=" + str(sum(len(v) for v in SESSION_RESULTS.values()))
         )
+        d_count = sum(len(c.get("drivers", [])) for c in STANDINGS.values())
+        t_count = sum(len(c.get("teams", [])) for c in STANDINGS.values())
+        m_count = sum(len(c.get("manufacturers", [])) for c in STANDINGS.values())
         print(
-            "  standings: drivers="
-            + str(len(DRIVER_STANDINGS))
-            + " teams="
-            + str(len(TEAM_STANDINGS))
-            + " manufacturers="
-            + str(len(MANUFACTURER_STANDINGS))
+            f"  standings: drivers={d_count} teams={t_count} manufacturers={m_count}"
         )
     except Exception:
         db.rollback()

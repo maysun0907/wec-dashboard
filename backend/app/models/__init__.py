@@ -150,6 +150,9 @@ class StandingDriver(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), index=True)
     driver_id: Mapped[int] = mapped_column(ForeignKey("drivers.id"))
+    race_class_id: Mapped[int] = mapped_column(
+        ForeignKey("race_classes.id"), index=True
+    )
     after_event_id: Mapped[int | None] = mapped_column(
         ForeignKey("events.id"), default=None
     )
@@ -158,6 +161,7 @@ class StandingDriver(Base):
 
     season: Mapped["Season"] = relationship()
     driver: Mapped["Driver"] = relationship()
+    race_class: Mapped["RaceClass"] = relationship()
 
 
 class StandingTeam(Base):
@@ -166,6 +170,9 @@ class StandingTeam(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), index=True)
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
+    race_class_id: Mapped[int] = mapped_column(
+        ForeignKey("race_classes.id"), index=True
+    )
     after_event_id: Mapped[int | None] = mapped_column(
         ForeignKey("events.id"), default=None
     )
@@ -174,6 +181,7 @@ class StandingTeam(Base):
 
     season: Mapped["Season"] = relationship()
     team: Mapped["Team"] = relationship()
+    race_class: Mapped["RaceClass"] = relationship()
 
 
 class StandingManufacturer(Base):
@@ -182,6 +190,9 @@ class StandingManufacturer(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), index=True)
     manufacturer_id: Mapped[int] = mapped_column(ForeignKey("manufacturers.id"))
+    race_class_id: Mapped[int] = mapped_column(
+        ForeignKey("race_classes.id"), index=True
+    )
     after_event_id: Mapped[int | None] = mapped_column(
         ForeignKey("events.id"), default=None
     )
@@ -190,3 +201,4 @@ class StandingManufacturer(Base):
 
     season: Mapped["Season"] = relationship()
     manufacturer: Mapped["Manufacturer"] = relationship()
+    race_class: Mapped["RaceClass"] = relationship()

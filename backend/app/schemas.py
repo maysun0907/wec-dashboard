@@ -109,6 +109,7 @@ class StandingDriverOut(BaseModel):
     position: int
     driver_id: int
     driver_name: str
+    race_class: str
     points: float
 
 
@@ -117,6 +118,7 @@ class StandingTeamOut(BaseModel):
     team_id: int
     team_name: str
     manufacturer: str | None = None
+    race_class: str
     points: float
 
 
@@ -124,4 +126,5 @@ class StandingManufacturerOut(BaseModel):
     position: int
     manufacturer_id: int
     manufacturer_name: str
+    race_class: str
     points: float
