@@ -4,7 +4,7 @@ name: Refresh WEC data
 # Race-weekend updates land on Wikipedia within hours of the chequered flag,
 # so a daily run during the season keeps standings/results fresh without
 # hammering the source.
-on:
+"on":
   schedule:
     # Daily at 06:00 UTC (15:00 KST) — well after race weekends end.
     - cron: '0 6 * * *'
