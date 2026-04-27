@@ -112,7 +112,13 @@ export default async function RaceDetailPage({
           </div>
           <CardTitle className="text-2xl sm:text-3xl">{event.name}</CardTitle>
           <CardDescription>
-            {event.circuit.name} · {event.circuit.country} ·{" "}
+            <Link
+              href={`/circuits/${event.circuit.id}`}
+              className="hover:text-foreground"
+            >
+              {event.circuit.name}
+            </Link>{" "}
+            · {event.circuit.country !== "UNK" ? event.circuit.country : "—"} ·{" "}
             {event.format ?? "—"}
           </CardDescription>
         </CardHeader>

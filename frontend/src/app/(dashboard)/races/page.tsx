@@ -74,7 +74,13 @@ export default async function RacesPage() {
                       </Link>
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground md:table-cell">
-                      {e.circuit.name} · {e.circuit.country}
+                      <Link
+                        href={`/circuits/${e.circuit.id}`}
+                        className="hover:text-foreground"
+                      >
+                        {e.circuit.name}
+                      </Link>{" "}
+                      · {e.circuit.country !== "UNK" ? e.circuit.country : "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {format(parseISO(e.dateStart), "MMM d, yyyy")}

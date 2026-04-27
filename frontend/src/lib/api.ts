@@ -90,6 +90,58 @@ export type DriverDetail = {
   standing: DriverStandingRef | null;
 };
 
+export type TeamCar = {
+  carId: number;
+  number: string;
+  raceClass: RaceClass;
+  model: string | null;
+  drivers: DriverRef[];
+};
+
+export type TeamResult = {
+  eventId: number;
+  round: number;
+  eventName: string;
+  carNumber: string;
+  raceClass: RaceClass;
+  position: number;
+  laps: number | null;
+  gap: string | null;
+};
+
+export type TeamDetail = {
+  id: number;
+  name: string;
+  manufacturer: string | null;
+  cars: TeamCar[];
+  results: TeamResult[];
+};
+
+export type CircuitWinner = {
+  raceClass: RaceClass;
+  carNumber: string;
+  team: string;
+};
+
+export type CircuitEventEntry = {
+  eventId: number;
+  seasonYear: number;
+  round: number;
+  name: string;
+  dateStart: string;
+  dateEnd: string;
+  winners: CircuitWinner[];
+};
+
+export type CircuitDetail = {
+  id: number;
+  name: string;
+  country: string;
+  lengthKm: number;
+  lapRecord: string | null;
+  events: CircuitEventEntry[];
+};
+
 export type TeamEntry = {
   id: number;
   name: string;
@@ -143,6 +195,9 @@ async function api<T>(path: string, opts: FetchOpts = {}): Promise<T> {
 export const getCircuits = () =>
   api<Circuit[]>("/api/v1/circuits", { revalidate: 3600 });
 
+export const getCircuit = (id: number) =>
+  api<CircuitDetail>(`/api/v1/circuits/${id}`, { revalidate: 3600 });
+
 export const getDrivers = () =>
   api<DriverEntry[]>("/api/v1/drivers", { revalidate: 3600 });
 
@@ -151,6 +206,9 @@ export const getDriver = (id: number) =>
 
 export const getTeams = () =>
   api<TeamEntry[]>("/api/v1/teams", { revalidate: 3600 });
+
+export const getTeam = (id: number) =>
+  api<TeamDetail>(`/api/v1/teams/${id}`, { revalidate: 600 });
 
 // Events change occasionally (status transitions) — 10 minutes.
 export const getEvents = () =>

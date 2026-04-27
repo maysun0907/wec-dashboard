@@ -112,6 +112,7 @@ export default async function StandingsPage() {
                     key: `t-${r.teamId}`,
                     position: r.position,
                     name: r.teamName,
+                    href: `/teams/${r.teamId}`,
                     detail: r.manufacturer ?? undefined,
                     points: r.points,
                   }))}

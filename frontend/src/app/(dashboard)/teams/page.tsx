@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -91,7 +92,14 @@ function TeamsTable({ teams }: { teams: TeamEntry[] }) {
                   <TableCell className="pl-4 font-mono tabular-nums">
                     {t.carNumber}
                   </TableCell>
-                  <TableCell className="font-medium">{t.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link
+                      href={`/teams/${t.id}`}
+                      className="hover:text-[var(--racing-red)]"
+                    >
+                      {t.name}
+                    </Link>
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {t.manufacturer ?? "—"}
                   </TableCell>
