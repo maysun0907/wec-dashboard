@@ -100,6 +100,7 @@ export type DriverDetail = {
   carNumber: string | null;
   team: string | null;
   manufacturer: string | null;
+  manufacturerLogoUrl: string | null;
   raceClass: RaceClass | null;
   carModel: string | null;
   coDrivers: DriverRef[];
@@ -132,6 +133,7 @@ export type TeamDetail = {
   id: number;
   name: string;
   manufacturer: string | null;
+  manufacturerLogoUrl: string | null;
   cars: TeamCar[];
   results: TeamResult[];
 };
@@ -167,6 +169,7 @@ export type TeamEntry = {
   carNumber: string;
   raceClass: RaceClass;
   manufacturer: string | null;
+  manufacturerLogoUrl: string | null;
 };
 
 export type StandingDriver = {
@@ -194,6 +197,7 @@ export type StandingTeam = {
   teamName: string;
   carNumber: string | null;
   manufacturer: string | null;
+  manufacturerLogoUrl: string | null;
   raceClass: RaceClass;
   points: number;
 };
@@ -202,6 +206,7 @@ export type StandingManufacturer = {
   position: number;
   manufacturerId: number;
   manufacturerName: string;
+  manufacturerLogoUrl: string | null;
   raceClass: RaceClass;
   points: number;
 };

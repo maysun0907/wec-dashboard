@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClassBadge } from "@/components/class-badge";
+import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { describeRounds, getTeam, type TeamDetail } from "@/lib/api";
 
 type Params = { id: string };
@@ -60,12 +61,19 @@ export default async function TeamDetailPage({
       </Link>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-2xl sm:text-3xl">{team.name}</CardTitle>
-          <CardDescription>
-            {team.manufacturer ?? "Independent"} · {team.cars.length}{" "}
-            {team.cars.length === 1 ? "car" : "cars"} this season
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+          <ManufacturerLogo
+            src={team.manufacturerLogoUrl}
+            name={team.manufacturer}
+            size="lg"
+          />
+          <div className="space-y-1">
+            <CardTitle className="text-2xl sm:text-3xl">{team.name}</CardTitle>
+            <CardDescription>
+              {team.manufacturer ?? "Independent"} · {team.cars.length}{" "}
+              {team.cars.length === 1 ? "car" : "cars"} this season
+            </CardDescription>
+          </div>
         </CardHeader>
       </Card>
 

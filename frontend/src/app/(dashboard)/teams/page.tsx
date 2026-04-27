@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
+import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import {
   RACE_CLASSES,
   getTeams,
@@ -101,7 +102,13 @@ function TeamsTable({ teams }: { teams: TeamEntry[] }) {
                     </Link>
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {t.manufacturer ?? "—"}
+                    <span className="inline-flex items-center gap-2">
+                      <ManufacturerLogo
+                        src={t.manufacturerLogoUrl}
+                        name={t.manufacturer}
+                      />
+                      {t.manufacturer ?? "—"}
+                    </span>
                   </TableCell>
                   <TableCell className="pr-4">
                     <ClassBadge raceClass={t.raceClass} />

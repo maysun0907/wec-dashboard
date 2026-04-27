@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
+import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { ProgressionChart } from "@/components/progression-chart";
 import {
   RACE_CLASSES,
@@ -168,6 +169,7 @@ export default async function StandingsPage() {
                       key: `m-${r.manufacturerId}`,
                       position: r.position,
                       name: r.manufacturerName,
+                      logoUrl: r.manufacturerLogoUrl,
                       detail: undefined,
                       points: r.points,
                     }))}
@@ -189,6 +191,7 @@ type Row = {
   name: string;
   href?: string;
   detail?: string;
+  logoUrl?: string | null;
   points: number;
 };
 
@@ -232,23 +235,33 @@ function StandingsTable({
                     {r.position}
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">
-                      {r.href ? (
-                        <Link
-                          href={r.href}
-                          className="hover:text-[var(--racing-red)]"
-                        >
-                          {r.name}
-                        </Link>
-                      ) : (
-                        r.name
+                    <div className="flex items-center gap-2">
+                      {r.logoUrl !== undefined && (
+                        <ManufacturerLogo
+                          src={r.logoUrl}
+                          name={r.name}
+                        />
                       )}
-                    </div>
-                    {r.detail && (
-                      <div className="text-xs text-muted-foreground">
-                        {r.detail}
+                      <div className="min-w-0">
+                        <div className="font-medium">
+                          {r.href ? (
+                            <Link
+                              href={r.href}
+                              className="hover:text-[var(--racing-red)]"
+                            >
+                              {r.name}
+                            </Link>
+                          ) : (
+                            r.name
+                          )}
+                        </div>
+                        {r.detail && (
+                          <div className="text-xs text-muted-foreground">
+                            {r.detail}
+                          </div>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </TableCell>
                   <TableCell className="pr-4 text-right font-mono tabular-nums">
                     {r.points}
