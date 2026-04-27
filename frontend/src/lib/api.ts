@@ -7,9 +7,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 // --- Types (mirror backend Pydantic schemas, camelCase) ---
 
+// Schema keeps LMP2 as a valid value (it may return as a one-off Le Mans
+// category in some seasons) but the 2026 WEC grid only has Hypercar + LMGT3.
+// Drop LMP2 from RACE_CLASSES so empty tabs don't render.
 export type RaceClass = "HYPERCAR" | "LMP2" | "LMGT3";
 
-export const RACE_CLASSES: RaceClass[] = ["HYPERCAR", "LMP2", "LMGT3"];
+export const RACE_CLASSES: RaceClass[] = ["HYPERCAR", "LMGT3"];
 
 export type Circuit = {
   id: number;
