@@ -1,8 +1,11 @@
 name: Refresh WEC data
+# Schedule disabled until GitHub Actions billing is unblocked. Re-enable
+# by uncommenting the cron line below; the dispatch trigger lets you run
+# the ingester on demand from the Actions tab in the meantime.
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 6 * * *'
+  # schedule:
+  #   - cron: '0 6 * * *'
 permissions:
   contents: read
 jobs:
