@@ -6,13 +6,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { getNextEvent, getCircuit } from "@/lib/mock-data";
+import { getEvents, getNextEvent } from "@/lib/api";
 
 export const metadata = { title: "Live" };
 
-export default function LivePage() {
-  const next = getNextEvent();
-  const circuit = next ? getCircuit(next.circuitId) : undefined;
+export default async function LivePage() {
+  const events = await getEvents();
+  const next = getNextEvent(events);
 
   return (
     <div className="space-y-6">
@@ -28,9 +28,7 @@ export default function LivePage() {
           <CardTitle>No session active</CardTitle>
           <CardDescription>
             {next
-              ? `Next session: ${next.name}, ${format(parseISO(next.startDate), "EEEE, MMMM d, yyyy")}${
-                  circuit ? ` — ${circuit.name}` : ""
-                }`
+              ? `Next session: ${next.name}, ${format(parseISO(next.dateStart), "EEEE, MMMM d, yyyy")} — ${next.circuit.name}`
               : "No upcoming session scheduled."}
           </CardDescription>
         </CardHeader>

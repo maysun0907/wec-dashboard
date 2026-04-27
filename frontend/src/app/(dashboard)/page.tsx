@@ -19,24 +19,52 @@ import { Badge } from "@/components/ui/badge";
 import { ClassBadge } from "@/components/class-badge";
 import { RaceCountdown } from "@/components/race-countdown";
 import {
-  CURRENT_SEASON,
-  DRIVER_STANDINGS,
-  EVENTS,
-  LAST_RACE_RESULT,
-  TEAM_STANDINGS,
-  type WecEvent,
-  getCircuit,
+  getDriverStandings,
+  getEvent,
+  getEvents,
   getLastCompletedEvent,
   getNextEvent,
+  getSessionByType,
+  getSessionResults,
+  getTeamStandings,
   getUpcomingEvents,
-} from "@/lib/mock-data";
+  type Event,
+  type SessionResult,
+  type StandingDriver,
+  type StandingTeam,
+} from "@/lib/api";
 
-export default function HomePage() {
-  const next = getNextEvent();
-  const last = getLastCompletedEvent();
-  const upcoming = getUpcomingEvents(3);
-  const remaining = upcoming.slice(1); // exclude the one already in the hero
-  const completedRounds = EVENTS.filter((e) => e.status === "completed").length;
+export default async function HomePage() {
+  const [events, drivers, teams] = await Promise.all([
+    getEvents(),
+    getDriverStandings("HYPERCAR"),
+    getTeamStandings("HYPERCAR"),
+  ]);
+
+  const today = new Date();
+  const next = getNextEvent(events, today);
+  const upcoming = getUpcomingEvents(events, 3, today);
+  const remaining = upcoming.slice(1); // exclude the one in the hero
+  const last = getLastCompletedEvent(events, today);
+  const completedRounds = events.filter(
+    (e) => e.dateEnd < today.toISOString().slice(0, 10),
+  ).length;
+
+  // Pull race results for the last completed event in a second hop.
+  let lastResult: SessionResult[] = [];
+  let lastEventName = "";
+  if (last) {
+    lastEventName = last.name;
+    try {
+      const detail = await getEvent(last.id);
+      const raceSession = getSessionByType(detail.sessions, "RACE");
+      if (raceSession) {
+        lastResult = (await getSessionResults(raceSession.id)).slice(0, 5);
+      }
+    } catch {
+      // best-effort — leave empty if endpoint fails
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -47,30 +75,31 @@ export default function HomePage() {
       <section className="grid gap-6 lg:grid-cols-2">
         <StandingsCard
           title="Drivers"
-          rows={DRIVER_STANDINGS}
-          href="/standings"
+          rows={drivers.slice(0, 5)}
+          rowKey={(r) => `d-${r.driverId}`}
+          rowName={(r) => r.driverName}
+          rowDetail={() => undefined}
           rounds={completedRounds}
         />
         <StandingsCard
           title="Teams"
-          rows={TEAM_STANDINGS}
-          href="/standings"
+          rows={teams.slice(0, 5)}
+          rowKey={(r) => `t-${r.teamId}`}
+          rowName={(r) => r.teamName}
+          rowDetail={(r) => r.manufacturer ?? undefined}
           rounds={completedRounds}
         />
       </section>
 
-      {last && <LastResultCard eventName={last.name} />}
+      {lastEventName && (
+        <LastResultCard eventName={lastEventName} rows={lastResult} />
+      )}
     </div>
   );
 }
 
-function NextRaceHero({
-  event,
-}: {
-  event: NonNullable<ReturnType<typeof getNextEvent>>;
-}) {
-  const circuit = getCircuit(event.circuitId);
-  const startIso = `${event.startDate}T13:00:00Z`;
+function NextRaceHero({ event }: { event: Event }) {
+  const startIso = `${event.dateStart}T13:00:00Z`;
 
   return (
     <Card className="relative overflow-hidden">
@@ -84,18 +113,18 @@ function NextRaceHero({
       <CardHeader className="relative">
         <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-[var(--racing-red)] uppercase">
           <span className="size-1.5 animate-pulse rounded-full bg-[var(--racing-red)]" />
-          Next Race · Round {event.round} · {CURRENT_SEASON}
+          Next Race · Round {event.round} · 2026
         </div>
         <CardTitle className="mt-2 text-2xl sm:text-3xl">{event.name}</CardTitle>
         <CardDescription>
-          {circuit ? `${circuit.name} · ${circuit.country}` : "—"} ·{" "}
-          {event.format}
+          {event.circuit.name} · {event.circuit.country} ·{" "}
+          {event.format ?? "—"}
         </CardDescription>
       </CardHeader>
       <CardContent className="relative space-y-4">
         <RaceCountdown targetIso={startIso} />
         <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <span>{format(parseISO(event.startDate), "EEEE, MMMM d, yyyy")}</span>
+          <span>{format(parseISO(event.dateStart), "EEEE, MMMM d, yyyy")}</span>
           <Link
             href="/races"
             className="ml-auto text-foreground hover:text-[var(--racing-red)]"
@@ -108,7 +137,7 @@ function NextRaceHero({
   );
 }
 
-function UpcomingCard({ events }: { events: WecEvent[] }) {
+function UpcomingCard({ events }: { events: Event[] }) {
   return (
     <Card>
       <CardHeader>
@@ -124,48 +153,49 @@ function UpcomingCard({ events }: { events: WecEvent[] }) {
       </CardHeader>
       <CardContent className="px-0">
         <ul className="divide-y divide-border">
-          {events.map((e) => {
-            const circuit = getCircuit(e.circuitId);
-            return (
-              <li key={e.id}>
-                <Link
-                  href={`/races/${e.id}`}
-                  className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-secondary/40"
-                >
-                  <span className="w-8 shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
-                    R{e.round}
+          {events.map((e) => (
+            <li key={e.id}>
+              <Link
+                href={`/races/${e.id}`}
+                className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-secondary/40"
+              >
+                <span className="w-8 shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
+                  R{e.round}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-medium">{e.name}</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {e.circuit.name} · {e.circuit.country}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{e.name}</span>
-                    <span className="block text-xs text-muted-foreground">
-                      {circuit ? `${circuit.name} · ${circuit.country}` : "—"}
-                    </span>
+                </span>
+                <span className="hidden text-right text-xs text-muted-foreground sm:block">
+                  <span className="block">
+                    {format(parseISO(e.dateStart), "MMM d, yyyy")}
                   </span>
-                  <span className="hidden text-right text-xs text-muted-foreground sm:block">
-                    <span className="block">
-                      {format(parseISO(e.startDate), "MMM d, yyyy")}
-                    </span>
-                    <span className="block">{e.format}</span>
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
+                  <span className="block">{e.format ?? "—"}</span>
+                </span>
+              </Link>
+            </li>
+          ))}
         </ul>
       </CardContent>
     </Card>
   );
 }
 
-function StandingsCard({
+function StandingsCard<T extends { position: number; points: number }>({
   title,
   rows,
-  href,
+  rowKey,
+  rowName,
+  rowDetail,
   rounds,
 }: {
   title: string;
-  rows: typeof DRIVER_STANDINGS;
-  href: string;
+  rows: T[];
+  rowKey: (r: T) => string;
+  rowName: (r: T) => string;
+  rowDetail: (r: T) => string | undefined;
   rounds: number;
 }) {
   return (
@@ -181,30 +211,33 @@ function StandingsCard({
       <CardContent className="px-0">
         <Table>
           <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.entityId}>
-                <TableCell className="w-10 pl-4 text-muted-foreground tabular-nums">
-                  {row.position}
-                </TableCell>
-                <TableCell>
-                  <div className="font-medium">{row.name}</div>
-                  {row.detail && (
-                    <div className="text-xs text-muted-foreground">
-                      {row.detail}
-                    </div>
-                  )}
-                </TableCell>
-                <TableCell className="text-right pr-4 font-mono tabular-nums">
-                  {row.points}
-                </TableCell>
-              </TableRow>
-            ))}
+            {rows.map((row) => {
+              const detail = rowDetail(row);
+              return (
+                <TableRow key={rowKey(row)}>
+                  <TableCell className="w-10 pl-4 text-muted-foreground tabular-nums">
+                    {row.position}
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">{rowName(row)}</div>
+                    {detail && (
+                      <div className="text-xs text-muted-foreground">
+                        {detail}
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right pr-4 font-mono tabular-nums">
+                    {row.points}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </CardContent>
       <div className="px-4 pt-2 text-right text-xs">
         <Link
-          href={href}
+          href="/standings"
           className="text-muted-foreground hover:text-foreground"
         >
           Full standings →
@@ -214,7 +247,13 @@ function StandingsCard({
   );
 }
 
-function LastResultCard({ eventName }: { eventName: string }) {
+function LastResultCard({
+  eventName,
+  rows,
+}: {
+  eventName: string;
+  rows: SessionResult[];
+}) {
   return (
     <Card>
       <CardHeader>
@@ -223,44 +262,50 @@ function LastResultCard({ eventName }: { eventName: string }) {
             <CardTitle>Latest result</CardTitle>
             <CardDescription>{eventName}</CardDescription>
           </div>
-          <Badge variant="secondary">HYPERCAR</Badge>
+          <Badge variant="secondary">Top 5</Badge>
         </div>
       </CardHeader>
       <CardContent className="px-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12 pl-4">Pos</TableHead>
-              <TableHead className="w-12">#</TableHead>
-              <TableHead>Team</TableHead>
-              <TableHead className="hidden md:table-cell">Drivers</TableHead>
-              <TableHead className="w-16">Class</TableHead>
-              <TableHead className="pr-4 text-right">Gap</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {LAST_RACE_RESULT.map((row) => (
-              <TableRow key={`${row.position}-${row.carNumber}`}>
-                <TableCell className="pl-4 font-mono tabular-nums">
-                  {row.position}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {row.carNumber}
-                </TableCell>
-                <TableCell className="font-medium">{row.team}</TableCell>
-                <TableCell className="hidden text-muted-foreground md:table-cell">
-                  {row.drivers}
-                </TableCell>
-                <TableCell>
-                  <ClassBadge raceClass={row.raceClass} />
-                </TableCell>
-                <TableCell className="pr-4 text-right font-mono tabular-nums">
-                  {row.gap}
-                </TableCell>
+        {rows.length === 0 ? (
+          <p className="px-4 pb-4 text-sm text-muted-foreground">
+            No results published.
+          </p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12 pl-4">Pos</TableHead>
+                <TableHead className="w-12">#</TableHead>
+                <TableHead>Team</TableHead>
+                <TableHead className="hidden md:table-cell">Drivers</TableHead>
+                <TableHead className="w-16">Class</TableHead>
+                <TableHead className="pr-4 text-right">Gap</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {rows.map((row) => (
+                <TableRow key={`${row.position}-${row.carNumber}`}>
+                  <TableCell className="pl-4 font-mono tabular-nums">
+                    {row.position}
+                  </TableCell>
+                  <TableCell className="font-mono tabular-nums">
+                    {row.carNumber}
+                  </TableCell>
+                  <TableCell className="font-medium">{row.team}</TableCell>
+                  <TableCell className="hidden text-muted-foreground md:table-cell">
+                    {row.drivers}
+                  </TableCell>
+                  <TableCell>
+                    <ClassBadge raceClass={row.raceClass} />
+                  </TableCell>
+                  <TableCell className="pr-4 text-right font-mono tabular-nums">
+                    {row.gap ?? "—"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
     </Card>
   );

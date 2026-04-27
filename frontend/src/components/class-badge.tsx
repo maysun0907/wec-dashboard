@@ -1,5 +1,5 @@
 import { cn } from "@/lib/utils";
-import type { RaceClass } from "@/lib/mock-data";
+import type { RaceClass } from "@/lib/api";
 
 const STYLES: Record<RaceClass, string> = {
   HYPERCAR: "bg-[var(--class-hypercar)]/15 text-[var(--class-hypercar)]",
