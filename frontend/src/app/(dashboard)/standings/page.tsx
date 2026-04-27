@@ -82,42 +82,51 @@ export default async function StandingsPage() {
           const d = driversByClass[c];
           const t = teamsByClass[c];
           const m = manufacturersByClass[c];
-          const cols = m.length > 0 ? 3 : 2;
+          // Render only championships that exist for the class. WEC has
+          // Hypercar drivers + manufacturers (no teams' trophy), and LMGT3
+          // drivers + teams (no manufacturers' cup).
+          const cards = [d.length > 0, t.length > 0, m.length > 0].filter(
+            Boolean,
+          ).length;
+          const gridClass =
+            cards >= 3
+              ? "grid gap-6 xl:grid-cols-3"
+              : cards === 2
+                ? "grid gap-6 xl:grid-cols-2"
+                : "grid gap-6";
           return (
             <TabsContent key={c} value={c} className="mt-4">
-              <div
-                className={
-                  cols === 3
-                    ? "grid gap-6 xl:grid-cols-3"
-                    : "grid gap-6 xl:grid-cols-2"
-                }
-              >
-                <StandingsTable
-                  title="Drivers"
-                  raceClass={c}
-                  rows={d.map((r) => ({
-                    key: `d-${r.driverId}`,
-                    position: r.position,
-                    name: r.driverName,
-                    href: `/drivers/${r.driverId}`,
-                    detail: undefined,
-                    points: r.points,
-                  }))}
-                  emptyMessage="No driver standings published for this class yet."
-                />
-                <StandingsTable
-                  title="Teams"
-                  raceClass={c}
-                  rows={t.map((r) => ({
-                    key: `t-${r.teamId}`,
-                    position: r.position,
-                    name: r.teamName,
-                    href: `/teams/${r.teamId}`,
-                    detail: r.manufacturer ?? undefined,
-                    points: r.points,
-                  }))}
-                  emptyMessage="No team standings published for this class yet."
-                />
+              <div className={gridClass}>
+                {d.length > 0 && (
+                  <StandingsTable
+                    title="Drivers"
+                    raceClass={c}
+                    rows={d.map((r) => ({
+                      key: `d-${r.driverId}`,
+                      position: r.position,
+                      name: r.driverName,
+                      href: `/drivers/${r.driverId}`,
+                      detail: undefined,
+                      points: r.points,
+                    }))}
+                    emptyMessage=""
+                  />
+                )}
+                {t.length > 0 && (
+                  <StandingsTable
+                    title="Teams"
+                    raceClass={c}
+                    rows={t.map((r) => ({
+                      key: `t-${r.teamId}`,
+                      position: r.position,
+                      name: r.teamName,
+                      href: `/teams/${r.teamId}`,
+                      detail: r.manufacturer ?? undefined,
+                      points: r.points,
+                    }))}
+                    emptyMessage=""
+                  />
+                )}
                 {m.length > 0 && (
                   <StandingsTable
                     title="Manufacturers"
