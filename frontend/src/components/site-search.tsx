@@ -31,7 +31,8 @@ export function SiteSearch() {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const router = useRouter();
 
-  // ⌘K / Ctrl+K
+  // ⌘K / Ctrl+K and the `wec:open-search` custom event used by the
+  // mobile hamburger menu's "Search" entry.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -39,8 +40,13 @@ export function SiteSearch() {
         setOpen((prev) => !prev);
       }
     };
+    const onOpen = () => setOpen(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("wec:open-search", onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("wec:open-search", onOpen);
+    };
   }, []);
 
   // Lazy-fetch the catalog the first time the dialog opens.

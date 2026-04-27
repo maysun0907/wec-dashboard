@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -67,6 +67,22 @@ export function SiteNav() {
         <SheetContent side="right" className="w-72">
           <SheetTitle className="sr-only">Navigation</SheetTitle>
           <nav className="flex flex-col gap-1 p-4 pt-12">
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                // Defer dispatch so the sheet's close animation finishes
+                // before the search dialog mounts and steals focus.
+                setTimeout(
+                  () => window.dispatchEvent(new Event("wec:open-search")),
+                  150,
+                );
+              }}
+              className="mb-2 flex items-center gap-2 rounded-md border border-border bg-secondary/40 px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <Search className="size-4" />
+              <span>Search…</span>
+            </button>
             {LINKS.map(({ href, label }) => {
               const active = isActive(pathname, href);
               return (
