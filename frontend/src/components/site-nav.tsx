@@ -33,7 +33,7 @@ export function SiteNav() {
 
   return (
     <>
-      <nav className="hidden items-center gap-1 text-sm md:flex">
+      <nav className="hidden flex-1 items-center gap-1 text-sm md:flex">
         {LINKS.map(({ href, label }) => {
           const active = isActive(pathname, href);
           return (

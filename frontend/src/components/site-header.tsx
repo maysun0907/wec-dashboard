@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SiteNav } from "./site-nav";
+import { SiteSearch } from "./site-search";
 
 export function SiteHeader() {
   return (
@@ -16,6 +17,9 @@ export function SiteHeader() {
           </span>
         </Link>
         <SiteNav />
+        <div className="ml-auto">
+          <SiteSearch />
+        </div>
       </div>
     </header>
   );
