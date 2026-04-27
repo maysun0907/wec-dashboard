@@ -194,6 +194,19 @@ export type DriverProgression = {
   points: ProgressionPoint[];
 };
 
+export type ManufacturerProgression = {
+  manufacturerId: number;
+  manufacturerName: string;
+  points: ProgressionPoint[];
+};
+
+export type TeamProgression = {
+  teamId: number;
+  teamName: string;
+  carNumber: string;
+  points: ProgressionPoint[];
+};
+
 export type StandingTeam = {
   position: number;
   teamId: number;
@@ -271,6 +284,18 @@ export const getDriverStandings = (raceClass?: RaceClass) =>
 export const getDriverProgression = (raceClass: RaceClass, limit = 5) =>
   api<DriverProgression[]>(
     `/api/v1/standings/drivers/progression?raceClass=${raceClass}&limit=${limit}`,
+    { revalidate: 300 },
+  );
+
+export const getManufacturerProgression = (raceClass: RaceClass, limit = 8) =>
+  api<ManufacturerProgression[]>(
+    `/api/v1/standings/manufacturers/progression?raceClass=${raceClass}&limit=${limit}`,
+    { revalidate: 300 },
+  );
+
+export const getTeamProgression = (raceClass: RaceClass, limit = 8) =>
+  api<TeamProgression[]>(
+    `/api/v1/standings/teams/progression?raceClass=${raceClass}&limit=${limit}`,
     { revalidate: 300 },
   );
 

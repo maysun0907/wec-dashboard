@@ -231,6 +231,236 @@ def driver_progression(
     ]
 
 
+@router.get(
+    "/manufacturers/progression",
+    response_model=list[schemas.ManufacturerProgressionOut],
+)
+def manufacturer_progression(
+    race_class: str | None = RaceClassParam,
+    limit: int = Query(8, ge=1, le=20),
+    db: Session = Depends(get_db),
+) -> list[schemas.ManufacturerProgressionOut]:
+    """Cumulative points per manufacturer after each completed round.
+    Each car's class-position points roll up to its manufacturer."""
+    if race_class is None:
+        return []
+    rc = (
+        db.query(models.RaceClass)
+        .filter(models.RaceClass.name == race_class.upper())
+        .first()
+    )
+    if rc is None:
+        return []
+    season = (
+        db.query(models.Season).order_by(models.Season.year.desc()).first()
+    )
+    if season is None:
+        return []
+
+    today = date.today()
+    events = (
+        db.query(models.Event)
+        .filter(models.Event.season_id == season.id)
+        .filter(models.Event.date_end < today)
+        .order_by(models.Event.round)
+        .all()
+    )
+    if not events:
+        return []
+
+    running: dict[int, float] = {}
+    names: dict[int, str] = {}
+    progression: dict[int, list[dict]] = {}
+
+    # Initial roster of class manufacturers (so charts include zero-point lines)
+    roster = (
+        db.query(models.Manufacturer)
+        .join(models.Team, models.Team.manufacturer_id == models.Manufacturer.id)
+        .join(models.Car, models.Car.team_id == models.Team.id)
+        .filter(models.Car.race_class_id == rc.id)
+        .filter(models.Car.season_id == season.id)
+        .distinct()
+        .all()
+    )
+    for m in roster:
+        running[m.id] = 0.0
+        names[m.id] = m.name
+
+    for event in events:
+        race_session = (
+            db.query(models.Session)
+            .filter_by(event_id=event.id, type="RACE")
+            .first()
+        )
+        if race_session is None:
+            continue
+        rows = (
+            db.query(models.SessionResult, models.Car, models.Manufacturer)
+            .join(models.Car, models.SessionResult.car_id == models.Car.id)
+            .join(models.Team, models.Car.team_id == models.Team.id)
+            .outerjoin(
+                models.Manufacturer,
+                models.Team.manufacturer_id == models.Manufacturer.id,
+            )
+            .filter(models.SessionResult.session_id == race_session.id)
+            .filter(models.Car.race_class_id == rc.id)
+            .all()
+        )
+        round_pts: dict[int, float] = {}
+        for sr, _car, manuf in rows:
+            if manuf is None:
+                continue
+            cp = class_position_for(db, race_session.id, rc.id, sr.position)
+            pts = points_for(event.name, cp)
+            if pts > 0:
+                round_pts[manuf.id] = round_pts.get(manuf.id, 0.0) + pts
+                names.setdefault(manuf.id, manuf.name)
+                running.setdefault(manuf.id, 0.0)
+        for mid, pts in round_pts.items():
+            running[mid] = running.get(mid, 0.0) + pts
+        for mid, total in running.items():
+            progression.setdefault(mid, []).append(
+                {"round": event.round, "cumulative_points": total}
+            )
+
+    top = sorted(
+        progression.items(),
+        key=lambda kv: kv[1][-1]["cumulative_points"],
+        reverse=True,
+    )[:limit]
+    return [
+        schemas.ManufacturerProgressionOut(
+            manufacturer_id=mid,
+            manufacturer_name=names[mid],
+            points=[
+                schemas.ProgressionPointOut(
+                    round=p["round"], cumulative_points=p["cumulative_points"]
+                )
+                for p in pts
+            ],
+        )
+        for mid, pts in top
+    ]
+
+
+@router.get(
+    "/teams/progression", response_model=list[schemas.TeamProgressionOut]
+)
+def team_progression(
+    race_class: str | None = RaceClassParam,
+    limit: int = Query(8, ge=1, le=20),
+    db: Session = Depends(get_db),
+) -> list[schemas.TeamProgressionOut]:
+    """Cumulative points per team-car (per car) after each completed round.
+    LMGT3 teams' trophy is per-car, so a team running two cars produces two
+    independent series."""
+    if race_class is None:
+        return []
+    rc = (
+        db.query(models.RaceClass)
+        .filter(models.RaceClass.name == race_class.upper())
+        .first()
+    )
+    if rc is None:
+        return []
+    season = (
+        db.query(models.Season).order_by(models.Season.year.desc()).first()
+    )
+    if season is None:
+        return []
+
+    today = date.today()
+    events = (
+        db.query(models.Event)
+        .filter(models.Event.season_id == season.id)
+        .filter(models.Event.date_end < today)
+        .order_by(models.Event.round)
+        .all()
+    )
+    if not events:
+        return []
+
+    Key = tuple[int, str]
+    running: dict[Key, float] = {}
+    info: dict[Key, dict] = {}
+    progression: dict[Key, list[dict]] = {}
+
+    roster = (
+        db.query(models.Car, models.Team)
+        .join(models.Team, models.Car.team_id == models.Team.id)
+        .filter(models.Car.race_class_id == rc.id)
+        .filter(models.Car.season_id == season.id)
+        .all()
+    )
+    for car, team in roster:
+        key = (team.id, car.number)
+        running[key] = 0.0
+        info[key] = {
+            "team_id": team.id,
+            "team_name": team.name,
+            "car_number": car.number,
+        }
+
+    for event in events:
+        race_session = (
+            db.query(models.Session)
+            .filter_by(event_id=event.id, type="RACE")
+            .first()
+        )
+        if race_session is None:
+            continue
+        rows = (
+            db.query(models.SessionResult, models.Car, models.Team)
+            .join(models.Car, models.SessionResult.car_id == models.Car.id)
+            .join(models.Team, models.Car.team_id == models.Team.id)
+            .filter(models.SessionResult.session_id == race_session.id)
+            .filter(models.Car.race_class_id == rc.id)
+            .all()
+        )
+        round_pts: dict[Key, float] = {}
+        for sr, car, team in rows:
+            cp = class_position_for(db, race_session.id, rc.id, sr.position)
+            pts = points_for(event.name, cp)
+            if pts > 0:
+                key = (team.id, car.number)
+                round_pts[key] = round_pts.get(key, 0.0) + pts
+                info.setdefault(
+                    key,
+                    {
+                        "team_id": team.id,
+                        "team_name": team.name,
+                        "car_number": car.number,
+                    },
+                )
+                running.setdefault(key, 0.0)
+        for key, pts in round_pts.items():
+            running[key] = running.get(key, 0.0) + pts
+        for key, total in running.items():
+            progression.setdefault(key, []).append(
+                {"round": event.round, "cumulative_points": total}
+            )
+
+    top = sorted(
+        progression.items(),
+        key=lambda kv: kv[1][-1]["cumulative_points"],
+        reverse=True,
+    )[:limit]
+    return [
+        schemas.TeamProgressionOut(
+            team_id=info[key]["team_id"],
+            team_name=info[key]["team_name"],
+            car_number=info[key]["car_number"],
+            points=[
+                schemas.ProgressionPointOut(
+                    round=p["round"], cumulative_points=p["cumulative_points"]
+                )
+                for p in pts
+            ],
+        )
+        for key, pts in top
+    ]
+
+
 @router.get("/manufacturers", response_model=list[schemas.StandingManufacturerOut])
 def manufacturer_standings(
     race_class: str | None = RaceClassParam,

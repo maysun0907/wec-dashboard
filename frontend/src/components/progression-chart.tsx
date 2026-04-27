@@ -11,7 +11,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { DriverProgression } from "@/lib/api";
 
 const LINE_COLORS = [
   "var(--chart-1)",
@@ -19,35 +18,40 @@ const LINE_COLORS = [
   "var(--chart-3)",
   "var(--chart-4)",
   "var(--chart-5)",
+  "var(--racing-yellow)",
+  "var(--class-lmgt3)",
+  "var(--class-lmp2)",
 ];
+
+export type Series = {
+  key: string;
+  label: string;
+  points: { round: number; cumulativePoints: number }[];
+};
 
 type ChartRow = { round: number } & Record<string, number>;
 
-function pivot(progressions: DriverProgression[]): ChartRow[] {
+function pivot(series: Series[]): ChartRow[] {
   const rounds = new Set<number>();
-  for (const p of progressions) {
-    for (const pt of p.points) rounds.add(pt.round);
+  for (const s of series) {
+    for (const pt of s.points) rounds.add(pt.round);
   }
   return Array.from(rounds)
     .sort((a, b) => a - b)
     .map((round) => {
       const row: ChartRow = { round };
-      for (const p of progressions) {
-        const pt = p.points.find((x) => x.round === round);
-        row[p.driverName] = pt?.cumulativePoints ?? 0;
+      for (const s of series) {
+        const pt = s.points.find((x) => x.round === round);
+        row[s.label] = pt?.cumulativePoints ?? 0;
       }
       return row;
     });
 }
 
-export function ProgressionChart({
-  progressions,
-}: {
-  progressions: DriverProgression[];
-}) {
-  const data = useMemo(() => pivot(progressions), [progressions]);
+export function ProgressionChart({ series }: { series: Series[] }) {
+  const data = useMemo(() => pivot(series), [series]);
 
-  if (progressions.length === 0 || data.length === 0) {
+  if (series.length === 0 || data.length === 0) {
     return (
       <div className="px-4 py-12 text-center text-sm text-muted-foreground">
         No completed rounds yet — chart will fill in as the season runs.
@@ -57,10 +61,7 @@ export function ProgressionChart({
 
   return (
     <ResponsiveContainer width="100%" height={280}>
-      <LineChart
-        data={data}
-        margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
-      >
+      <LineChart data={data} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
         <CartesianGrid stroke="var(--color-border)" strokeDasharray="3 3" />
         <XAxis
           dataKey="round"
@@ -83,16 +84,12 @@ export function ProgressionChart({
           labelFormatter={(label) => `Round ${label}`}
           formatter={(value, name) => [`${value} pts`, name]}
         />
-        <Legend
-          wrapperStyle={{ fontSize: 11 }}
-          iconType="line"
-          iconSize={14}
-        />
-        {progressions.map((p, i) => (
+        <Legend wrapperStyle={{ fontSize: 11 }} iconType="line" iconSize={14} />
+        {series.map((s, i) => (
           <Line
-            key={p.driverId}
+            key={s.key}
             type="monotone"
-            dataKey={p.driverName}
+            dataKey={s.label}
             stroke={LINE_COLORS[i % LINE_COLORS.length]}
             strokeWidth={2}
             dot={{

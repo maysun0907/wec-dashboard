@@ -231,6 +231,19 @@ class DriverProgressionOut(_BaseSchema):
     points: list[ProgressionPointOut] = []
 
 
+class ManufacturerProgressionOut(_BaseSchema):
+    manufacturer_id: int
+    manufacturer_name: str
+    points: list[ProgressionPointOut] = []
+
+
+class TeamProgressionOut(_BaseSchema):
+    team_id: int
+    team_name: str
+    car_number: str
+    points: list[ProgressionPointOut] = []
+
+
 class StandingDriverOut(_BaseSchema):
     position: int
     driver_id: int

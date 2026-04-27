@@ -17,19 +17,23 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
-import { ProgressionChart } from "@/components/progression-chart";
+import { ProgressionChart, type Series } from "@/components/progression-chart";
 import {
   RACE_CLASSES,
   getDriverProgression,
   getDriverStandings,
   getEvents,
+  getManufacturerProgression,
   getManufacturerStandings,
+  getTeamProgression,
   getTeamStandings,
   type DriverProgression,
+  type ManufacturerProgression,
   type RaceClass,
   type StandingDriver,
   type StandingTeam,
   type StandingManufacturer,
+  type TeamProgression,
 } from "@/lib/api";
 
 export const metadata = { title: "Standings" };
@@ -48,8 +52,10 @@ export default async function StandingsPage() {
     teams,
     manufacturers,
     events,
-    hyperProgression,
-    lmgt3Progression,
+    hyperDriverProg,
+    lmgt3DriverProg,
+    hyperManufacturerProg,
+    lmgt3TeamProg,
   ] = await Promise.all([
     getDriverStandings(),
     getTeamStandings(),
@@ -59,10 +65,23 @@ export default async function StandingsPage() {
     // the rest of /standings still prerenders.
     getDriverProgression("HYPERCAR").catch(() => [] as DriverProgression[]),
     getDriverProgression("LMGT3").catch(() => [] as DriverProgression[]),
+    getManufacturerProgression("HYPERCAR").catch(
+      () => [] as ManufacturerProgression[],
+    ),
+    getTeamProgression("LMGT3").catch(() => [] as TeamProgression[]),
   ]);
-  const progressionByClass: Partial<Record<RaceClass, DriverProgression[]>> = {
-    HYPERCAR: hyperProgression,
-    LMGT3: lmgt3Progression,
+
+  const driverProgByClass: Partial<Record<RaceClass, DriverProgression[]>> = {
+    HYPERCAR: hyperDriverProg,
+    LMGT3: lmgt3DriverProg,
+  };
+  const manufacturerProgByClass: Partial<
+    Record<RaceClass, ManufacturerProgression[]>
+  > = {
+    HYPERCAR: hyperManufacturerProg,
+  };
+  const teamProgByClass: Partial<Record<RaceClass, TeamProgression[]>> = {
+    LMGT3: lmgt3TeamProg,
   };
 
   const today = new Date().toISOString().slice(0, 10);
@@ -114,10 +133,29 @@ export default async function StandingsPage() {
               : cards === 2
                 ? "grid gap-6 xl:grid-cols-2"
                 : "grid gap-6";
-          const progression = progressionByClass[c] ?? [];
+          const driverProg = driverProgByClass[c] ?? [];
+          const manufacturerProg = manufacturerProgByClass[c] ?? [];
+          const teamProg = teamProgByClass[c] ?? [];
+
+          const driverSeries: Series[] = driverProg.map((p) => ({
+            key: `d-${p.driverId}`,
+            label: p.driverName,
+            points: p.points,
+          }));
+          const manufacturerSeries: Series[] = manufacturerProg.map((p) => ({
+            key: `m-${p.manufacturerId}`,
+            label: p.manufacturerName,
+            points: p.points,
+          }));
+          const teamSeries: Series[] = teamProg.map((p) => ({
+            key: `t-${p.teamId}-${p.carNumber}`,
+            label: `${p.teamName} #${p.carNumber}`,
+            points: p.points,
+          }));
+
           return (
             <TabsContent key={c} value={c} className="mt-4 space-y-6">
-              {progression.length > 0 && (
+              {driverSeries.length > 0 && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Drivers&rsquo; championship · Top 5</CardTitle>
@@ -126,7 +164,33 @@ export default async function StandingsPage() {
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pb-4">
-                    <ProgressionChart progressions={progression} />
+                    <ProgressionChart series={driverSeries} />
+                  </CardContent>
+                </Card>
+              )}
+              {manufacturerSeries.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Manufacturers&rsquo; championship</CardTitle>
+                    <CardDescription>
+                      Cumulative points by round.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pb-4">
+                    <ProgressionChart series={manufacturerSeries} />
+                  </CardContent>
+                </Card>
+              )}
+              {teamSeries.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Teams&rsquo; trophy</CardTitle>
+                    <CardDescription>
+                      Cumulative points by round (per car).
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pb-4">
+                    <ProgressionChart series={teamSeries} />
                   </CardContent>
                 </Card>
               )}
