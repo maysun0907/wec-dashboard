@@ -125,6 +125,7 @@ class SessionResultOut(_BaseSchema):
 class DriverRef(_BaseSchema):
     id: int
     name: str
+    rounds: str | None = None
 
 
 class DriverResultOut(_BaseSchema):

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
+from app.rounds import driver_in_round
 
 router = APIRouter(tags=["events"])
 
@@ -61,6 +62,7 @@ def session_results(
 
     event = db.get(models.Event, session.event_id)
     season_id = event.season_id if event else None
+    round_num = event.round if event else None
 
     results = (
         db.query(models.SessionResult)
@@ -86,6 +88,9 @@ def session_results(
             .all()
         )
         for cd, d in rows:
+            # Skip drivers whose 'Rounds' string excludes this event.
+            if round_num is not None and not driver_in_round(cd.rounds, round_num):
+                continue
             drivers_by_car.setdefault(cd.car_id, []).append(d.name)
 
     return [

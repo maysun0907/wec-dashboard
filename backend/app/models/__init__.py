@@ -114,7 +114,12 @@ class Car(Base):
 
 
 class CarDriver(Base):
-    """Junction table: which drivers race a given car in a given season."""
+    """Junction table: which drivers race a given car in a given season.
+
+    `rounds` stores the source's free-form scheduled-rounds string, e.g.
+    "1", "1-3,5-8", "All", "TBC". Use the helper in app.ingest._common to
+    test whether a given round is included.
+    """
 
     __tablename__ = "car_drivers"
 
@@ -123,6 +128,7 @@ class CarDriver(Base):
         ForeignKey("drivers.id"), primary_key=True
     )
     season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), index=True)
+    rounds: Mapped[str | None] = mapped_column(String(50), default=None)
 
     car: Mapped["Car"] = relationship()
     driver: Mapped["Driver"] = relationship()

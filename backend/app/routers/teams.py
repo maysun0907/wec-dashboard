@@ -71,8 +71,8 @@ def get_team(
     )
     cars.sort(key=lambda c: int(c.number) if c.number.isdigit() else 9999)
 
-    # Drivers per car
-    drivers_by_car: dict[int, list[models.Driver]] = {}
+    # Drivers per car — keep CarDriver alongside Driver for rounds info.
+    drivers_by_car: dict[int, list[tuple[models.CarDriver, models.Driver]]] = {}
     if cars:
         rows = (
             db.query(models.CarDriver, models.Driver)
@@ -83,7 +83,7 @@ def get_team(
             .all()
         )
         for cd, d in rows:
-            drivers_by_car.setdefault(cd.car_id, []).append(d)
+            drivers_by_car.setdefault(cd.car_id, []).append((cd, d))
 
     # Race results across all team cars, ordered by round + position
     result_rows = []
@@ -113,8 +113,8 @@ def get_team(
                 race_class=c.race_class.name,
                 model=c.model,
                 drivers=[
-                    schemas.DriverRef(id=d.id, name=d.name)
-                    for d in drivers_by_car.get(c.id, [])
+                    schemas.DriverRef(id=d.id, name=d.name, rounds=cd.rounds)
+                    for cd, d in drivers_by_car.get(c.id, [])
                 ],
             )
             for c in cars

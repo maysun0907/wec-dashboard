@@ -78,10 +78,10 @@ def get_driver(
 
     car, team, manuf, rc = row
 
-    # Co-drivers in the same car for the same season
-    co_drivers = (
-        db.query(models.Driver)
-        .join(models.CarDriver, models.CarDriver.driver_id == models.Driver.id)
+    # Co-drivers in the same car for the same season — keep rounds for each.
+    co_driver_rows = (
+        db.query(models.CarDriver, models.Driver)
+        .join(models.Driver, models.CarDriver.driver_id == models.Driver.id)
         .filter(models.CarDriver.car_id == car.id)
         .filter(models.CarDriver.season_id == season.id)
         .filter(models.Driver.id != driver_id)
@@ -118,7 +118,8 @@ def get_driver(
         race_class=rc.name,
         car_model=car.model,
         co_drivers=[
-            schemas.DriverRef(id=d.id, name=d.name) for d in co_drivers
+            schemas.DriverRef(id=d.id, name=d.name, rounds=cd.rounds)
+            for cd, d in co_driver_rows
         ],
         results=[
             schemas.DriverResultOut(

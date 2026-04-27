@@ -210,7 +210,9 @@ def parse_entries(table: Tag, race_class: str) -> list[dict]:
 
 
 def group_by_car(entries: list[dict]) -> list[dict]:
-    """Collapse driver rows into per-car aggregates."""
+    """Collapse driver rows into per-car aggregates. Each driver carries
+    the source 'Rounds' string so partial-season entries (e.g. Le Mans
+    fourth driver) can be filtered downstream."""
     grouped: dict[tuple[str, str], dict] = {}
     for e in entries:
         key = (e["entrant"], e["number"])
@@ -223,8 +225,9 @@ def group_by_car(entries: list[dict]) -> list[dict]:
                 "race_class": e["race_class"],
                 "drivers": [],
             }
-        if e["driver"] not in grouped[key]["drivers"]:
-            grouped[key]["drivers"].append(e["driver"])
+        bucket = grouped[key]["drivers"]
+        if not any(d["name"] == e["driver"] for d in bucket):
+            bucket.append({"name": e["driver"], "rounds": e.get("rounds") or None})
     return list(grouped.values())
 
 
@@ -669,11 +672,14 @@ def _ingest_entries(
         )
         db.add(car)
         db.flush()
-        for driver_name in entry["drivers"]:
-            driver = upsert_driver(db, driver_name)
+        for driver_info in entry["drivers"]:
+            driver = upsert_driver(db, driver_info["name"])
             db.add(
                 models.CarDriver(
-                    car_id=car.id, driver_id=driver.id, season_id=season_id
+                    car_id=car.id,
+                    driver_id=driver.id,
+                    season_id=season_id,
+                    rounds=driver_info.get("rounds"),
                 )
             )
             car_drivers_count += 1
