@@ -121,6 +121,7 @@ def get_driver(
         car_number=car.number,
         team=team.name,
         manufacturer=manuf.name if manuf else None,
+        manufacturer_logo_url=manuf.logo_url if manuf else None,
         race_class=rc.name,
         car_model=car.model,
         co_drivers=[

@@ -36,6 +36,11 @@ def list_teams(db: Session = Depends(get_db)) -> list[schemas.TeamEntryOut]:
             manufacturer=(
                 c.team.manufacturer.name if c.team.manufacturer is not None else None
             ),
+            manufacturer_logo_url=(
+                c.team.manufacturer.logo_url
+                if c.team.manufacturer is not None
+                else None
+            ),
         )
         for c in cars
     ]
@@ -107,6 +112,9 @@ def get_team(
         id=team.id,
         name=team.name,
         manufacturer=team.manufacturer.name if team.manufacturer else None,
+        manufacturer_logo_url=(
+            team.manufacturer.logo_url if team.manufacturer else None
+        ),
         cars=[
             schemas.TeamCarOut(
                 car_id=c.id,

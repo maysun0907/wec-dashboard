@@ -64,6 +64,11 @@ def team_standings(
             manufacturer=(
                 r.team.manufacturer.name if r.team.manufacturer is not None else None
             ),
+            manufacturer_logo_url=(
+                r.team.manufacturer.logo_url
+                if r.team.manufacturer is not None
+                else None
+            ),
             race_class=r.race_class.name,
             points=r.points,
         )
@@ -210,6 +215,7 @@ def manufacturer_standings(
             position=r.position,
             manufacturer_id=r.manufacturer_id,
             manufacturer_name=r.manufacturer.name,
+            manufacturer_logo_url=r.manufacturer.logo_url,
             race_class=r.race_class.name,
             points=r.points,
         )

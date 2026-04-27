@@ -44,6 +44,9 @@ class Manufacturer(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), unique=True)
     country: Mapped[str | None] = mapped_column(String(3), default=None)
+    # Direct URL to a logo image (Wikimedia thumbnail). Populated by the
+    # ingester from Wikipedia summary API.
+    logo_url: Mapped[str | None] = mapped_column(default=None)
 
 
 class Event(Base):

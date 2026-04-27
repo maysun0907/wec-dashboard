@@ -59,6 +59,26 @@ CIRCUIT_INFO: dict[str, tuple[str, float]] = {
     "Bahrain International Circuit": ("BHR", 5.412),
 }
 
+# Wikipedia article title per manufacturer. We resolve the article first to
+# get its `wikibase_item` (Wikidata QID) — searching Wikidata directly often
+# matches the wrong entity (e.g., 'Ferrari' → Enzo Ferrari instead of the
+# company). For motorsport-tied names, prefer the racing-arm article.
+MANUFACTURER_WP_TITLE: dict[str, str] = {
+    "Alpine": "Alpine_(automobile)",
+    "Genesis": "Genesis_Motor",
+    "McLaren": "McLaren_Racing",
+    "Aston Martin": "Aston_Martin",
+    "Mercedes-AMG": "Mercedes-AMG",
+    "Ford": "Ford_Motor_Company",
+}
+
+# Hand-picked overrides for cases where Wikidata's P154 still returns the
+# wrong image (e.g., a car photo or a trademark notice instead of a logo).
+MANUFACTURER_LOGO_OVERRIDE: dict[str, str] = {
+    "Toyota": "https://upload.wikimedia.org/wikipedia/commons/9/9d/Toyota_carlogo.svg",
+    "Genesis": "https://upload.wikimedia.org/wikipedia/en/8/83/Genesis_division_emblem.svg",
+}
+
 
 # ---------------------------------------------------------------------------
 # HTML fetch + table parsing
@@ -74,6 +94,59 @@ def fetch_html(url: str) -> str:
     )
     r.raise_for_status()
     return r.text
+
+
+def fetch_manufacturer_logo(name: str) -> str | None:
+    """Resolve a manufacturer's logo via Wikipedia → Wikidata P154.
+
+    Steps:
+    1. Manual override (curated URLs for cases Wikidata gets wrong).
+    2. Hit Wikipedia summary on a known article title to read `wikibase_item`
+       (the Wikidata QID); this avoids search ambiguity.
+    3. Fetch the P154 (logo image) claim from Wikidata.
+    4. Build a Special:FilePath URL on Wikimedia Commons.
+    """
+    if name in MANUFACTURER_LOGO_OVERRIDE:
+        return MANUFACTURER_LOGO_OVERRIDE[name]
+    title = MANUFACTURER_WP_TITLE.get(name, name.replace(" ", "_"))
+    headers = {"User-Agent": USER_AGENT}
+
+    try:
+        summary = httpx.get(
+            f"https://en.wikipedia.org/api/rest_v1/page/summary/{title}",
+            headers=headers,
+            timeout=10.0,
+        )
+        if summary.status_code != 200:
+            return None
+        qid = summary.json().get("wikibase_item")
+        if not qid:
+            return None
+    except (httpx.HTTPError, KeyError):
+        return None
+
+    try:
+        claims = httpx.get(
+            "https://www.wikidata.org/w/api.php",
+            params={
+                "action": "wbgetclaims",
+                "entity": qid,
+                "property": "P154",
+                "format": "json",
+            },
+            headers=headers,
+            timeout=10.0,
+        )
+        if claims.status_code != 200:
+            return None
+        rows = claims.json().get("claims", {}).get("P154", [])
+        if not rows:
+            return None
+        filename = rows[0]["mainsnak"]["datavalue"]["value"]
+    except (httpx.HTTPError, KeyError):
+        return None
+
+    return f"https://commons.wikimedia.org/wiki/Special:FilePath/{filename.replace(' ', '_')}"
 
 
 _REF_RE = re.compile(r"\s*\[\s*\d+\s*\]\s*")
@@ -682,6 +755,10 @@ def _ingest_entries(
     car_drivers_count = 0
     for entry in hyper + lmgt3:
         manuf = upsert_manufacturer(db, _extract_manufacturer(entry["car"]))
+        if not manuf.logo_url:
+            logo = fetch_manufacturer_logo(manuf.name)
+            if logo:
+                manuf.logo_url = logo
         team = upsert_team(db, entry["entrant"], manufacturer_id=manuf.id)
         car = models.Car(
             season_id=season_id,

@@ -74,6 +74,7 @@ class TeamEntryOut(_BaseSchema):
     car_number: str
     race_class: str
     manufacturer: str | None = None
+    manufacturer_logo_url: str | None = None
 
 
 # --- Schedule / results ---
@@ -156,6 +157,7 @@ class DriverDetailOut(_BaseSchema):
     car_number: str | None = None
     team: str | None = None
     manufacturer: str | None = None
+    manufacturer_logo_url: str | None = None
     race_class: str | None = None
     car_model: str | None = None
     co_drivers: list[DriverRef] = []
@@ -188,6 +190,7 @@ class TeamDetailOut(_BaseSchema):
     id: int
     name: str
     manufacturer: str | None = None
+    manufacturer_logo_url: str | None = None
     cars: list[TeamCarOut] = []
     results: list[TeamResultOut] = []
 
@@ -242,6 +245,7 @@ class StandingTeamOut(_BaseSchema):
     team_name: str
     car_number: str | None = None
     manufacturer: str | None = None
+    manufacturer_logo_url: str | None = None
     race_class: str
     points: float
 
@@ -250,5 +254,6 @@ class StandingManufacturerOut(_BaseSchema):
     position: int
     manufacturer_id: int
     manufacturer_name: str
+    manufacturer_logo_url: str | None = None
     race_class: str
     points: float
