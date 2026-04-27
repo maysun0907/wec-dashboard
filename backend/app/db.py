@@ -5,7 +5,16 @@ from app.config import settings
 
 
 class Base(DeclarativeBase):
-    pass
+    def __repr__(self) -> str:
+        cls = type(self).__name__
+        pk_cols = [c.name for c in self.__table__.primary_key.columns]
+        pk_str = ", ".join(
+            f"{c}={getattr(self, c, None)!r}" for c in pk_cols
+        )
+        name = getattr(self, "name", None)
+        if name is not None:
+            return f"{cls}({pk_str}, name={name!r})"
+        return f"{cls}({pk_str})"
 
 
 def _normalize_db_url(url: str) -> str:
