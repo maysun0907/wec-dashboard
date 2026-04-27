@@ -42,6 +42,9 @@ MANUFACTURERS = [
     {"slug": "cadillac", "name": "Cadillac", "country": "USA"},
     {"slug": "bmw", "name": "BMW", "country": "DEU"},
     {"slug": "alpine", "name": "Alpine", "country": "FRA"},
+    {"slug": "oreca", "name": "Oreca", "country": "FRA"},
+    {"slug": "mclaren", "name": "McLaren", "country": "GBR"},
+    {"slug": "mercedes", "name": "Mercedes-AMG", "country": "DEU"},
 ]
 
 TEAMS = [
@@ -55,16 +58,45 @@ TEAMS = [
     {"slug": "cadillac-12", "name": "Cadillac Hertz Team Jota", "manufacturer": "cadillac", "car_number": 12, "race_class": "HYPERCAR"},
     {"slug": "bmw-15", "name": "BMW M Team WRT", "manufacturer": "bmw", "car_number": 15, "race_class": "HYPERCAR"},
     {"slug": "alpine-36", "name": "Alpine Endurance Team", "manufacturer": "alpine", "car_number": 36, "race_class": "HYPERCAR"},
+    # LMP2 — privateer prototypes on Oreca 07 chassis
+    {"slug": "ao-tf-22", "name": "AO by TF", "manufacturer": "oreca", "car_number": 22, "race_class": "LMP2"},
+    {"slug": "ieurop-43", "name": "Inter Europol Competition", "manufacturer": "oreca", "car_number": 43, "race_class": "LMP2"},
+    {"slug": "vector-10", "name": "Vector Sport", "manufacturer": "oreca", "car_number": 10, "race_class": "LMP2"},
+    {"slug": "idec-28", "name": "IDEC Sport", "manufacturer": "oreca", "car_number": 28, "race_class": "LMP2"},
+    {"slug": "nielsen-24", "name": "Nielsen Racing", "manufacturer": "oreca", "car_number": 24, "race_class": "LMP2"},
+    # LMGT3
+    {"slug": "manthey-92", "name": "Manthey EMA", "manufacturer": "porsche", "car_number": 92, "race_class": "LMGT3"},
+    {"slug": "wrt-46", "name": "Team WRT", "manufacturer": "bmw", "car_number": 46, "race_class": "LMGT3"},
+    {"slug": "vista-21", "name": "Vista AF Corse", "manufacturer": "ferrari", "car_number": 21, "race_class": "LMGT3"},
+    {"slug": "united-59", "name": "United Autosports", "manufacturer": "mclaren", "car_number": 59, "race_class": "LMGT3"},
+    {"slug": "ironlynx-77", "name": "Iron Dames", "manufacturer": "mercedes", "car_number": 77, "race_class": "LMGT3"},
 ]
 
 # Approximate model names for current Hypercar field
 CAR_MODELS = {
-    "ferrari": "Ferrari 499P",
-    "toyota": "Toyota GR010 Hybrid",
-    "porsche": "Porsche 963",
-    "cadillac": "Cadillac V-Series.R",
-    "bmw": "BMW M Hybrid V8",
-    "alpine": "Alpine A424",
+    # Hypercar
+    "ferrari-51": "Ferrari 499P",
+    "ferrari-50": "Ferrari 499P",
+    "ferrari-83": "Ferrari 499P",
+    "toyota-7": "Toyota GR010 Hybrid",
+    "toyota-8": "Toyota GR010 Hybrid",
+    "porsche-6": "Porsche 963",
+    "porsche-5": "Porsche 963",
+    "cadillac-12": "Cadillac V-Series.R",
+    "bmw-15": "BMW M Hybrid V8",
+    "alpine-36": "Alpine A424",
+    # LMP2
+    "ao-tf-22": "Oreca 07",
+    "ieurop-43": "Oreca 07",
+    "vector-10": "Oreca 07",
+    "idec-28": "Oreca 07",
+    "nielsen-24": "Oreca 07",
+    # LMGT3
+    "manthey-92": "Porsche 911 GT3 R",
+    "wrt-46": "BMW M4 GT3 EVO",
+    "vista-21": "Ferrari 296 GT3",
+    "united-59": "McLaren 720S GT3 EVO",
+    "ironlynx-77": "Mercedes-AMG GT3",
 }
 
 DRIVERS = [
@@ -132,6 +164,11 @@ SESSION_RESULTS = {
         (3, "toyota-7", "+15.207", 174),
         (4, "porsche-6", "+22.843", 174),
         (5, "ferrari-50", "+31.106", 174),
+        (6, "manthey-92", "+1 lap", 165),
+        (7, "wrt-46", "+1 lap", 165),
+        (8, "vista-21", "+1 lap", 165),
+        (9, "united-59", "+1 lap", 165),
+        (10, "ironlynx-77", "+1 lap", 165),
     ],
 }
 
@@ -263,13 +300,12 @@ def _seed_cars(db, season_ids, team_ids, class_ids):
     """One car per team, slug-keyed by team slug (which encodes #number)."""
     car_ids: dict[str, int] = {}
     for t in TEAMS:
-        manuf = t["manufacturer"]
         obj = models.Car(
             season_id=season_ids["s2026"],
             team_id=team_ids[t["slug"]],
             race_class_id=class_ids[t["race_class"]],
             number=t["car_number"],
-            model=CAR_MODELS.get(manuf),
+            model=CAR_MODELS.get(t["slug"]),
         )
         db.add(obj)
         db.flush()
