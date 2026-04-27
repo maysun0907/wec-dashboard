@@ -175,6 +175,7 @@ export type StandingTeam = {
   position: number;
   teamId: number;
   teamName: string;
+  carNumber: string | null;
   manufacturer: string | null;
   raceClass: RaceClass;
   points: number;
