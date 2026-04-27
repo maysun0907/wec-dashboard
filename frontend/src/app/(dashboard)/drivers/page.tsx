@@ -12,28 +12,70 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
-import { getDrivers } from "@/lib/api";
+import {
+  RACE_CLASSES,
+  getDrivers,
+  type DriverEntry,
+  type RaceClass,
+} from "@/lib/api";
 
 export const metadata = { title: "Drivers" };
 
+function groupByClass(drivers: DriverEntry[]): Record<RaceClass, DriverEntry[]> {
+  const out: Record<RaceClass, DriverEntry[]> = {
+    HYPERCAR: [],
+    LMP2: [],
+    LMGT3: [],
+  };
+  for (const d of drivers) out[d.raceClass].push(d);
+  return out;
+}
+
 export default async function DriversPage() {
   const drivers = await getDrivers();
+  const byClass = groupByClass(drivers);
 
   return (
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Drivers</h1>
         <p className="text-muted-foreground">
-          {drivers.length} entries shown · 2026 season
+          {drivers.length} entries · 2026 season
         </p>
       </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Hypercar drivers</CardTitle>
-        </CardHeader>
-        <CardContent className="px-0">
+      <Tabs defaultValue="HYPERCAR">
+        <TabsList>
+          {RACE_CLASSES.map((c) => (
+            <TabsTrigger key={c} value={c}>
+              {c} · {byClass[c].length}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {RACE_CLASSES.map((c) => (
+          <TabsContent key={c} value={c} className="mt-4">
+            <DriversTable drivers={byClass[c]} />
+          </TabsContent>
+        ))}
+      </Tabs>
+    </div>
+  );
+}
+
+function DriversTable({ drivers }: { drivers: DriverEntry[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Entries</CardTitle>
+      </CardHeader>
+      <CardContent className="px-0">
+        {drivers.length === 0 ? (
+          <p className="px-4 pb-4 text-sm text-muted-foreground">
+            No drivers in this class yet.
+          </p>
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -64,8 +106,8 @@ export default async function DriversPage() {
               ))}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

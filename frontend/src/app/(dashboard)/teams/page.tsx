@@ -12,28 +12,70 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
-import { getTeams } from "@/lib/api";
+import {
+  RACE_CLASSES,
+  getTeams,
+  type RaceClass,
+  type TeamEntry,
+} from "@/lib/api";
 
 export const metadata = { title: "Teams" };
 
+function groupByClass(teams: TeamEntry[]): Record<RaceClass, TeamEntry[]> {
+  const out: Record<RaceClass, TeamEntry[]> = {
+    HYPERCAR: [],
+    LMP2: [],
+    LMGT3: [],
+  };
+  for (const t of teams) out[t.raceClass].push(t);
+  return out;
+}
+
 export default async function TeamsPage() {
   const teams = await getTeams();
+  const byClass = groupByClass(teams);
 
   return (
     <div className="space-y-6">
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Teams</h1>
         <p className="text-muted-foreground">
-          {teams.length} entries shown · 2026 season
+          {teams.length} entries · 2026 season
         </p>
       </header>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Entries</CardTitle>
-        </CardHeader>
-        <CardContent className="px-0">
+      <Tabs defaultValue="HYPERCAR">
+        <TabsList>
+          {RACE_CLASSES.map((c) => (
+            <TabsTrigger key={c} value={c}>
+              {c} · {byClass[c].length}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {RACE_CLASSES.map((c) => (
+          <TabsContent key={c} value={c} className="mt-4">
+            <TeamsTable teams={byClass[c]} />
+          </TabsContent>
+        ))}
+      </Tabs>
+    </div>
+  );
+}
+
+function TeamsTable({ teams }: { teams: TeamEntry[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Entries</CardTitle>
+      </CardHeader>
+      <CardContent className="px-0">
+        {teams.length === 0 ? (
+          <p className="px-4 pb-4 text-sm text-muted-foreground">
+            No teams in this class yet.
+          </p>
+        ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -60,8 +102,8 @@ export default async function TeamsPage() {
               ))}
             </TableBody>
           </Table>
-        </CardContent>
-      </Card>
-    </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
