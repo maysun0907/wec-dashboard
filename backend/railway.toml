@@ -12,3 +12,4 @@ preDeployCommand = "alembic upgrade head"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
+# trigger redeploy
