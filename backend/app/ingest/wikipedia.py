@@ -72,11 +72,19 @@ MANUFACTURER_WP_TITLE: dict[str, str] = {
     "Ford": "Ford_Motor_Company",
 }
 
-# Hand-picked overrides for cases where Wikidata's P154 still returns the
-# wrong image (e.g., a car photo or a trademark notice instead of a logo).
+# Hand-picked overrides. Wikidata's P154 often returns wordmark logos for
+# big brands; a motorsport dashboard reads better with iconic badges. URLs
+# below have been verified to return 200.
 MANUFACTURER_LOGO_OVERRIDE: dict[str, str] = {
     "Toyota": "https://upload.wikimedia.org/wikipedia/commons/9/9d/Toyota_carlogo.svg",
     "Genesis": "https://upload.wikimedia.org/wikipedia/en/8/83/Genesis_division_emblem.svg",
+    # Wordmark → iconic badge:
+    "Ferrari": "https://upload.wikimedia.org/wikipedia/en/3/36/Prancing_horse.svg",
+    "Peugeot": "https://upload.wikimedia.org/wikipedia/en/9/9d/Peugeot_2021_Logo.svg",
+    "Cadillac": "https://upload.wikimedia.org/wikipedia/en/6/66/Cadillac_logo_BW.svg",
+    "BMW": "https://commons.wikimedia.org/wiki/Special:FilePath/BMW.svg",
+    "Porsche": "https://upload.wikimedia.org/wikipedia/en/c/c2/Porsche_Logo_2024.png",
+    "Aston Martin": "https://upload.wikimedia.org/wikipedia/en/8/8f/Aston_Martin_Lagonda_brand_logo.svg",
 }
 
 
