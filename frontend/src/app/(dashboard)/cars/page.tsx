@@ -1,0 +1,138 @@
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ClassBadge } from "@/components/class-badge";
+import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import { RACE_CLASSES, getTeams, type RaceClass, type TeamEntry } from "@/lib/api";
+
+export const metadata = { title: "Cars" };
+
+type CarModelEntry = {
+  model: string;
+  manufacturer: string | null;
+  manufacturerLogoUrl: string | null;
+  raceClass: RaceClass;
+  cars: { teamName: string; teamId: number; carNumber: string }[];
+};
+
+/** Shape teams data (one per car) into one entry per car model. */
+function groupByModel(teams: TeamEntry[]): CarModelEntry[] {
+  // The /api/v1/teams endpoint doesn't include car model — pull from the
+  // team's car directly. As a fallback we use manufacturer name.
+  // For now, rely on the team's manufacturer + a generic label per class.
+  const map = new Map<string, CarModelEntry>();
+  for (const t of teams) {
+    // Use manufacturer name as the grouping key when model isn't surfaced.
+    const key = `${t.raceClass}::${t.manufacturer ?? t.name}`;
+    let entry = map.get(key);
+    if (!entry) {
+      entry = {
+        model: t.manufacturer ?? t.name,
+        manufacturer: t.manufacturer,
+        manufacturerLogoUrl: t.manufacturerLogoUrl,
+        raceClass: t.raceClass,
+        cars: [],
+      };
+      map.set(key, entry);
+    }
+    entry.cars.push({
+      teamName: t.name,
+      teamId: t.id,
+      carNumber: t.carNumber,
+    });
+  }
+  return Array.from(map.values());
+}
+
+export default async function CarsPage() {
+  const teams = await getTeams();
+  const all = groupByModel(teams);
+
+  return (
+    <div className="space-y-6">
+      <header className="space-y-1">
+        <h1 className="text-3xl font-bold tracking-tight">Cars</h1>
+        <p className="text-muted-foreground">
+          {all.length} car models · 2026 season
+        </p>
+      </header>
+
+      <Tabs defaultValue="HYPERCAR">
+        <TabsList>
+          {RACE_CLASSES.map((c) => (
+            <TabsTrigger key={c} value={c}>
+              {c} · {all.filter((m) => m.raceClass === c).length}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        {RACE_CLASSES.map((c) => {
+          const models = all
+            .filter((m) => m.raceClass === c)
+            .sort((a, b) => a.model.localeCompare(b.model));
+          return (
+            <TabsContent key={c} value={c} className="mt-4">
+              {models.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No cars in this class.
+                </p>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {models.map((m) => (
+                    <ModelCard key={`${m.raceClass}-${m.model}`} entry={m} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          );
+        })}
+      </Tabs>
+    </div>
+  );
+}
+
+function ModelCard({ entry }: { entry: CarModelEntry }) {
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center gap-3 space-y-0">
+        <ManufacturerLogo
+          src={entry.manufacturerLogoUrl}
+          name={entry.manufacturer ?? entry.model}
+          size="md"
+        />
+        <div className="min-w-0 flex-1 space-y-1">
+          <CardTitle className="truncate">{entry.model}</CardTitle>
+          <CardDescription>
+            {entry.manufacturer ?? "Independent"}
+          </CardDescription>
+        </div>
+        <ClassBadge raceClass={entry.raceClass} />
+      </CardHeader>
+      <CardContent>
+        <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
+          Entries · {entry.cars.length}
+        </p>
+        <ul className="space-y-1 text-sm">
+          {entry.cars
+            .slice()
+            .sort((a, b) => Number(a.carNumber) - Number(b.carNumber))
+            .map((c) => (
+              <li
+                key={`${c.teamId}-${c.carNumber}`}
+                className="flex items-center gap-2"
+              >
+                <span className="w-10 shrink-0 font-mono text-muted-foreground tabular-nums">
+                  #{c.carNumber}
+                </span>
+                <span className="truncate">{c.teamName}</span>
+              </li>
+            ))}
+        </ul>
+      </CardContent>
+    </Card>
+  );
+}

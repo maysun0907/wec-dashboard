@@ -20,6 +20,7 @@ const LINKS = [
   { href: "/standings", label: "Standings" },
   { href: "/drivers", label: "Drivers" },
   { href: "/teams", label: "Teams" },
+  { href: "/cars", label: "Cars" },
   { href: "/circuits", label: "Circuits" },
 ];
 
