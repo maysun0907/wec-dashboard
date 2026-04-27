@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClassBadge } from "@/components/class-badge";
-import { getTeam, type TeamDetail } from "@/lib/api";
+import { describeRounds, getTeam, type TeamDetail } from "@/lib/api";
 
 type Params = { id: string };
 
@@ -99,16 +99,24 @@ export default async function TeamDetailPage({
                   </p>
                 ) : (
                   <ul className="space-y-2 text-sm">
-                    {c.drivers.map((d) => (
-                      <li key={d.id}>
-                        <Link
-                          href={`/drivers/${d.id}`}
-                          className="hover:text-[var(--racing-red)]"
-                        >
-                          {d.name}
-                        </Link>
-                      </li>
-                    ))}
+                    {c.drivers.map((d) => {
+                      const tag = describeRounds(d.rounds);
+                      return (
+                        <li key={d.id} className="flex items-center gap-2">
+                          <Link
+                            href={`/drivers/${d.id}`}
+                            className="hover:text-[var(--racing-red)]"
+                          >
+                            {d.name}
+                          </Link>
+                          {tag && (
+                            <span className="rounded bg-secondary px-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                              {tag}
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
                   </ul>
                 )}
               </CardContent>

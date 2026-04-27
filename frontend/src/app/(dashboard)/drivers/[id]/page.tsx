@@ -17,7 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClassBadge } from "@/components/class-badge";
-import { getDriver, type DriverDetail } from "@/lib/api";
+import { describeRounds, getDriver, type DriverDetail } from "@/lib/api";
 
 type Params = { id: string };
 
@@ -118,16 +118,24 @@ export default async function DriverDetailPage({
               </p>
             ) : (
               <ul className="space-y-2 text-sm">
-                {driver.coDrivers.map((c) => (
-                  <li key={c.id}>
-                    <Link
-                      href={`/drivers/${c.id}`}
-                      className="hover:text-[var(--racing-red)]"
-                    >
-                      {c.name}
-                    </Link>
-                  </li>
-                ))}
+                {driver.coDrivers.map((c) => {
+                  const tag = describeRounds(c.rounds);
+                  return (
+                    <li key={c.id} className="flex items-center gap-2">
+                      <Link
+                        href={`/drivers/${c.id}`}
+                        className="hover:text-[var(--racing-red)]"
+                      >
+                        {c.name}
+                      </Link>
+                      {tag && (
+                        <span className="rounded bg-secondary px-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                          {tag}
+                        </span>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </CardContent>

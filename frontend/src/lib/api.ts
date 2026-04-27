@@ -60,7 +60,20 @@ export type DriverEntry = {
   raceClass: RaceClass;
 };
 
-export type DriverRef = { id: number; name: string };
+export type DriverRef = {
+  id: number;
+  name: string;
+  rounds?: string | null;
+};
+
+/** Returns a short human-readable rounds tag (e.g., 'TBC', '1-3', '1') or
+ *  null when the driver is on the full-season entry list. */
+export function describeRounds(rounds?: string | null): string | null {
+  if (!rounds) return null;
+  const lower = rounds.trim().toLowerCase();
+  if (lower === "" || lower === "all" || lower === "various") return null;
+  return rounds.trim();
+}
 
 export type DriverResult = {
   eventId: number;
