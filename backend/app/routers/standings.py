@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
@@ -6,9 +6,12 @@ from app.db import get_db
 
 router = APIRouter(prefix="/standings", tags=["standings"])
 
+# URL query alias — frontend sends ?raceClass=HYPERCAR (camelCase) to match
+# the rest of the camelCase API surface.
+RaceClassParam = Query(None, alias="raceClass")
+
 
 def _class_filter(query, model, race_class: str | None):
-    """Apply ?race_class=HYPERCAR style filter via the race_class relationship."""
     if race_class is None:
         return query
     return query.filter(model.race_class.has(name=race_class.upper()))
@@ -16,7 +19,7 @@ def _class_filter(query, model, race_class: str | None):
 
 @router.get("/drivers", response_model=list[schemas.StandingDriverOut])
 def driver_standings(
-    race_class: str | None = None,
+    race_class: str | None = RaceClassParam,
     db: Session = Depends(get_db),
 ) -> list[schemas.StandingDriverOut]:
     q = db.query(models.StandingDriver).options(
@@ -39,7 +42,7 @@ def driver_standings(
 
 @router.get("/teams", response_model=list[schemas.StandingTeamOut])
 def team_standings(
-    race_class: str | None = None,
+    race_class: str | None = RaceClassParam,
     db: Session = Depends(get_db),
 ) -> list[schemas.StandingTeamOut]:
     q = db.query(models.StandingTeam).options(
@@ -65,7 +68,7 @@ def team_standings(
 
 @router.get("/manufacturers", response_model=list[schemas.StandingManufacturerOut])
 def manufacturer_standings(
-    race_class: str | None = None,
+    race_class: str | None = RaceClassParam,
     db: Session = Depends(get_db),
 ) -> list[schemas.StandingManufacturerOut]:
     q = db.query(models.StandingManufacturer).options(
