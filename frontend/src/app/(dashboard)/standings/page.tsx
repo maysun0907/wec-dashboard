@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -60,6 +61,12 @@ export default async function StandingsPage() {
             2026 season · After R{completedRounds}
           </p>
         </div>
+        <Link
+          href="/standings/simulator"
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          Open simulator →
+        </Link>
       </header>
 
       <Tabs defaultValue="HYPERCAR">
