@@ -85,8 +85,12 @@ def _clean(text: str) -> str:
     return text.replace("\xa0", " ").strip()
 
 
-def expand_rowspan(table: Tag) -> list[list[str]]:
-    """Resolve rowspan/colspan into a uniform 2D grid of cell text."""
+def expand_rowspan(table: Tag, text_sep: str = " ") -> list[list[str]]:
+    """Resolve rowspan/colspan into a uniform 2D grid of cell text.
+
+    `text_sep` controls how text nodes within a single cell are joined.
+    Use ``"\n"`` to preserve `<br>`/list-style separation (e.g., a Drivers
+    column listing three names on three lines)."""
     rows_out: list[list[str]] = []
     pending: dict[int, tuple[str, int]] = {}  # col_idx -> (value, remaining)
     for tr in table.find_all("tr"):
@@ -106,7 +110,7 @@ def expand_rowspan(table: Tag) -> list[list[str]]:
                 continue
             td = cells[ci]
             ci += 1
-            value = _clean(td.get_text(" ", strip=True))
+            value = _clean(td.get_text(text_sep, strip=True))
             rs = int(td.get("rowspan") or 1)
             cs = int(td.get("colspan") or 1)
             for _ in range(cs):
@@ -367,22 +371,26 @@ def parse_race_classification(soup: BeautifulSoup) -> list[dict]:
     if table is None:
         return []
 
-    rows = expand_rowspan(table)
+    # Use newline separator so the multi-name Drivers cell stays parseable.
+    rows = expand_rowspan(table, text_sep="\n")
     if not rows:
         return []
-    header = rows[0]
+    header = [h.replace("\n", " ").strip() for h in rows[0]]
     cols = {h: i for i, h in enumerate(header)}
 
     pos_key = next((k for k in ("Pos", "Pos.") if k in cols), None)
     if pos_key is None or "Class" not in cols or "No." not in cols:
         return []
 
+    def flatten(s: str) -> str:
+        return s.replace("\n", " ").strip()
+
     out: list[dict] = []
     seen: set[tuple[int, str]] = set()
     for row in rows[1:]:
         if len(row) < len(header):
             continue
-        pos_raw = row[cols[pos_key]].strip()
+        pos_raw = flatten(row[cols[pos_key]])
         if not pos_raw.isdigit():
             continue  # skip DSQ/DNF/etc. rows
         time_key = next(
@@ -390,15 +398,23 @@ def parse_race_classification(soup: BeautifulSoup) -> list[dict]:
             None,
         )
         laps_key = "Laps" if "Laps" in cols else None
+        drivers_key = "Drivers" if "Drivers" in cols else None
         try:
+            drivers_raw = row[cols[drivers_key]] if drivers_key else ""
+            drivers_norm = (
+                " / ".join(p.strip() for p in drivers_raw.split("\n") if p.strip())
+                if drivers_raw
+                else ""
+            )
             entry = {
                 "position": int(pos_raw),
-                "class": row[cols["Class"]],
-                "number": row[cols["No."]].strip(),
-                "laps": row[cols[laps_key]].strip() if laps_key else "",
+                "class": flatten(row[cols["Class"]]),
+                "number": flatten(row[cols["No."]]),
+                "laps": flatten(row[cols[laps_key]]) if laps_key else "",
                 "gap": (
-                    row[cols[time_key]].strip().rstrip("‡†*") if time_key else ""
+                    flatten(row[cols[time_key]]).rstrip("‡†*") if time_key else ""
                 ),
+                "drivers": drivers_norm,
             }
         except IndexError:
             continue
@@ -809,6 +825,7 @@ def _ingest_race_classifications(
                     position=r["position"],
                     laps=laps,
                     gap=r["gap"] or None,
+                    drivers=r.get("drivers") or None,
                 )
             )
             inserted += 1

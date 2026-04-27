@@ -146,6 +146,10 @@ class SessionResult(Base):
     gap: Mapped[str | None] = mapped_column(String(20), default=None)
     best_lap: Mapped[str | None] = mapped_column(String(20), default=None)
     status: Mapped[str | None] = mapped_column(String(50), default=None)
+    # Slash-joined names of drivers who actually raced this car in this
+    # session. Populated from race-page classification when available;
+    # falls back to round-filtered car_drivers join in the API layer.
+    drivers: Mapped[str | None] = mapped_column(String(300), default=None)
 
     session: Mapped["Session"] = relationship()
     car: Mapped["Car"] = relationship()

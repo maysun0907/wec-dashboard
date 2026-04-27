@@ -75,6 +75,9 @@ def session_results(
         .all()
     )
 
+    # Per-result drivers come from the race classification when ingested;
+    # otherwise we reconstruct from car_drivers, filtered by event round so
+    # TBC / Le-Mans-only drivers don't bleed into other rounds.
     drivers_by_car: dict[int, list[str]] = {}
     if results and season_id is not None:
         car_ids = [r.car_id for r in results]
@@ -88,7 +91,6 @@ def session_results(
             .all()
         )
         for cd, d in rows:
-            # Skip drivers whose 'Rounds' string excludes this event.
             if round_num is not None and not driver_in_round(cd.rounds, round_num):
                 continue
             drivers_by_car.setdefault(cd.car_id, []).append(d.name)
@@ -98,7 +100,7 @@ def session_results(
             position=r.position,
             car_number=r.car.number,
             team=r.car.team.name,
-            drivers=" / ".join(drivers_by_car.get(r.car_id, [])),
+            drivers=r.drivers or " / ".join(drivers_by_car.get(r.car_id, [])),
             race_class=r.car.race_class.name,
             laps=r.laps,
             gap=r.gap,
