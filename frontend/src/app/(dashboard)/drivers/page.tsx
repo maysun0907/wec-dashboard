@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -92,7 +93,14 @@ function DriversTable({ drivers }: { drivers: DriverEntry[] }) {
                   <TableCell className="pl-4 font-mono tabular-nums">
                     {d.carNumber}
                   </TableCell>
-                  <TableCell className="font-medium">{d.name}</TableCell>
+                  <TableCell className="font-medium">
+                    <Link
+                      href={`/drivers/${d.id}`}
+                      className="hover:text-[var(--racing-red)]"
+                    >
+                      {d.name}
+                    </Link>
+                  </TableCell>
                   <TableCell className="hidden text-muted-foreground md:table-cell">
                     {d.team}
                   </TableCell>

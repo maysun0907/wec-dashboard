@@ -99,6 +99,7 @@ export default async function StandingsPage() {
                     key: `d-${r.driverId}`,
                     position: r.position,
                     name: r.driverName,
+                    href: `/drivers/${r.driverId}`,
                     detail: undefined,
                     points: r.points,
                   }))}
@@ -143,6 +144,7 @@ type Row = {
   key: string;
   position: number;
   name: string;
+  href?: string;
   detail?: string;
   points: number;
 };
@@ -187,7 +189,18 @@ function StandingsTable({
                     {r.position}
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">{r.name}</div>
+                    <div className="font-medium">
+                      {r.href ? (
+                        <Link
+                          href={r.href}
+                          className="hover:text-[var(--racing-red)]"
+                        >
+                          {r.name}
+                        </Link>
+                      ) : (
+                        r.name
+                      )}
+                    </div>
                     {r.detail && (
                       <div className="text-xs text-muted-foreground">
                         {r.detail}

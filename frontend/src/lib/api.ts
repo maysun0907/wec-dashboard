@@ -60,6 +60,36 @@ export type DriverEntry = {
   raceClass: RaceClass;
 };
 
+export type DriverRef = { id: number; name: string };
+
+export type DriverResult = {
+  eventId: number;
+  round: number;
+  eventName: string;
+  position: number;
+  laps: number | null;
+  gap: string | null;
+};
+
+export type DriverStandingRef = {
+  position: number;
+  points: number;
+};
+
+export type DriverDetail = {
+  id: number;
+  name: string;
+  nationality: string | null;
+  carNumber: string | null;
+  team: string | null;
+  manufacturer: string | null;
+  raceClass: RaceClass | null;
+  carModel: string | null;
+  coDrivers: DriverRef[];
+  results: DriverResult[];
+  standing: DriverStandingRef | null;
+};
+
 export type TeamEntry = {
   id: number;
   name: string;
@@ -115,6 +145,9 @@ export const getCircuits = () =>
 
 export const getDrivers = () =>
   api<DriverEntry[]>("/api/v1/drivers", { revalidate: 3600 });
+
+export const getDriver = (id: number) =>
+  api<DriverDetail>(`/api/v1/drivers/${id}`, { revalidate: 600 });
 
 export const getTeams = () =>
   api<TeamEntry[]>("/api/v1/teams", { revalidate: 3600 });
