@@ -283,6 +283,117 @@ def parse_calendar(table: Tag, year: int) -> list[dict]:
 _NO_RE = re.compile(r"^No\.\s+(\d+)\s+(.+)$")
 
 
+def parse_race_report_urls(table: Tag) -> dict[int, str]:
+    """From the season page's 'Race results' table, extract each round's
+    Wikipedia race-page URL (the 'Report' column anchor). Skips redlinks
+    (pages that don't exist yet — e.g., upcoming rounds)."""
+    out: dict[int, str] = {}
+    for tr in table.find_all("tr"):
+        cells = tr.find_all(["th", "td"])
+        if len(cells) < 2:
+            continue
+        rnd_text = _clean(cells[0].get_text(" ", strip=True))
+        if not rnd_text.isdigit():
+            continue
+        a = cells[-1].find("a", href=True)
+        if a is None:
+            continue
+        href = a["href"]
+        # Wikipedia redlinks point to an edit URL — skip future races.
+        if "action=edit" in href or "redlink=1" in href:
+            continue
+        if href.startswith("/wiki/"):
+            href = "https://en.wikipedia.org" + href
+        elif not href.startswith("http"):
+            continue
+        out[int(rnd_text)] = href
+    return out
+
+
+def _normalize_class(raw: str) -> str | None:
+    s = raw.strip().upper().replace(" ", "")
+    if s in {"H", "HYPERCAR"}:
+        return "HYPERCAR"
+    if s in {"GT3", "LMGT3"}:
+        return "LMGT3"
+    if s == "LMP2":
+        return "LMP2"
+    return None
+
+
+def parse_race_classification(soup: BeautifulSoup) -> list[dict]:
+    """Parse a single race page's classification table.
+
+    Race pages use one combined table covering all classes; rows are sorted
+    by overall position. Class column distinguishes Hypercar from LMGT3.
+    """
+    table = find_table_by_heading(soup, "Race")
+    # Fall back to first wikitable that has Pos + Class + No. + Drivers
+    if table is None:
+        for t in soup.select("table.wikitable"):
+            first_tr = t.find("tr")
+            if first_tr is None:
+                continue
+            headers = [
+                _clean(h.get_text(" ", strip=True))
+                for h in first_tr.find_all(["th", "td"])
+            ]
+            if (
+                any("Pos" in h for h in headers)
+                and "Class" in headers
+                and "No." in headers
+                and "Drivers" in headers
+            ):
+                table = t
+                break
+    if table is None:
+        return []
+
+    rows = expand_rowspan(table)
+    if not rows:
+        return []
+    header = rows[0]
+    cols = {h: i for i, h in enumerate(header)}
+
+    pos_key = next((k for k in ("Pos", "Pos.") if k in cols), None)
+    if pos_key is None or "Class" not in cols or "No." not in cols:
+        return []
+
+    out: list[dict] = []
+    seen: set[tuple[int, str]] = set()
+    for row in rows[1:]:
+        if len(row) < len(header):
+            continue
+        pos_raw = row[cols[pos_key]].strip()
+        if not pos_raw.isdigit():
+            continue  # skip DSQ/DNF/etc. rows
+        time_key = next(
+            (k for k in ("Time/Retired", "Time / Retired", "Time") if k in cols),
+            None,
+        )
+        laps_key = "Laps" if "Laps" in cols else None
+        try:
+            entry = {
+                "position": int(pos_raw),
+                "class": row[cols["Class"]],
+                "number": row[cols["No."]].strip(),
+                "laps": row[cols[laps_key]].strip() if laps_key else "",
+                "gap": (
+                    row[cols[time_key]].strip().rstrip("‡†*") if time_key else ""
+                ),
+            }
+        except IndexError:
+            continue
+        # Wikipedia race tables sometimes split each entry across two rows
+        # (drivers + crew details); dedupe by (position, car number).
+        key = (entry["position"], entry["number"])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(entry)
+    return out
+
+
 def parse_results_summary(table: Tag) -> dict[int, dict]:
     """Extract winning car number + team for each round, per class.
 
@@ -552,6 +663,9 @@ def _ingest_entries(
 def _ingest_results_summary(
     soup: BeautifulSoup, db: Session, season_id: int, race_class_ids: dict[str, int]
 ) -> int:
+    """Create a RACE session per completed round and write the winner row.
+    The detailed classification ingester replaces these with full grids
+    when an individual race page is available."""
     table = find_table_by_heading(soup, "Race results")
     if table is None:
         return 0
@@ -565,7 +679,6 @@ def _ingest_results_summary(
         )
         if event is None:
             continue
-        # Create a single RACE session per event for the winner row.
         session = models.Session(event_id=event.id, type="RACE")
         db.add(session)
         db.flush()
@@ -592,6 +705,90 @@ def _ingest_results_summary(
             inserted += 1
     db.flush()
     return inserted
+
+
+def _ingest_race_classifications(
+    soup: BeautifulSoup,
+    db: Session,
+    season_id: int,
+    race_class_ids: dict[str, int],
+) -> dict[int, int]:
+    """For each completed round, fetch its individual Wikipedia race page
+    and replace the winner-only session_results with a full classification."""
+    results_table = find_table_by_heading(soup, "Race results")
+    if results_table is None:
+        return {}
+    round_urls = parse_race_report_urls(results_table)
+
+    counts: dict[int, int] = {}
+    for round_num, url in round_urls.items():
+        event = (
+            db.query(models.Event)
+            .filter_by(season_id=season_id, round=round_num)
+            .first()
+        )
+        if event is None:
+            continue
+
+        try:
+            race_html = fetch_html(url)
+        except Exception as exc:  # network/404
+            print(f"  R{round_num}: failed to fetch {url} — {exc}")
+            continue
+        race_soup = BeautifulSoup(race_html, "lxml")
+        rows = parse_race_classification(race_soup)
+        if not rows:
+            print(f"  R{round_num}: no classification table at {url}")
+            continue
+
+        session = (
+            db.query(models.Session)
+            .filter_by(event_id=event.id, type="RACE")
+            .first()
+        )
+        if session is None:
+            session = models.Session(event_id=event.id, type="RACE")
+            db.add(session)
+            db.flush()
+
+        # Replace winner-only entries with detailed classification.
+        db.execute(
+            delete(models.SessionResult).where(
+                models.SessionResult.session_id == session.id
+            )
+        )
+
+        inserted = 0
+        for r in rows:
+            class_name = _normalize_class(r["class"])
+            if class_name is None:
+                continue
+            car = (
+                db.query(models.Car)
+                .filter_by(
+                    season_id=season_id,
+                    number=r["number"],
+                    race_class_id=race_class_ids[class_name],
+                )
+                .first()
+            )
+            if car is None:
+                continue
+            laps = int(r["laps"]) if r["laps"].isdigit() else None
+            db.add(
+                models.SessionResult(
+                    session_id=session.id,
+                    car_id=car.id,
+                    position=r["position"],
+                    laps=laps,
+                    gap=r["gap"] or None,
+                )
+            )
+            inserted += 1
+        counts[round_num] = inserted
+        print(f"  R{round_num}: classified {inserted} cars from {url}")
+    db.flush()
+    return counts
 
 
 def _last_completed_event_id(db: Session, season_id: int) -> int | None:
@@ -737,6 +934,9 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
         winners_n = _ingest_results_summary(
             soup, db, season.id, race_class_ids
         )
+        classified = _ingest_race_classifications(
+            soup, db, season.id, race_class_ids
+        )
         standings_counts = _ingest_standings(
             soup, db, season.id, race_class_ids
         )
@@ -747,6 +947,8 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             "cars": cars_n,
             "car_drivers": car_drivers_n,
             "winners": winners_n,
+            "classified_rounds": len(classified),
+            "classified_total": sum(classified.values()),
             "standings_drivers": standings_counts["drivers"],
             "standings_manufacturers": standings_counts["manufacturers"],
             "standings_teams": standings_counts["teams"],
