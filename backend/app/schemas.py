@@ -235,6 +235,8 @@ class StandingDriverOut(_BaseSchema):
     position: int
     driver_id: int
     driver_name: str
+    team: str | None = None
+    manufacturer_logo_url: str | None = None
     race_class: str
     points: float
 

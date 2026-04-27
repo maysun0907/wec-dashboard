@@ -26,22 +26,54 @@ def driver_standings(
     race_class: str | None = RaceClassParam,
     db: Session = Depends(get_db),
 ) -> list[schemas.StandingDriverOut]:
-    q = db.query(models.StandingDriver).options(
-        joinedload(models.StandingDriver.driver),
-        joinedload(models.StandingDriver.race_class),
+    season = (
+        db.query(models.Season).order_by(models.Season.year.desc()).first()
+    )
+    season_id = season.id if season else None
+
+    q = (
+        db.query(
+            models.StandingDriver,
+            models.Driver,
+            models.Team,
+            models.Manufacturer,
+        )
+        .join(models.Driver, models.StandingDriver.driver_id == models.Driver.id)
+        .outerjoin(
+            models.CarDriver,
+            (models.CarDriver.driver_id == models.Driver.id)
+            & (models.CarDriver.season_id == season_id),
+        )
+        .outerjoin(models.Car, models.CarDriver.car_id == models.Car.id)
+        .outerjoin(models.Team, models.Car.team_id == models.Team.id)
+        .outerjoin(
+            models.Manufacturer, models.Team.manufacturer_id == models.Manufacturer.id
+        )
+        .options(joinedload(models.StandingDriver.race_class))
     )
     q = _class_filter(q, models.StandingDriver, race_class)
     rows = q.order_by(models.StandingDriver.position).all()
-    return [
-        schemas.StandingDriverOut(
-            position=r.position,
-            driver_id=r.driver_id,
-            driver_name=r.driver.name,
-            race_class=r.race_class.name,
-            points=r.points,
+
+    # A driver could match multiple CarDriver rows if they had crew swaps;
+    # keep the first row per StandingDriver id.
+    seen: set[int] = set()
+    out: list[schemas.StandingDriverOut] = []
+    for sd, d, t, m in rows:
+        if sd.id in seen:
+            continue
+        seen.add(sd.id)
+        out.append(
+            schemas.StandingDriverOut(
+                position=sd.position,
+                driver_id=sd.driver_id,
+                driver_name=d.name,
+                team=t.name if t else None,
+                manufacturer_logo_url=m.logo_url if m else None,
+                race_class=sd.race_class.name,
+                points=sd.points,
+            )
         )
-        for r in rows
-    ]
+    return out
 
 
 @router.get("/teams", response_model=list[schemas.StandingTeamOut])

@@ -22,11 +22,15 @@ def list_drivers(db: Session = Depends(get_db)) -> list[schemas.DriverEntryOut]:
             models.Driver,
             models.Car,
             models.Team,
+            models.Manufacturer,
             models.RaceClass,
         )
         .join(models.CarDriver, models.CarDriver.driver_id == models.Driver.id)
         .join(models.Car, models.CarDriver.car_id == models.Car.id)
         .join(models.Team, models.Car.team_id == models.Team.id)
+        .outerjoin(
+            models.Manufacturer, models.Team.manufacturer_id == models.Manufacturer.id
+        )
         .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
         .order_by(models.Driver.name)
         .all()
@@ -38,9 +42,10 @@ def list_drivers(db: Session = Depends(get_db)) -> list[schemas.DriverEntryOut]:
             nationality=d.nationality,
             car_number=c.number,
             team=t.name,
+            manufacturer_logo_url=m.logo_url if m else None,
             race_class=rc.name,
         )
-        for d, c, t, rc in rows
+        for d, c, t, m, rc in rows
     ]
 
 

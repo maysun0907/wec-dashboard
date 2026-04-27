@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
+import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import {
   RACE_CLASSES,
   getDrivers,
@@ -94,12 +95,18 @@ function DriversTable({ drivers }: { drivers: DriverEntry[] }) {
                     {d.carNumber}
                   </TableCell>
                   <TableCell className="font-medium">
-                    <Link
-                      href={`/drivers/${d.id}`}
-                      className="hover:text-[var(--racing-red)]"
-                    >
-                      {d.name}
-                    </Link>
+                    <span className="inline-flex items-center gap-2">
+                      <ManufacturerLogo
+                        src={d.manufacturerLogoUrl}
+                        name={d.team}
+                      />
+                      <Link
+                        href={`/drivers/${d.id}`}
+                        className="hover:text-[var(--racing-red)]"
+                      >
+                        {d.name}
+                      </Link>
+                    </span>
                   </TableCell>
                   <TableCell className="hidden text-muted-foreground md:table-cell">
                     {d.team}

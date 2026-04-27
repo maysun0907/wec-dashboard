@@ -59,6 +59,7 @@ export type DriverEntry = {
   nationality: string | null;
   carNumber: string;
   team: string;
+  manufacturerLogoUrl: string | null;
   raceClass: RaceClass;
 };
 
@@ -176,6 +177,8 @@ export type StandingDriver = {
   position: number;
   driverId: number;
   driverName: string;
+  team: string | null;
+  manufacturerLogoUrl: string | null;
   raceClass: RaceClass;
   points: number;
 };

@@ -140,6 +140,7 @@ export default async function StandingsPage() {
                       position: r.position,
                       name: r.driverName,
                       href: `/drivers/${r.driverId}`,
+                      logoUrl: r.manufacturerLogoUrl,
                       detail: undefined,
                       points: r.points,
                     }))}
