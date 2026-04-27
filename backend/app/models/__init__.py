@@ -104,7 +104,8 @@ class Car(Base):
     season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), index=True)
     team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
     race_class_id: Mapped[int] = mapped_column(ForeignKey("race_classes.id"))
-    number: Mapped[int]
+    # String — cars like Aston Martin Valkyrie use "007"/"009" as their actual number.
+    number: Mapped[str] = mapped_column(String(10))
     model: Mapped[str | None] = mapped_column(String(100), default=None)
 
     season: Mapped["Season"] = relationship()

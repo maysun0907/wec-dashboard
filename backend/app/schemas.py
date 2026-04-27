@@ -61,7 +61,7 @@ class DriverEntryOut(_BaseSchema):
     id: int
     name: str
     nationality: str | None = None
-    car_number: int
+    car_number: str
     team: str
     race_class: str
 
@@ -71,7 +71,7 @@ class TeamEntryOut(_BaseSchema):
 
     id: int  # team id
     name: str
-    car_number: int
+    car_number: str
     race_class: str
     manufacturer: str | None = None
 
@@ -110,7 +110,7 @@ class SessionResultOut(_BaseSchema):
     """Flattened result row matching the frontend mock shape."""
 
     position: int
-    car_number: int
+    car_number: str
     team: str
     drivers: str  # "Robert Kubica / Yifei Ye / Phil Hanson"
     race_class: str

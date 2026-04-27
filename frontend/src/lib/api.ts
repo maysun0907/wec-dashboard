@@ -39,7 +39,7 @@ export type EventDetail = Event & { sessions: Session[] };
 
 export type SessionResult = {
   position: number;
-  carNumber: number;
+  carNumber: string;
   team: string;
   drivers: string;
   raceClass: RaceClass;
@@ -52,7 +52,7 @@ export type DriverEntry = {
   id: number;
   name: string;
   nationality: string | null;
-  carNumber: number;
+  carNumber: string;
   team: string;
   raceClass: RaceClass;
 };
@@ -60,7 +60,7 @@ export type DriverEntry = {
 export type TeamEntry = {
   id: number;
   name: string;
-  carNumber: number;
+  carNumber: string;
   raceClass: RaceClass;
   manufacturer: string | null;
 };

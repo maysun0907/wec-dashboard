@@ -48,28 +48,28 @@ MANUFACTURERS = [
 ]
 
 TEAMS = [
-    {"slug": "ferrari-51", "name": "Ferrari AF Corse", "manufacturer": "ferrari", "car_number": 51, "race_class": "HYPERCAR"},
-    {"slug": "ferrari-50", "name": "Ferrari AF Corse", "manufacturer": "ferrari", "car_number": 50, "race_class": "HYPERCAR"},
-    {"slug": "ferrari-83", "name": "AF Corse", "manufacturer": "ferrari", "car_number": 83, "race_class": "HYPERCAR"},
-    {"slug": "toyota-7", "name": "Toyota Gazoo Racing", "manufacturer": "toyota", "car_number": 7, "race_class": "HYPERCAR"},
-    {"slug": "toyota-8", "name": "Toyota Gazoo Racing", "manufacturer": "toyota", "car_number": 8, "race_class": "HYPERCAR"},
-    {"slug": "porsche-6", "name": "Porsche Penske Motorsport", "manufacturer": "porsche", "car_number": 6, "race_class": "HYPERCAR"},
-    {"slug": "porsche-5", "name": "Porsche Penske Motorsport", "manufacturer": "porsche", "car_number": 5, "race_class": "HYPERCAR"},
-    {"slug": "cadillac-12", "name": "Cadillac Hertz Team Jota", "manufacturer": "cadillac", "car_number": 12, "race_class": "HYPERCAR"},
-    {"slug": "bmw-15", "name": "BMW M Team WRT", "manufacturer": "bmw", "car_number": 15, "race_class": "HYPERCAR"},
-    {"slug": "alpine-36", "name": "Alpine Endurance Team", "manufacturer": "alpine", "car_number": 36, "race_class": "HYPERCAR"},
+    {"slug": "ferrari-51", "name": "Ferrari AF Corse", "manufacturer": "ferrari", "car_number": "51", "race_class": "HYPERCAR"},
+    {"slug": "ferrari-50", "name": "Ferrari AF Corse", "manufacturer": "ferrari", "car_number": "50", "race_class": "HYPERCAR"},
+    {"slug": "ferrari-83", "name": "AF Corse", "manufacturer": "ferrari", "car_number": "83", "race_class": "HYPERCAR"},
+    {"slug": "toyota-7", "name": "Toyota Gazoo Racing", "manufacturer": "toyota", "car_number": "7", "race_class": "HYPERCAR"},
+    {"slug": "toyota-8", "name": "Toyota Gazoo Racing", "manufacturer": "toyota", "car_number": "8", "race_class": "HYPERCAR"},
+    {"slug": "porsche-6", "name": "Porsche Penske Motorsport", "manufacturer": "porsche", "car_number": "6", "race_class": "HYPERCAR"},
+    {"slug": "porsche-5", "name": "Porsche Penske Motorsport", "manufacturer": "porsche", "car_number": "5", "race_class": "HYPERCAR"},
+    {"slug": "cadillac-12", "name": "Cadillac Hertz Team Jota", "manufacturer": "cadillac", "car_number": "12", "race_class": "HYPERCAR"},
+    {"slug": "bmw-15", "name": "BMW M Team WRT", "manufacturer": "bmw", "car_number": "15", "race_class": "HYPERCAR"},
+    {"slug": "alpine-36", "name": "Alpine Endurance Team", "manufacturer": "alpine", "car_number": "36", "race_class": "HYPERCAR"},
     # LMP2 — privateer prototypes on Oreca 07 chassis
-    {"slug": "ao-tf-22", "name": "AO by TF", "manufacturer": "oreca", "car_number": 22, "race_class": "LMP2"},
-    {"slug": "ieurop-43", "name": "Inter Europol Competition", "manufacturer": "oreca", "car_number": 43, "race_class": "LMP2"},
-    {"slug": "vector-10", "name": "Vector Sport", "manufacturer": "oreca", "car_number": 10, "race_class": "LMP2"},
-    {"slug": "idec-28", "name": "IDEC Sport", "manufacturer": "oreca", "car_number": 28, "race_class": "LMP2"},
-    {"slug": "nielsen-24", "name": "Nielsen Racing", "manufacturer": "oreca", "car_number": 24, "race_class": "LMP2"},
+    {"slug": "ao-tf-22", "name": "AO by TF", "manufacturer": "oreca", "car_number": "22", "race_class": "LMP2"},
+    {"slug": "ieurop-43", "name": "Inter Europol Competition", "manufacturer": "oreca", "car_number": "43", "race_class": "LMP2"},
+    {"slug": "vector-10", "name": "Vector Sport", "manufacturer": "oreca", "car_number": "10", "race_class": "LMP2"},
+    {"slug": "idec-28", "name": "IDEC Sport", "manufacturer": "oreca", "car_number": "28", "race_class": "LMP2"},
+    {"slug": "nielsen-24", "name": "Nielsen Racing", "manufacturer": "oreca", "car_number": "24", "race_class": "LMP2"},
     # LMGT3
-    {"slug": "manthey-92", "name": "Manthey EMA", "manufacturer": "porsche", "car_number": 92, "race_class": "LMGT3"},
-    {"slug": "wrt-46", "name": "Team WRT", "manufacturer": "bmw", "car_number": 46, "race_class": "LMGT3"},
-    {"slug": "vista-21", "name": "Vista AF Corse", "manufacturer": "ferrari", "car_number": 21, "race_class": "LMGT3"},
-    {"slug": "united-59", "name": "United Autosports", "manufacturer": "mclaren", "car_number": 59, "race_class": "LMGT3"},
-    {"slug": "ironlynx-77", "name": "Iron Dames", "manufacturer": "mercedes", "car_number": 77, "race_class": "LMGT3"},
+    {"slug": "manthey-92", "name": "Manthey EMA", "manufacturer": "porsche", "car_number": "92", "race_class": "LMGT3"},
+    {"slug": "wrt-46", "name": "Team WRT", "manufacturer": "bmw", "car_number": "46", "race_class": "LMGT3"},
+    {"slug": "vista-21", "name": "Vista AF Corse", "manufacturer": "ferrari", "car_number": "21", "race_class": "LMGT3"},
+    {"slug": "united-59", "name": "United Autosports", "manufacturer": "mclaren", "car_number": "59", "race_class": "LMGT3"},
+    {"slug": "ironlynx-77", "name": "Iron Dames", "manufacturer": "mercedes", "car_number": "77", "race_class": "LMGT3"},
 ]
 
 # Approximate model names for current Hypercar field

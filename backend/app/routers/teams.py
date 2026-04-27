@@ -16,9 +16,10 @@ def list_teams(db: Session = Depends(get_db)) -> list[schemas.TeamEntryOut]:
             joinedload(models.Car.team).joinedload(models.Team.manufacturer),
             joinedload(models.Car.race_class),
         )
-        .order_by(models.Car.number)
         .all()
     )
+    # Sort numerically; "007" → 7 places it next to other 7-ish entries.
+    cars.sort(key=lambda c: int(c.number) if c.number.isdigit() else 9999)
     return [
         schemas.TeamEntryOut(
             id=c.team.id,
