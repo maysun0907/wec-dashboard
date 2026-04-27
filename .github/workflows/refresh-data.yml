@@ -8,7 +8,7 @@ on:
   schedule:
     # Daily at 06:00 UTC (15:00 KST) — well after race weekends end.
     - cron: '0 6 * * *'
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 jobs:
   ingest:
