@@ -122,6 +122,42 @@ class SessionResultOut(_BaseSchema):
 # --- Standings ---
 
 
+class DriverRef(_BaseSchema):
+    id: int
+    name: str
+
+
+class DriverResultOut(_BaseSchema):
+    event_id: int
+    round: int
+    event_name: str
+    position: int
+    laps: int | None = None
+    gap: str | None = None
+
+
+class DriverStandingRef(_BaseSchema):
+    position: int
+    points: float
+
+
+class DriverDetailOut(_BaseSchema):
+    """Full profile for a driver in the current season — joins their car,
+    co-drivers, race finishes, and championship row in one shot."""
+
+    id: int
+    name: str
+    nationality: str | None = None
+    car_number: str | None = None
+    team: str | None = None
+    manufacturer: str | None = None
+    race_class: str | None = None
+    car_model: str | None = None
+    co_drivers: list[DriverRef] = []
+    results: list[DriverResultOut] = []
+    standing: DriverStandingRef | None = None
+
+
 class StandingDriverOut(_BaseSchema):
     position: int
     driver_id: int
