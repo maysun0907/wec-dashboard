@@ -73,6 +73,7 @@ class TeamEntryOut(_BaseSchema):
     name: str
     car_number: str
     race_class: str
+    model: str | None = None
     manufacturer: str | None = None
     manufacturer_logo_url: str | None = None
 

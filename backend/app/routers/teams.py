@@ -33,6 +33,7 @@ def list_teams(db: Session = Depends(get_db)) -> list[schemas.TeamEntryOut]:
             name=c.team.name,
             car_number=c.number,
             race_class=c.race_class.name,
+            model=c.model,
             manufacturer=(
                 c.team.manufacturer.name if c.team.manufacturer is not None else None
             ),

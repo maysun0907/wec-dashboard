@@ -22,17 +22,14 @@ type CarModelEntry = {
 
 /** Shape teams data (one per car) into one entry per car model. */
 function groupByModel(teams: TeamEntry[]): CarModelEntry[] {
-  // The /api/v1/teams endpoint doesn't include car model — pull from the
-  // team's car directly. As a fallback we use manufacturer name.
-  // For now, rely on the team's manufacturer + a generic label per class.
   const map = new Map<string, CarModelEntry>();
   for (const t of teams) {
-    // Use manufacturer name as the grouping key when model isn't surfaced.
-    const key = `${t.raceClass}::${t.manufacturer ?? t.name}`;
+    const modelLabel = t.model ?? t.manufacturer ?? t.name;
+    const key = `${t.raceClass}::${modelLabel}`;
     let entry = map.get(key);
     if (!entry) {
       entry = {
-        model: t.manufacturer ?? t.name,
+        model: modelLabel,
         manufacturer: t.manufacturer,
         manufacturerLogoUrl: t.manufacturerLogoUrl,
         raceClass: t.raceClass,

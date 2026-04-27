@@ -169,6 +169,7 @@ export type TeamEntry = {
   name: string;
   carNumber: string;
   raceClass: RaceClass;
+  model: string | null;
   manufacturer: string | null;
   manufacturerLogoUrl: string | null;
 };
