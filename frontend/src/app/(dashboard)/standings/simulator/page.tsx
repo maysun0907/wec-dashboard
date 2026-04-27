@@ -44,10 +44,11 @@ export default async function SimulatorPage() {
           Championship simulator
         </h1>
         <p className="text-muted-foreground">
-          Pick a winner per remaining round and switch between Drivers,
-          Manufacturers (Hypercar), and Teams (LMGT3) trophies. Endurance
-          rounds (Le Mans, Bahrain 8h, Qatar 1812 km) score 38 to the winner;
-          standard 6h rounds score 25.
+          Pick the podium and pole-sitter for each remaining round, then
+          switch between Drivers, Manufacturers (Hypercar), and Teams
+          (LMGT3) trophies. Endurance rounds (Le Mans, Bahrain 8h, Qatar
+          1812 km) score 38/27/23 to the podium; standard 6h rounds score
+          25/18/15. Pole adds +1 to the pole-sitter&rsquo;s drivers.
         </p>
       </header>
 

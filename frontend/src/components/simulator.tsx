@@ -38,10 +38,10 @@ import {
   type TeamEntry,
 } from "@/lib/api";
 
-// ---------- Points + helpers ----------
-
+// WEC scoring per FIA: standard 6h races vs longer endurance rounds.
 const POINTS_LONG = [38, 27, 23, 18, 15, 12, 9, 6, 3, 2];
 const POINTS_STANDARD = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+const POLE_POINT = 1;
 
 function pointsFor(eventName: string): number[] {
   if (/24 Hours|1812 km|8 Hours/i.test(eventName)) return POINTS_LONG;
@@ -54,8 +54,6 @@ function isUpcoming(event: Event, today: Date): boolean {
 
 type ChampType = "drivers" | "manufacturers" | "teams";
 
-// WEC's actual championship structure: Hypercar has Drivers + Manufacturers
-// (no Teams' trophy); LMGT3 has Drivers + Teams (no Manufacturers' cup).
 const CHAMPIONSHIPS_BY_CLASS: Record<RaceClass, ChampType[]> = {
   HYPERCAR: ["drivers", "manufacturers"],
   LMP2: [],
@@ -66,6 +64,27 @@ const CHAMP_LABEL: Record<ChampType, string> = {
   drivers: "Drivers",
   manufacturers: "Manufacturers",
   teams: "Teams",
+};
+
+type PickSlot = "p1" | "p2" | "p3" | "pole";
+
+const SLOT_ORDER: PickSlot[] = ["p1", "p2", "p3", "pole"];
+const SLOT_LABEL: Record<PickSlot, string> = {
+  p1: "Winner",
+  p2: "2nd",
+  p3: "3rd",
+  pole: "Pole",
+};
+
+type RoundPicks = Partial<Record<PickSlot, string>>; // slot -> car number
+type ClassPicks = Record<number, RoundPicks>; // eventId -> RoundPicks
+type Picks = Record<RaceClass, ClassPicks>;
+
+const EMPTY_CLASS_PICKS: ClassPicks = {};
+const EMPTY_PICKS: Picks = {
+  HYPERCAR: EMPTY_CLASS_PICKS,
+  LMP2: EMPTY_CLASS_PICKS,
+  LMGT3: EMPTY_CLASS_PICKS,
 };
 
 type SimRow = {
@@ -79,17 +98,13 @@ type SimRow = {
   positionDelta: number;
 };
 
-type ClassPicks = Record<number, string>; // eventId → carNumber
-type Picks = Record<RaceClass, ClassPicks>;
-
-const EMPTY_CLASS_PICKS: ClassPicks = {};
-const EMPTY_PICKS: Picks = {
-  HYPERCAR: EMPTY_CLASS_PICKS,
-  LMP2: EMPTY_CLASS_PICKS,
-  LMGT3: EMPTY_CLASS_PICKS,
-};
-
-// ---------- Sim functions ----------
+function pointsForSlot(eventName: string, slot: PickSlot): number {
+  const table = pointsFor(eventName);
+  if (slot === "p1") return table[0];
+  if (slot === "p2") return table[1];
+  if (slot === "p3") return table[2];
+  return POLE_POINT;
+}
 
 function rankRows(
   rows: Omit<SimRow, "position" | "positionDelta">[],
@@ -107,6 +122,20 @@ function rankRows(
   });
 }
 
+/** Iterate every (eventId, slot, carNumber) pick. */
+function* iterPicks(
+  picks: ClassPicks,
+): Generator<{ eventId: number; slot: PickSlot; carNumber: string }> {
+  for (const [eventIdRaw, slots] of Object.entries(picks)) {
+    const eventId = Number(eventIdRaw);
+    for (const slot of SLOT_ORDER) {
+      const car = slots[slot];
+      if (!car) continue;
+      yield { eventId, slot, carNumber: car };
+    }
+  }
+}
+
 function simulateDrivers(
   current: StandingDriver[],
   picks: ClassPicks,
@@ -114,7 +143,7 @@ function simulateDrivers(
   events: Event[],
   raceClass: RaceClass,
 ): SimRow[] {
-  const points = new Map<number, number>(); // driverId → points
+  const points = new Map<number, number>();
   const nameById = new Map<number, string>();
   for (const s of current) {
     points.set(s.driverId, s.points);
@@ -127,16 +156,15 @@ function simulateDrivers(
     }
   }
   const sims = new Map<number, number>();
-  for (const [evIdRaw, carNumber] of Object.entries(picks)) {
-    if (!carNumber) continue;
-    const event = events.find((e) => e.id === Number(evIdRaw));
+  for (const { eventId, slot, carNumber } of iterPicks(picks)) {
+    const event = events.find((e) => e.id === eventId);
     if (!event) continue;
-    const winnerPts = pointsFor(event.name)[0];
-    const winningDrivers = drivers.filter(
+    const pts = pointsForSlot(event.name, slot);
+    const winners = drivers.filter(
       (d) => d.carNumber === carNumber && d.raceClass === raceClass,
     );
-    for (const d of winningDrivers) {
-      sims.set(d.id, (sims.get(d.id) ?? 0) + winnerPts);
+    for (const d of winners) {
+      sims.set(d.id, (sims.get(d.id) ?? 0) + pts);
     }
   }
   const posByKey = new Map<string, number>();
@@ -161,7 +189,7 @@ function simulateManufacturers(
   events: Event[],
   raceClass: RaceClass,
 ): SimRow[] {
-  const points = new Map<string, number>(); // manufacturer name → points
+  const points = new Map<string, number>();
   for (const s of current) points.set(s.manufacturerName, s.points);
   for (const t of teams) {
     if (t.raceClass === raceClass && t.manufacturer && !points.has(t.manufacturer)) {
@@ -169,16 +197,15 @@ function simulateManufacturers(
     }
   }
   const sims = new Map<string, number>();
-  for (const [evIdRaw, carNumber] of Object.entries(picks)) {
-    if (!carNumber) continue;
-    const event = events.find((e) => e.id === Number(evIdRaw));
+  for (const { eventId, slot, carNumber } of iterPicks(picks)) {
+    const event = events.find((e) => e.id === eventId);
     if (!event) continue;
-    const winnerPts = pointsFor(event.name)[0];
+    const pts = pointsForSlot(event.name, slot);
     const team = teams.find(
       (t) => t.carNumber === carNumber && t.raceClass === raceClass,
     );
     if (!team || !team.manufacturer) continue;
-    sims.set(team.manufacturer, (sims.get(team.manufacturer) ?? 0) + winnerPts);
+    sims.set(team.manufacturer, (sims.get(team.manufacturer) ?? 0) + pts);
   }
   const posByKey = new Map<string, number>();
   for (const s of current) posByKey.set(`m-${s.manufacturerName}`, s.position);
@@ -228,17 +255,16 @@ function simulateTeams(
     }
   }
   const sims = new Map<string, number>();
-  for (const [evIdRaw, carNumber] of Object.entries(picks)) {
-    if (!carNumber) continue;
-    const event = events.find((e) => e.id === Number(evIdRaw));
+  for (const { eventId, slot, carNumber } of iterPicks(picks)) {
+    const event = events.find((e) => e.id === eventId);
     if (!event) continue;
-    const winnerPts = pointsFor(event.name)[0];
+    const pts = pointsForSlot(event.name, slot);
     const team = teams.find(
       (t) => t.carNumber === carNumber && t.raceClass === raceClass,
     );
     if (!team) continue;
     const key = `${team.id}-${team.carNumber}`;
-    sims.set(key, (sims.get(key) ?? 0) + winnerPts);
+    sims.set(key, (sims.get(key) ?? 0) + pts);
   }
   const posByKey = new Map<string, number>();
   for (const s of current) {
@@ -290,14 +316,26 @@ export function ChampionshipSimulator({
 
   const [picks, setPicks] = useState<Picks>(EMPTY_PICKS);
 
-  function setPick(c: RaceClass, eventId: number, carNumber: string) {
-    setPicks((prev) => ({
-      ...prev,
-      [c]: { ...prev[c], [eventId]: carNumber },
-    }));
+  function setSlot(
+    raceClass: RaceClass,
+    eventId: number,
+    slot: PickSlot,
+    carNumber: string,
+  ) {
+    setPicks((prev) => {
+      const cur = prev[raceClass][eventId] ?? {};
+      const next: RoundPicks = { ...cur };
+      if (carNumber === "") delete next[slot];
+      else next[slot] = carNumber;
+      return {
+        ...prev,
+        [raceClass]: { ...prev[raceClass], [eventId]: next },
+      };
+    });
   }
-  function reset(c: RaceClass) {
-    setPicks((prev) => ({ ...prev, [c]: {} }));
+
+  function reset(raceClass: RaceClass) {
+    setPicks((prev) => ({ ...prev, [raceClass]: {} }));
   }
 
   return (
@@ -321,7 +359,7 @@ export function ChampionshipSimulator({
             driverStandings={driversByClass[c]}
             manufacturerStandings={manufacturersByClass[c] ?? []}
             teamStandings={teamsByClass[c] ?? []}
-            onPick={(eventId, car) => setPick(c, eventId, car)}
+            onPick={(eventId, slot, car) => setSlot(c, eventId, slot, car)}
             onReset={() => reset(c)}
           />
         </TabsContent>
@@ -350,7 +388,7 @@ function ClassPanel({
   driverStandings: StandingDriver[];
   manufacturerStandings: StandingManufacturer[];
   teamStandings: StandingTeam[];
-  onPick: (eventId: number, carNumber: string) => void;
+  onPick: (eventId: number, slot: PickSlot, carNumber: string) => void;
   onReset: () => void;
 }) {
   const cars = useMemo(() => {
@@ -390,155 +428,178 @@ function ClassPanel({
     raceClass,
   ]);
 
-  const pickedCount = Object.values(picks).filter(Boolean).length;
-  const hasPicks = pickedCount > 0;
+  const totalPicks = Object.values(picks).reduce(
+    (n, slots) => n + Object.values(slots).filter(Boolean).length,
+    0,
+  );
+  const hasPicks = totalPicks > 0;
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Pick winners</CardTitle>
-              <CardDescription>
-                {upcoming.length} rounds remaining · {pickedCount} picked
-              </CardDescription>
-            </div>
-            <ClassBadge raceClass={raceClass} />
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {upcoming.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Season is complete — nothing left to simulate.
-            </p>
-          ) : (
-            upcoming.map((e) => (
-              <div
-                key={e.id}
-                className="flex items-center justify-between gap-3 border-b border-border pb-3 last:border-0 last:pb-0"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="font-mono text-xs text-muted-foreground">
-                    R{e.round} · {format(parseISO(e.dateStart), "MMM d")}
-                  </div>
-                  <div className="truncate text-sm font-medium">{e.name}</div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {pointsFor(e.name)[0]} pts to winner
-                  </div>
-                </div>
-                <Select
-                  value={picks[e.id] ?? ""}
-                  onValueChange={(v) => onPick(e.id, v)}
-                >
-                  <SelectTrigger className="w-44 shrink-0">
-                    <SelectValue placeholder="Winner…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cars.map((c) => (
-                      <SelectItem key={c.number} value={c.number}>
-                        #{c.number} {c.team}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+      <div className="space-y-3">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Pick the podium</CardTitle>
+                <CardDescription>
+                  {upcoming.length} rounds remaining · {totalPicks} picks
+                </CardDescription>
               </div>
-            ))
-          )}
-          {hasPicks && (
-            <div className="pt-2">
-              <Button variant="outline" size="sm" onClick={onReset}>
-                Reset picks
-              </Button>
+              <ClassBadge raceClass={raceClass} />
             </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardHeader>
+        </Card>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <CardTitle>Predicted standings</CardTitle>
-              <CardDescription>
-                {hasPicks
-                  ? "Top 10 — Δ shows points gained vs current."
-                  : "Pick winners to see the table shift."}
-              </CardDescription>
-            </div>
-            {championships.length > 1 && (
-              <Tabs
-                value={activeChamp}
-                onValueChange={(v) => setActiveChamp(v as ChampType)}
-              >
-                <TabsList variant="line">
-                  {championships.map((champ) => (
-                    <TabsTrigger key={champ} value={champ}>
-                      {CHAMP_LABEL[champ]}
-                    </TabsTrigger>
+        {upcoming.length === 0 ? (
+          <Card>
+            <CardContent className="py-6 text-sm text-muted-foreground">
+              Season is complete — nothing left to simulate.
+            </CardContent>
+          </Card>
+        ) : (
+          upcoming.map((e) => {
+            const pts = pointsFor(e.name);
+            return (
+              <Card key={e.id}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="font-mono text-xs text-muted-foreground">
+                        R{e.round} · {format(parseISO(e.dateStart), "MMM d")}
+                      </div>
+                      <CardTitle className="text-base">{e.name}</CardTitle>
+                    </div>
+                    <span className="text-right text-[10px] text-muted-foreground">
+                      {pts[0]}/{pts[1]}/{pts[2]} pts
+                      <br />+1 pole
+                    </span>
+                  </div>
+                </CardHeader>
+                <CardContent className="grid gap-2 sm:grid-cols-2">
+                  {SLOT_ORDER.map((slot) => (
+                    <div key={slot} className="flex items-center gap-2">
+                      <span className="w-12 shrink-0 text-xs uppercase tracking-wider text-muted-foreground">
+                        {SLOT_LABEL[slot]}
+                      </span>
+                      <Select
+                        value={picks[e.id]?.[slot] ?? ""}
+                        onValueChange={(v) => onPick(e.id, slot, v)}
+                      >
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder="—" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {cars.map((c) => (
+                            <SelectItem key={c.number} value={c.number}>
+                              #{c.number} {c.team}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   ))}
-                </TabsList>
-              </Tabs>
-            )}
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+
+        {hasPicks && (
+          <div className="pt-1">
+            <Button variant="outline" size="sm" onClick={onReset}>
+              Reset picks
+            </Button>
           </div>
-        </CardHeader>
-        <CardContent className="px-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12 pl-4">Pos</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead className="w-16 text-right">Now</TableHead>
-                <TableHead className="w-16 text-right">Sim</TableHead>
-                <TableHead className="w-12 pr-4 text-right">Δ</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {simulated.slice(0, 10).map((row) => (
-                <TableRow key={row.key}>
-                  <TableCell className="pl-4 font-mono tabular-nums">
-                    {row.position}
-                    {row.positionDelta < 0 && (
-                      <span className="ml-1 text-[10px] text-[var(--racing-yellow)]">
-                        ▲{Math.abs(row.positionDelta)}
-                      </span>
-                    )}
-                    {row.positionDelta > 0 && (
-                      <span className="ml-1 text-[10px] text-muted-foreground">
-                        ▼{row.positionDelta}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    {row.name}
-                    {row.detail && (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        {row.detail}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
-                    {row.current}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {row.simulated}
-                  </TableCell>
-                  <TableCell
-                    className={
-                      "pr-4 text-right font-mono tabular-nums " +
-                      (row.delta > 0
-                        ? "text-[var(--racing-yellow)]"
-                        : "text-muted-foreground")
-                    }
-                  >
-                    {row.delta > 0 ? `+${row.delta}` : "—"}
-                  </TableCell>
+        )}
+      </div>
+
+      <div className="lg:sticky lg:top-20 lg:self-start">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <CardTitle>Predicted standings</CardTitle>
+                <CardDescription>
+                  {hasPicks
+                    ? "Top 10 — Δ shows points gained vs current."
+                    : "Pick winners on the left to see how the table shifts."}
+                </CardDescription>
+              </div>
+              {championships.length > 1 && (
+                <Tabs
+                  value={activeChamp}
+                  onValueChange={(v) => setActiveChamp(v as ChampType)}
+                >
+                  <TabsList variant="line">
+                    {championships.map((champ) => (
+                      <TabsTrigger key={champ} value={champ}>
+                        {CHAMP_LABEL[champ]}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="px-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12 pl-4">Pos</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead className="w-16 text-right">Now</TableHead>
+                  <TableHead className="w-16 text-right">Sim</TableHead>
+                  <TableHead className="w-12 pr-4 text-right">Δ</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {simulated.slice(0, 10).map((row) => (
+                  <TableRow key={row.key}>
+                    <TableCell className="pl-4 font-mono tabular-nums">
+                      {row.position}
+                      {row.positionDelta < 0 && (
+                        <span className="ml-1 text-[10px] text-[var(--racing-yellow)]">
+                          ▲{Math.abs(row.positionDelta)}
+                        </span>
+                      )}
+                      {row.positionDelta > 0 && (
+                        <span className="ml-1 text-[10px] text-muted-foreground">
+                          ▼{row.positionDelta}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {row.name}
+                      {row.detail && (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          {row.detail}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+                      {row.current}
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {row.simulated}
+                    </TableCell>
+                    <TableCell
+                      className={
+                        "pr-4 text-right font-mono tabular-nums " +
+                        (row.delta > 0
+                          ? "text-[var(--racing-yellow)]"
+                          : "text-muted-foreground")
+                      }
+                    >
+                      {row.delta > 0 ? `+${row.delta}` : "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
