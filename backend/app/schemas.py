@@ -158,6 +158,58 @@ class DriverDetailOut(_BaseSchema):
     standing: DriverStandingRef | None = None
 
 
+class TeamCarOut(_BaseSchema):
+    car_id: int
+    number: str
+    race_class: str
+    model: str | None = None
+    drivers: list[DriverRef] = []
+
+
+class TeamResultOut(_BaseSchema):
+    event_id: int
+    round: int
+    event_name: str
+    car_number: str
+    race_class: str
+    position: int
+    laps: int | None = None
+    gap: str | None = None
+
+
+class TeamDetailOut(_BaseSchema):
+    id: int
+    name: str
+    manufacturer: str | None = None
+    cars: list[TeamCarOut] = []
+    results: list[TeamResultOut] = []
+
+
+class CircuitWinnerOut(_BaseSchema):
+    race_class: str
+    car_number: str
+    team: str
+
+
+class CircuitEventOut(_BaseSchema):
+    event_id: int
+    season_year: int
+    round: int
+    name: str
+    date_start: date
+    date_end: date
+    winners: list[CircuitWinnerOut] = []
+
+
+class CircuitDetailOut(_BaseSchema):
+    id: int
+    name: str
+    country: str
+    length_km: float
+    lap_record: str | None = None
+    events: list[CircuitEventOut] = []
+
+
 class StandingDriverOut(_BaseSchema):
     position: int
     driver_id: int

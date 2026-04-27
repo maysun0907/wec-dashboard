@@ -44,6 +44,21 @@ COUNTRY_CODES = {
     "Portugal": "PRT", "China": "CHN",
 }
 
+# Circuit length + country fallback by exact name match. Wikipedia's calendar
+# table doesn't carry length and the location cell sometimes has no comma to
+# parse a country code out of, so we hard-code 2026 circuits to keep the UI
+# from showing "UNK · 0.000 km" rows.
+CIRCUIT_INFO: dict[str, tuple[str, float]] = {
+    "Imola Circuit": ("ITA", 4.909),
+    "Circuit de Spa-Francorchamps": ("BEL", 7.004),
+    "Circuit de la Sarthe": ("FRA", 13.626),
+    "Interlagos Circuit": ("BRA", 4.309),
+    "Circuit of the Americas": ("USA", 5.513),
+    "Fuji Speedway": ("JPN", 4.563),
+    "Losail International Circuit": ("QAT", 5.419),
+    "Bahrain International Circuit": ("BHR", 5.412),
+}
+
 
 # ---------------------------------------------------------------------------
 # HTML fetch + table parsing
@@ -589,14 +604,20 @@ def _clear_season(db: Session, season_id: int) -> None:
 
 
 def _upsert_circuit(db: Session, name: str, country: str | None) -> models.Circuit:
+    fallback_country, fallback_length = CIRCUIT_INFO.get(name, (None, 0.0))
+    resolved_country = country or fallback_country or "UNK"
     obj = db.query(models.Circuit).filter_by(name=name).first()
     if obj is None:
-        # length_km has no default; use a placeholder that can be updated later.
-        obj = models.Circuit(name=name, country=country or "UNK", length_km=0.0)
+        obj = models.Circuit(
+            name=name, country=resolved_country, length_km=fallback_length
+        )
         db.add(obj)
         db.flush()
-    elif country and obj.country != country and obj.country == "UNK":
-        obj.country = country
+        return obj
+    if obj.country in (None, "UNK") and resolved_country != "UNK":
+        obj.country = resolved_country
+    if not obj.length_km and fallback_length:
+        obj.length_km = fallback_length
     return obj
 
 
