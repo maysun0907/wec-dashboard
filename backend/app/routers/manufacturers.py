@@ -9,6 +9,85 @@ from app.season import YearParam, resolve_season
 router = APIRouter(prefix="/manufacturers", tags=["manufacturers"])
 
 
+def _manufacturer_career(
+    db: Session, manufacturer_id: int
+) -> list[schemas.ManufacturerSeasonOut]:
+    """One row per (season, race_class) the brand fielded a car in.
+    Cars / races / wins / podiums are car-summed (a brand running two
+    cars that both finished P1-P3 contributes two podiums to the row)."""
+    rows = (
+        db.query(models.Season, models.Car, models.RaceClass)
+        .join(models.Car, models.Car.season_id == models.Season.id)
+        .join(models.Team, models.Car.team_id == models.Team.id)
+        .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
+        .filter(models.Team.manufacturer_id == manufacturer_id)
+        .order_by(models.Season.year.desc())
+        .all()
+    )
+
+    # Group cars by (season_id, race_class_id) — multiple cars per group OK.
+    grouped: dict[tuple[int, int], dict] = {}
+    for season, car, rc in rows:
+        key = (season.id, rc.id)
+        bucket = grouped.setdefault(
+            key,
+            {
+                "season": season,
+                "race_class": rc,
+                "car_ids": [],
+            },
+        )
+        bucket["car_ids"].append(car.id)
+
+    out: list[schemas.ManufacturerSeasonOut] = []
+    for (season_id, race_class_id), bucket in grouped.items():
+        season = bucket["season"]
+        rc = bucket["race_class"]
+        car_ids = bucket["car_ids"]
+
+        standing = (
+            db.query(models.StandingManufacturer)
+            .filter_by(
+                manufacturer_id=manufacturer_id,
+                season_id=season_id,
+                race_class_id=race_class_id,
+            )
+            .first()
+        )
+
+        result_rows = (
+            db.query(models.SessionResult)
+            .join(models.Session, models.SessionResult.session_id == models.Session.id)
+            .filter(models.SessionResult.car_id.in_(car_ids))
+            .filter(models.Session.type == "RACE")
+            .all()
+        )
+        races = len(result_rows)
+        wins = 0
+        podiums = 0
+        for sr in result_rows:
+            cp = class_position_for(db, sr.session_id, race_class_id, sr.position)
+            if cp == 1:
+                wins += 1
+            if 1 <= cp <= 3:
+                podiums += 1
+
+        out.append(
+            schemas.ManufacturerSeasonOut(
+                year=season.year,
+                race_class=rc.name,
+                championship_position=standing.position if standing else None,
+                points=standing.points if standing else None,
+                cars=len(car_ids),
+                races=races,
+                wins=wins,
+                podiums=podiums,
+            )
+        )
+    out.sort(key=lambda s: (-s.year, s.race_class))
+    return out
+
+
 @router.get("/{manufacturer_id}", response_model=schemas.ManufacturerDetailOut)
 def get_manufacturer(
     manufacturer_id: int,
@@ -23,6 +102,8 @@ def get_manufacturer(
     if manuf is None:
         raise HTTPException(status_code=404, detail="Manufacturer not found")
 
+    career = _manufacturer_career(db, manufacturer_id)
+
     season = resolve_season(db, year)
     if season is None:
         return schemas.ManufacturerDetailOut(
@@ -30,6 +111,7 @@ def get_manufacturer(
             name=manuf.name,
             country=manuf.country,
             logo_url=manuf.logo_url,
+            seasons=career,
         )
 
     # Every current-season car whose team is bound to this manufacturer.
@@ -150,4 +232,5 @@ def get_manufacturer(
             )
             for s in standing_rows
         ],
+        seasons=career,
     )

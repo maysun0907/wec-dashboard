@@ -210,6 +210,17 @@ export type ManufacturerStandingItem = {
   points: number;
 };
 
+export type ManufacturerSeason = {
+  year: number;
+  raceClass: RaceClass;
+  championshipPosition: number | null;
+  points: number | null;
+  cars: number;
+  races: number;
+  wins: number;
+  podiums: number;
+};
+
 export type ManufacturerDetail = {
   id: number;
   name: string;
@@ -218,6 +229,7 @@ export type ManufacturerDetail = {
   cars: ManufacturerCar[];
   results: ManufacturerResult[];
   standings: ManufacturerStandingItem[];
+  seasons: ManufacturerSeason[];
 };
 
 export type CircuitWinner = {

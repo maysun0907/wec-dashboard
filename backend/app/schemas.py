@@ -258,6 +258,21 @@ class ManufacturerStandingItem(_BaseSchema):
     points: float
 
 
+class ManufacturerSeasonOut(_BaseSchema):
+    """One row of a manufacturer's archive — what they did in a single
+    season, scoped to one race class. A brand active in two classes the
+    same year produces two rows."""
+
+    year: int
+    race_class: str
+    championship_position: int | None = None
+    points: float | None = None
+    cars: int = 0
+    races: int = 0
+    wins: int = 0
+    podiums: int = 0
+
+
 class ManufacturerDetailOut(_BaseSchema):
     id: int
     name: str
@@ -266,6 +281,7 @@ class ManufacturerDetailOut(_BaseSchema):
     cars: list[ManufacturerCarOut] = []
     results: list[ManufacturerResultOut] = []
     standings: list[ManufacturerStandingItem] = []
+    seasons: list[ManufacturerSeasonOut] = []
 
 
 class CircuitWinnerOut(_BaseSchema):
