@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { ClassBadge } from "@/components/class-badge";
 import { DriversPodium, buildPodiumRows } from "@/components/drivers-podium";
 import { Flag } from "@/components/flag";
+import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { RaceCountdown } from "@/components/race-countdown";
 import { SeasonRecapHero } from "@/components/season-recap-hero";
 import { getSelectedSeason } from "@/lib/season";
@@ -32,21 +33,18 @@ import {
   getNextEvent,
   getSessionByType,
   getSessionResults,
-  getTeamStandings,
   getUpcomingEvents,
   type Event,
   type SessionResult,
   type StandingManufacturer,
-  type StandingTeam,
 } from "@/lib/api";
 
 export default async function HomePage() {
   const year = await getSelectedSeason();
-  const [events, driverStandings, teams, driverEntries, mfrStandings] =
+  const [events, driverStandings, driverEntries, mfrStandings] =
     await Promise.all([
       getEvents(year),
       getDriverStandings("HYPERCAR", year),
-      getTeamStandings("HYPERCAR", year),
       getDrivers(year),
       getManufacturerStandings("HYPERCAR", year).catch(
         () => [] as StandingManufacturer[],
@@ -108,11 +106,12 @@ export default async function HomePage() {
       <section className="grid gap-6 lg:grid-cols-2">
         <DriversPodium rows={podium} rounds={completedRounds} />
         <StandingsCard
-          title="Teams"
-          rows={teams.slice(0, 5)}
-          rowKey={(r) => `t-${r.teamId}`}
-          rowName={(r) => r.teamName}
-          rowDetail={(r) => r.manufacturer ?? undefined}
+          title="Manufacturers"
+          rows={mfrStandings.slice(0, 5)}
+          rowKey={(r) => `m-${r.manufacturerId}`}
+          rowName={(r) => r.manufacturerName}
+          rowDetail={() => undefined}
+          rowLogo={(r) => r.manufacturerLogoUrl}
           rounds={completedRounds}
         />
       </section>
@@ -218,6 +217,7 @@ function StandingsCard<T extends { position: number; points: number }>({
   rowKey,
   rowName,
   rowDetail,
+  rowLogo,
   rounds,
 }: {
   title: string;
@@ -225,6 +225,7 @@ function StandingsCard<T extends { position: number; points: number }>({
   rowKey: (r: T) => string;
   rowName: (r: T) => string;
   rowDetail: (r: T) => string | undefined;
+  rowLogo?: (r: T) => string | null;
   rounds: number;
 }) {
   return (
@@ -238,17 +239,28 @@ function StandingsCard<T extends { position: number; points: number }>({
         </div>
       </CardHeader>
       <CardContent className="px-0">
+        {rows.length === 0 ? (
+          <p className="px-4 pb-4 text-sm text-muted-foreground">
+            No standings yet for this season.
+          </p>
+        ) : (
         <Table>
           <TableBody>
             {rows.map((row) => {
               const detail = rowDetail(row);
+              const logo = rowLogo?.(row);
               return (
                 <TableRow key={rowKey(row)}>
                   <TableCell className="w-10 pl-4 text-muted-foreground tabular-nums">
                     {row.position}
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">{rowName(row)}</div>
+                    <div className="flex items-center gap-2 font-medium">
+                      {logo !== undefined && (
+                        <ManufacturerLogo src={logo} name={rowName(row)} />
+                      )}
+                      <span>{rowName(row)}</span>
+                    </div>
                     {detail && (
                       <div className="text-xs text-muted-foreground">
                         {detail}
@@ -263,6 +275,7 @@ function StandingsCard<T extends { position: number; points: number }>({
             })}
           </TableBody>
         </Table>
+        )}
       </CardContent>
       <div className="px-4 pt-2 text-right text-xs">
         <Link

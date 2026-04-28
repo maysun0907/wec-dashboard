@@ -40,10 +40,16 @@ export function DriversPodium({
   rows: Driver[];
   rounds: number;
 }) {
-  // Order: P2, P1, P3 — center stage gets the leader
-  const order: (1 | 2 | 3)[] = [2, 1, 3];
-  const byPos = new Map(rows.map((r) => [r.position, r]));
-  const visible = order.filter((p) => byPos.has(p));
+  // Visual layout uses index — slot 1 (left, silver), slot 0 (center,
+  // gold), slot 2 (right, bronze). Keying by `position` would collapse
+  // the entire Toyota trio onto a single P1 slot whenever a car's three
+  // drivers share the championship lead.
+  const SLOT_ORDER: Array<{ index: number; step: 1 | 2 | 3 }> = [
+    { index: 1, step: 2 },
+    { index: 0, step: 1 },
+    { index: 2, step: 3 },
+  ];
+  const visible = SLOT_ORDER.filter((s) => rows[s.index] !== undefined);
 
   if (visible.length === 0) return null;
 
@@ -59,9 +65,9 @@ export function DriversPodium({
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-3 gap-3 sm:gap-6">
-          {visible.map((pos) => {
-            const r = byPos.get(pos)!;
-            const step = STEPS[pos];
+          {visible.map(({ index, step: stepNum }) => {
+            const r = rows[index]!;
+            const step = STEPS[stepNum];
             return (
               <div
                 key={r.id}
@@ -69,7 +75,8 @@ export function DriversPodium({
               >
                 <div
                   className={
-                    "relative " + (pos === 1 ? "size-24 sm:size-28" : "size-20 sm:size-24")
+                    "relative " +
+                    (stepNum === 1 ? "size-24 sm:size-28" : "size-20 sm:size-24")
                   }
                 >
                   <Link href={`/drivers/${r.id}`}>
