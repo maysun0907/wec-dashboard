@@ -8,15 +8,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { DriverPhoto } from "@/components/driver-photo";
+import {
+  DriverProgressionCard,
+  type DriverProgressionSeries,
+} from "@/components/driver-progression-card";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { SeasonComparePicker } from "@/components/season-compare-picker";
 import {
+  getDriverProgression,
   getDriverStandings,
   getDrivers,
   getEvents,
   getManufacturerStandings,
   getSeasons,
   type DriverEntry,
+  type DriverProgression,
   type Event,
   type StandingDriver,
   type StandingManufacturer,
@@ -41,6 +47,7 @@ type SeasonData = {
   drivers: StandingDriver[];
   manufacturers: StandingManufacturer[];
   driverEntries: DriverEntry[];
+  progression: DriverProgression[];
 };
 
 /** WEC's top class flipped from LMP1 to Hypercar in 2021. Use the right
@@ -52,17 +59,29 @@ function topClassFor(year: number) {
 
 async function fetchSeason(year: number): Promise<SeasonData> {
   const cls = topClassFor(year);
-  const [events, drivers, manufacturers, driverEntries] = await Promise.all([
-    getEvents(year).catch(() => [] as Event[]),
-    getDriverStandings(cls as never, year).catch(
-      () => [] as StandingDriver[],
-    ),
-    getManufacturerStandings(cls as never, year).catch(
-      () => [] as StandingManufacturer[],
-    ),
-    getDrivers(year).catch(() => [] as DriverEntry[]),
-  ]);
-  return { year, topClass: cls, events, drivers, manufacturers, driverEntries };
+  const [events, drivers, manufacturers, driverEntries, progression] =
+    await Promise.all([
+      getEvents(year).catch(() => [] as Event[]),
+      getDriverStandings(cls as never, year).catch(
+        () => [] as StandingDriver[],
+      ),
+      getManufacturerStandings(cls as never, year).catch(
+        () => [] as StandingManufacturer[],
+      ),
+      getDrivers(year).catch(() => [] as DriverEntry[]),
+      getDriverProgression(cls as never, 3, year).catch(
+        () => [] as DriverProgression[],
+      ),
+    ]);
+  return {
+    year,
+    topClass: cls,
+    events,
+    drivers,
+    manufacturers,
+    driverEntries,
+    progression,
+  };
 }
 
 export default async function SeasonComparePage({
@@ -132,6 +151,29 @@ function SeasonColumn({ data }: { data: SeasonData }) {
   const mfrChamp = data.manufacturers.find((m) => m.position === 1) ?? null;
   const photoById = new Map(
     data.driverEntries.map((d) => [d.id, d.photoUrl]),
+  );
+  // Join progression rows against the standings table for team, and the
+  // entry list for photo / car number, so the hover card can render the
+  // full driver context.
+  const standingByDriver = new Map(
+    data.drivers.map((d) => [d.driverId, d]),
+  );
+  const entryByDriver = new Map(
+    data.driverEntries.map((d) => [d.id, d]),
+  );
+  const progressionSeries: DriverProgressionSeries[] = data.progression.map(
+    (p) => {
+      const standing = standingByDriver.get(p.driverId);
+      const entry = entryByDriver.get(p.driverId);
+      return {
+        driverId: p.driverId,
+        driverName: p.driverName,
+        team: standing?.team ?? entry?.team ?? null,
+        carNumber: entry?.carNumber ?? null,
+        photoUrl: photoById.get(p.driverId) ?? null,
+        points: p.points,
+      };
+    },
   );
 
   return (
@@ -252,6 +294,15 @@ function SeasonColumn({ data }: { data: SeasonData }) {
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {progressionSeries.length > 0 && (
+          <div className="space-y-1">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground">
+              Title race
+            </div>
+            <DriverProgressionCard series={progressionSeries} />
           </div>
         )}
 
