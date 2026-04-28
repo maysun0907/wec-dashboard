@@ -117,12 +117,20 @@ export default async function StandingsPage() {
             After R{completedRounds}
           </p>
         </div>
-        <Link
-          href="/standings/simulator"
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          Open simulator →
-        </Link>
+        <div className="flex items-center gap-4 text-sm">
+          <Link
+            href="/seasons/compare"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            Compare seasons →
+          </Link>
+          <Link
+            href="/standings/simulator"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            Open simulator →
+          </Link>
+        </div>
       </header>
 
       {(() => {
