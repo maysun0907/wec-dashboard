@@ -74,6 +74,11 @@ export type SessionResult = {
   laps: number | null;
   gap: string | null;
   bestLap: string | null;
+  /** Qualifying-session lap (set in the open Q before Hyperpole). Only
+   *  populated for Q sessions. */
+  qualifyingLap: string | null;
+  /** Hyperpole lap. Only set when the car advanced to Hyperpole. */
+  hyperpoleLap: string | null;
 };
 
 export type DriverEntry = {

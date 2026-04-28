@@ -129,6 +129,8 @@ class SessionResultOut(_BaseSchema):
     laps: int | None = None
     gap: str | None = None
     best_lap: str | None = None
+    qualifying_lap: str | None = None
+    hyperpole_lap: str | None = None
 
 
 # --- Standings ---

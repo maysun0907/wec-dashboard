@@ -148,6 +148,13 @@ class SessionResult(Base):
     laps: Mapped[int | None] = mapped_column(default=None)
     gap: Mapped[str | None] = mapped_column(String(20), default=None)
     best_lap: Mapped[str | None] = mapped_column(String(20), default=None)
+    # Qualifying-session breakdown — Q lap (set in the open Qualifying
+    # session) and Hyperpole lap (set in the top-runners shootout).
+    # Cars that didn't make the Hyperpole cut have hyperpole_lap=NULL.
+    # Best_lap mirrors hyperpole_lap when present, else qualifying_lap,
+    # so existing consumers keep working.
+    qualifying_lap: Mapped[str | None] = mapped_column(String(20), default=None)
+    hyperpole_lap: Mapped[str | None] = mapped_column(String(20), default=None)
     status: Mapped[str | None] = mapped_column(String(50), default=None)
     # Slash-joined names of drivers who actually raced this car in this
     # session. Populated from race-page classification when available;

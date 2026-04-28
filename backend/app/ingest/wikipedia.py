@@ -1364,8 +1364,11 @@ def _ingest_qualifying_session(
         )
         if car is None:
             continue
-        # Best-effort lap time: prefer hyperpole (final pole laps), else Q.
-        best = r.get("hp_time") or r.get("q_time") or None
+        q_lap = r.get("q_time") or None
+        hp_lap = r.get("hp_time") or None
+        # best_lap mirrors the grid-deciding lap so existing consumers
+        # keep working even if they don't know about the new columns.
+        best = hp_lap or q_lap
         db.add(
             models.SessionResult(
                 session_id=session.id,
@@ -1374,6 +1377,8 @@ def _ingest_qualifying_session(
                 # falls back to declared position if grid is missing.
                 position=int(r["grid"]) if (r["grid"] or "").isdigit() else r["position"],
                 best_lap=best,
+                qualifying_lap=q_lap,
+                hyperpole_lap=hp_lap,
             )
         )
         inserted += 1

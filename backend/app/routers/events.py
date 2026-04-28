@@ -127,6 +127,8 @@ def session_results(
                 laps=r.laps,
                 gap=r.gap,
                 best_lap=r.best_lap,
+                qualifying_lap=r.qualifying_lap,
+                hyperpole_lap=r.hyperpole_lap,
             )
         )
     return out

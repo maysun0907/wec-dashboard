@@ -251,9 +251,22 @@ function SessionWinnersCard({
                   {r.drivers}
                 </div>
               )}
-              {isQuali && r.bestLap && (
-                <div className="mt-3 font-mono text-2xl font-bold tabular-nums">
-                  {r.bestLap}
+              {isQuali && (r.hyperpoleLap || r.qualifyingLap) && (
+                <div className="mt-3 space-y-0.5">
+                  <div className="font-mono text-2xl font-bold tabular-nums">
+                    {r.hyperpoleLap ?? r.qualifyingLap}
+                  </div>
+                  {r.hyperpoleLap && r.qualifyingLap && (
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-mono tabular-nums">
+                        Q {r.qualifyingLap}
+                      </span>
+                      {" → "}
+                      <span className="font-mono tabular-nums">
+                        Hyperpole {r.hyperpoleLap}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
               {isRace && (
@@ -375,8 +388,18 @@ function ResultsCard({
               <TableHead>Team</TableHead>
               <TableHead className="hidden md:table-cell">Drivers</TableHead>
               <TableHead className="w-16">Class</TableHead>
-              {(isPractice || isQuali) && (
+              {isPractice && (
                 <TableHead className="pr-4 text-right">Best lap</TableHead>
+              )}
+              {isQuali && (
+                <>
+                  <TableHead className="hidden w-24 text-right sm:table-cell">
+                    Q lap
+                  </TableHead>
+                  <TableHead className="pr-4 w-24 text-right">
+                    Hyperpole
+                  </TableHead>
+                </>
               )}
               {isRace && (
                 <>
@@ -421,10 +444,27 @@ function ResultsCard({
                   <TableCell>
                     <ClassBadge raceClass={row.raceClass} />
                   </TableCell>
-                  {(isPractice || isQuali) && (
+                  {isPractice && (
                     <TableCell className="pr-4 text-right font-mono tabular-nums">
                       {row.bestLap ?? "—"}
                     </TableCell>
+                  )}
+                  {isQuali && (
+                    <>
+                      <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground sm:table-cell">
+                        {row.qualifyingLap ?? "—"}
+                      </TableCell>
+                      <TableCell
+                        className={
+                          "pr-4 text-right font-mono tabular-nums " +
+                          (row.hyperpoleLap
+                            ? "text-foreground"
+                            : "text-muted-foreground/40")
+                        }
+                      >
+                        {row.hyperpoleLap ?? "—"}
+                      </TableCell>
+                    </>
                   )}
                   {isRace && (
                     <>
