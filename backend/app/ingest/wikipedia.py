@@ -534,9 +534,32 @@ def parse_race_classification(soup: BeautifulSoup) -> list[dict]:
 
     Race pages use one combined table covering all classes; rows are sorted
     by overall position. Class column distinguishes Hypercar from LMGT3.
+    Le Mans uses 'Official results' as the heading; other rounds use
+    'Race' or 'Race results'.
     """
-    table = find_table_by_heading(soup, "Race")
-    # Fall back to first wikitable that has Pos + Class + No. + Drivers
+    # Prefer the most specific heading first. Le Mans pages put the
+    # classification under 'Official results'; if we naively match 'Race'
+    # we'd land on 'Championship standings after the race' instead.
+    table = (
+        find_table_by_heading(soup, "Official results")
+        or find_table_by_heading(soup, "Race results")
+        or find_table_by_heading(soup, "Race")
+    )
+    # Validate: the matched heading might be a championship-standings
+    # table that just happens to contain 'race' in its text. Drop it if
+    # the columns don't look like a classification.
+    if table is not None:
+        first_tr = table.find("tr")
+        if first_tr is None:
+            table = None
+        else:
+            hdrs = [
+                _clean(h.get_text(" ", strip=True))
+                for h in first_tr.find_all(["th", "td"])
+            ]
+            if "Class" not in hdrs or "Drivers" not in hdrs:
+                table = None
+    # Fall back to any wikitable that has Pos + Class + No. + Drivers
     if table is None:
         for t in soup.select("table.wikitable"):
             first_tr = t.find("tr")
@@ -549,7 +572,7 @@ def parse_race_classification(soup: BeautifulSoup) -> list[dict]:
             if (
                 any("Pos" in h for h in headers)
                 and "Class" in headers
-                and "No." in headers
+                and ("No." in headers or "No" in headers)
                 and "Drivers" in headers
             ):
                 table = t
