@@ -377,3 +377,47 @@ class StandingManufacturerOut(_BaseSchema):
     manufacturer_logo_url: str | None = None
     race_class: str
     points: float
+
+
+class StatRowOut(_BaseSchema):
+    """Generic title-leaderboard row (drivers / manufacturers / teams)."""
+
+    id: int
+    name: str
+    photo_url: str | None = None
+    logo_url: str | None = None
+    titles: int
+
+
+class DriverStatOut(_BaseSchema):
+    id: int
+    name: str
+    photo_url: str | None = None
+    wins: int
+
+
+class DriverPodiumStatOut(_BaseSchema):
+    id: int
+    name: str
+    photo_url: str | None = None
+    podiums: int
+
+
+class LeMansWinnerOut(_BaseSchema):
+    year: int
+    event_id: int
+    manufacturer: str | None = None
+    manufacturer_logo_url: str | None = None
+    team: str
+    team_id: int
+    car_number: str
+    drivers: str
+
+
+class AllTimeStatsOut(_BaseSchema):
+    driver_titles: list[StatRowOut] = []
+    manufacturer_titles: list[StatRowOut] = []
+    team_titles: list[StatRowOut] = []
+    driver_wins: list[DriverStatOut] = []
+    driver_podiums: list[DriverPodiumStatOut] = []
+    le_mans_winners: list[LeMansWinnerOut] = []

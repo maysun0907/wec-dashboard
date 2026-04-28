@@ -10,6 +10,7 @@ from app.routers import (
     manufacturers,
     seasons,
     standings,
+    stats,
     teams,
 )
 
@@ -35,6 +36,7 @@ app.include_router(drivers.router, prefix=API_V1_PREFIX)
 app.include_router(teams.router, prefix=API_V1_PREFIX)
 app.include_router(manufacturers.router, prefix=API_V1_PREFIX)
 app.include_router(circuits.router, prefix=API_V1_PREFIX)
+app.include_router(stats.router, prefix=API_V1_PREFIX)
 
 
 @app.get("/")

@@ -333,6 +333,48 @@ export type StandingManufacturer = {
   points: number;
 };
 
+export type StatRow = {
+  id: number;
+  name: string;
+  photoUrl: string | null;
+  logoUrl: string | null;
+  titles: number;
+};
+
+export type DriverStat = {
+  id: number;
+  name: string;
+  photoUrl: string | null;
+  wins: number;
+};
+
+export type DriverPodiumStat = {
+  id: number;
+  name: string;
+  photoUrl: string | null;
+  podiums: number;
+};
+
+export type LeMansWinner = {
+  year: number;
+  eventId: number;
+  manufacturer: string | null;
+  manufacturerLogoUrl: string | null;
+  team: string;
+  teamId: number;
+  carNumber: string;
+  drivers: string;
+};
+
+export type AllTimeStats = {
+  driverTitles: StatRow[];
+  manufacturerTitles: StatRow[];
+  teamTitles: StatRow[];
+  driverWins: DriverStat[];
+  driverPodiums: DriverPodiumStat[];
+  leMansWinners: LeMansWinner[];
+};
+
 export type Season = {
   id: number;
   year: number;
@@ -364,6 +406,9 @@ function withYear(path: string, year?: number | null): string {
 
 export const getSeasons = () =>
   api<Season[]>("/api/v1/seasons", { revalidate: 3600 });
+
+export const getAllTimeStats = () =>
+  api<AllTimeStats>("/api/v1/stats/all-time", { revalidate: 3600 });
 
 // Circuits / drivers / teams change rarely during a season — 1 hour.
 export const getCircuits = (year?: number | null) =>
