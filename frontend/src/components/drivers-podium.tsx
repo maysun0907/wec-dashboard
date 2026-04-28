@@ -66,7 +66,7 @@ export function DriversPodium({
             return (
               <div
                 key={r.id}
-                className="flex h-full flex-col items-center text-center"
+                className="flex flex-col items-center text-center"
               >
                 <div className="relative size-20 sm:size-24">
                   <Link href={`/drivers/${r.id}`}>
@@ -99,7 +99,7 @@ export function DriversPodium({
                 )}
                 <div
                   className={
-                    "mt-auto flex w-full flex-col items-center justify-end rounded-t bg-secondary/40 " +
+                    "mt-2 flex w-full flex-col items-center justify-end rounded-t bg-secondary/40 " +
                     step.bar
                   }
                 >

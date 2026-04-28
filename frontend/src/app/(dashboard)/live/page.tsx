@@ -16,11 +16,8 @@ import { SessionTime } from "@/components/session-time";
 import {
   getEvent,
   getEvents,
-  getLastCompletedEvent,
   getNextEvent,
-  getSessionByType,
   getSessionResults,
-  type Event,
   type SessionResult,
   type Session as SessionT,
 } from "@/lib/api";
@@ -132,30 +129,10 @@ export default async function LivePage() {
   const liveSession = sessions.find((s) => s.status === "live") ?? null;
   const upNext = sessions.find((s) => s.status === "upcoming") ?? null;
 
-  // Latest completed session, with two fallbacks:
-  //   - inside the active weekend, look at this event's past sessions
-  //   - between race weekends, fall back to the previous round's RACE
-  let lastDone: TimedSession | null =
+  // Last completed session of THIS weekend only — not previous rounds.
+  // The home page and standings already surface inter-weekend results.
+  const lastDone =
     [...sessions].reverse().find((s) => s.status === "past") ?? null;
-  let lastDoneEvent: Event | null = next;
-  if (!lastDone && !live) {
-    const prev = getLastCompletedEvent(events, new Date(now)) ?? null;
-    if (prev) {
-      const prevDetail = await getEvent(prev.id).catch(() => null);
-      const race = prevDetail
-        ? getSessionByType(prevDetail.sessions, "RACE")
-        : null;
-      if (race) {
-        lastDone = {
-          ...race,
-          status: "past",
-          startMs: race.startTime ? new Date(race.startTime).getTime() : null,
-          endMs: null,
-        };
-        lastDoneEvent = prev;
-      }
-    }
-  }
 
   let lastDoneResults: SessionResult[] = [];
   if (lastDone) {
@@ -265,11 +242,6 @@ export default async function LivePage() {
           <CardHeader>
             <CardTitle>
               Latest result · {SESSION_LABEL[lastDone.type] ?? lastDone.type}
-              {lastDoneEvent && lastDoneEvent.id !== next.id && (
-                <span className="ml-2 text-sm font-normal text-muted-foreground">
-                  · {lastDoneEvent.name}
-                </span>
-              )}
             </CardTitle>
             <CardDescription>
               {lastDone.type === "Q"
