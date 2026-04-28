@@ -142,6 +142,46 @@ export type TeamDetail = {
   results: TeamResult[];
 };
 
+export type ManufacturerCar = {
+  carId: number;
+  carNumber: string;
+  raceClass: RaceClass;
+  teamId: number;
+  teamName: string;
+  model: string | null;
+  drivers: DriverRef[];
+};
+
+export type ManufacturerResult = {
+  eventId: number;
+  round: number;
+  eventName: string;
+  carNumber: string;
+  teamName: string;
+  raceClass: RaceClass;
+  position: number;
+  classPosition: number;
+  pointsAwarded: number;
+  laps: number | null;
+  gap: string | null;
+};
+
+export type ManufacturerStandingItem = {
+  raceClass: RaceClass;
+  position: number;
+  points: number;
+};
+
+export type ManufacturerDetail = {
+  id: number;
+  name: string;
+  country: string | null;
+  logoUrl: string | null;
+  cars: ManufacturerCar[];
+  results: ManufacturerResult[];
+  standings: ManufacturerStandingItem[];
+};
+
 export type CircuitWinner = {
   raceClass: RaceClass;
   carNumber: string;
@@ -265,6 +305,9 @@ export const getTeams = () =>
 
 export const getTeam = (id: number) =>
   api<TeamDetail>(`/api/v1/teams/${id}`, { revalidate: 600 });
+
+export const getManufacturer = (id: number) =>
+  api<ManufacturerDetail>(`/api/v1/manufacturers/${id}`, { revalidate: 600 });
 
 // Events change occasionally (status transitions) — 10 minutes.
 export const getEvents = () =>

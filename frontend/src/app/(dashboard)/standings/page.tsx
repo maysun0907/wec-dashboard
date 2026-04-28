@@ -234,6 +234,7 @@ export default async function StandingsPage() {
                       key: `m-${r.manufacturerId}`,
                       position: r.position,
                       name: r.manufacturerName,
+                      href: `/manufacturers/${r.manufacturerId}`,
                       logoUrl: r.manufacturerLogoUrl,
                       detail: undefined,
                       points: r.points,

@@ -200,6 +200,49 @@ class TeamDetailOut(_BaseSchema):
     results: list[TeamResultOut] = []
 
 
+class ManufacturerCarOut(_BaseSchema):
+    car_id: int
+    car_number: str
+    race_class: str
+    team_id: int
+    team_name: str
+    model: str | None = None
+    drivers: list[DriverRef] = []
+
+
+class ManufacturerResultOut(_BaseSchema):
+    event_id: int
+    round: int
+    event_name: str
+    car_number: str
+    team_name: str
+    race_class: str
+    position: int  # overall
+    class_position: int = 0
+    points_awarded: float = 0.0
+    laps: int | None = None
+    gap: str | None = None
+
+
+class ManufacturerStandingItem(_BaseSchema):
+    """Per-class manufacturer championship row. Hypercar always populated;
+    LMGT3 brands won't have one because LMGT3 has no manufacturers' trophy."""
+
+    race_class: str
+    position: int
+    points: float
+
+
+class ManufacturerDetailOut(_BaseSchema):
+    id: int
+    name: str
+    country: str | None = None
+    logo_url: str | None = None
+    cars: list[ManufacturerCarOut] = []
+    results: list[ManufacturerResultOut] = []
+    standings: list[ManufacturerStandingItem] = []
+
+
 class CircuitWinnerOut(_BaseSchema):
     race_class: str
     car_number: str
