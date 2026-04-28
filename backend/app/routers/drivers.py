@@ -53,6 +53,81 @@ def list_drivers(
     ]
 
 
+def _driver_career(
+    db: Session, driver_id: int
+) -> list[schemas.DriverSeasonOut]:
+    """One row per (season, car) the driver appeared in. Includes
+    championship position + points (from standings_drivers) and per-row
+    race / win / podium tallies for that car-season."""
+    rows = (
+        db.query(
+            models.Season,
+            models.Car,
+            models.Team,
+            models.Manufacturer,
+            models.RaceClass,
+        )
+        .join(models.CarDriver, models.CarDriver.season_id == models.Season.id)
+        .join(models.Car, models.CarDriver.car_id == models.Car.id)
+        .join(models.Team, models.Car.team_id == models.Team.id)
+        .outerjoin(
+            models.Manufacturer,
+            models.Team.manufacturer_id == models.Manufacturer.id,
+        )
+        .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
+        .filter(models.CarDriver.driver_id == driver_id)
+        .filter(models.CarDriver.car_id == models.Car.id)
+        .order_by(models.Season.year.desc(), models.Car.number)
+        .all()
+    )
+
+    out: list[schemas.DriverSeasonOut] = []
+    for season, car, team, manuf, rc in rows:
+        standing = (
+            db.query(models.StandingDriver)
+            .filter_by(
+                driver_id=driver_id,
+                season_id=season.id,
+                race_class_id=rc.id,
+            )
+            .first()
+        )
+        # Race tallies: walk every race-session result for this car and run
+        # class_position_for to compute the in-class finish.
+        result_rows = (
+            db.query(models.SessionResult)
+            .join(models.Session, models.SessionResult.session_id == models.Session.id)
+            .filter(models.SessionResult.car_id == car.id)
+            .filter(models.Session.type == "RACE")
+            .all()
+        )
+        races = len(result_rows)
+        wins = 0
+        podiums = 0
+        for sr in result_rows:
+            cp = class_position_for(db, sr.session_id, rc.id, sr.position)
+            if cp == 1:
+                wins += 1
+            if 1 <= cp <= 3:
+                podiums += 1
+        out.append(
+            schemas.DriverSeasonOut(
+                year=season.year,
+                team=team.name,
+                manufacturer=manuf.name if manuf else None,
+                manufacturer_logo_url=manuf.logo_url if manuf else None,
+                race_class=rc.name,
+                car_number=car.number,
+                championship_position=standing.position if standing else None,
+                points=standing.points if standing else None,
+                races=races,
+                wins=wins,
+                podiums=podiums,
+            )
+        )
+    return out
+
+
 @router.get("/{driver_id}", response_model=schemas.DriverDetailOut)
 def get_driver(
     driver_id: int,
@@ -63,6 +138,8 @@ def get_driver(
     if driver is None:
         raise HTTPException(status_code=404, detail="Driver not found")
 
+    career = _driver_career(db, driver_id)
+
     season = resolve_season(db, year)
     if season is None:
         return schemas.DriverDetailOut(
@@ -70,6 +147,7 @@ def get_driver(
             name=driver.name,
             nationality=driver.nationality,
             photo_url=driver.photo_url,
+            seasons=career,
         )
 
     # Current-season car / team / class
@@ -92,6 +170,7 @@ def get_driver(
             name=driver.name,
             nationality=driver.nationality,
             photo_url=driver.photo_url,
+            seasons=career,
         )
 
     car, team, manuf, rc = row
@@ -168,4 +247,5 @@ def get_driver(
             if standing
             else None
         ),
+        seasons=career,
     )

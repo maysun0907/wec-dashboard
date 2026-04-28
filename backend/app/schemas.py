@@ -157,9 +157,27 @@ class DriverStandingRef(_BaseSchema):
     points: float
 
 
+class DriverSeasonOut(_BaseSchema):
+    """One row of a driver's career — what they did in a single season.
+    Multiple rows may share a year if the driver swapped cars mid-season."""
+
+    year: int
+    team: str
+    manufacturer: str | None = None
+    manufacturer_logo_url: str | None = None
+    race_class: str
+    car_number: str
+    championship_position: int | None = None
+    points: float | None = None
+    races: int = 0
+    wins: int = 0
+    podiums: int = 0
+
+
 class DriverDetailOut(_BaseSchema):
     """Full profile for a driver in the current season — joins their car,
-    co-drivers, race finishes, and championship row in one shot."""
+    co-drivers, race finishes, and championship row in one shot.
+    `seasons` is the cross-season career history regardless of year param."""
 
     id: int
     name: str
@@ -174,6 +192,7 @@ class DriverDetailOut(_BaseSchema):
     co_drivers: list[DriverRef] = []
     results: list[DriverResultOut] = []
     standing: DriverStandingRef | None = None
+    seasons: list[DriverSeasonOut] = []
 
 
 class TeamCarOut(_BaseSchema):
