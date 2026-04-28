@@ -1509,6 +1509,62 @@ def _ingest_race_classifications(
     return counts
 
 
+def _ingest_fiawec_schedule(db: Session, season_id: int, year: int) -> int:
+    """For every event in the season, fetch fiawec.com's race page and
+    upsert any FP1/FP2/FP3/Q/RACE Sessions whose start_time we don't
+    already know. Returns the number of (event, session_type) entries
+    filled in. Best-effort — failures are silent so a Wikipedia-driven
+    ingest still succeeds when fiawec.com is unreachable."""
+    try:
+        from app.ingest.fiawec_schedule import (
+            discover_race_slugs,
+            fetch_schedule_for_event,
+        )
+    except Exception as exc:  # pragma: no cover
+        print(f"  fiawec schedule import failed: {exc}")
+        return 0
+    try:
+        slugs = discover_race_slugs(year)
+    except Exception as exc:
+        print(f"  fiawec slugs discovery failed: {exc}")
+        return 0
+    if not slugs:
+        return 0
+    events = (
+        db.query(models.Event, models.Circuit)
+        .join(models.Circuit, models.Event.circuit_id == models.Circuit.id)
+        .filter(models.Event.season_id == season_id)
+        .order_by(models.Event.round)
+        .all()
+    )
+    filled = 0
+    for ev, circuit in events:
+        try:
+            sched = fetch_schedule_for_event(ev.name, year, circuit.name, slugs)
+        except Exception as exc:
+            print(f"  fiawec R{ev.round} fetch failed: {exc}")
+            continue
+        for type_, dt in sched:
+            sess = (
+                db.query(models.Session)
+                .filter_by(event_id=ev.id, type=type_)
+                .first()
+            )
+            if sess is None:
+                sess = models.Session(
+                    event_id=ev.id, type=type_, start_time=dt
+                )
+                db.add(sess)
+                filled += 1
+            elif sess.start_time != dt:
+                # Wikipedia may already have set a time; trust fiawec.com
+                # as the more authoritative source.
+                sess.start_time = dt
+                filled += 1
+    db.flush()
+    return filled
+
+
 def _last_completed_event_id(db: Session, season_id: int) -> int | None:
     today = date.today()
     ev = (
@@ -1701,6 +1757,10 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
         standings_counts = _ingest_standings(
             soup, db, season.id, race_class_ids, year
         )
+        # Supplement with fiawec.com schedule for any sessions whose
+        # start_time we couldn't pull from Wikipedia (typically upcoming
+        # rounds whose Wikipedia article is still a stub).
+        fiawec_filled = _ingest_fiawec_schedule(db, season.id, year)
 
         db.commit()
         summary = {
@@ -1713,6 +1773,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             "standings_drivers": standings_counts["drivers"],
             "standings_manufacturers": standings_counts["manufacturers"],
             "standings_teams": standings_counts["teams"],
+            "fiawec_schedule_filled": fiawec_filled,
         }
         print("ingested:")
         for k, v in summary.items():
