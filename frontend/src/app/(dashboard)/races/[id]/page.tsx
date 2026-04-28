@@ -149,18 +149,25 @@ export default async function RaceDetailPage({
             const isPractice =
               s.type === "FP1" || s.type === "FP2" || s.type === "FP3";
             return (
-              <TabsContent key={s.id} value={s.type} className="mt-4">
+              <TabsContent
+                key={s.id}
+                value={s.type}
+                className="mt-4 space-y-4"
+              >
                 {isPractice ? (
                   <PracticeFastestCard
                     label={SESSION_LABELS[s.type] ?? s.type}
                     rows={rows}
                   />
                 ) : (
-                  <ResultsCard
-                    label={SESSION_LABELS[s.type] ?? s.type}
-                    type={s.type}
-                    rows={rows}
-                  />
+                  <>
+                    <SessionWinnersCard type={s.type} rows={rows} />
+                    <ResultsCard
+                      label={SESSION_LABELS[s.type] ?? s.type}
+                      type={s.type}
+                      rows={rows}
+                    />
+                  </>
                 )}
               </TabsContent>
             );
@@ -186,6 +193,93 @@ function StatusBadge({ status }: { status: EventStatus }) {
   if (status === "live") return <Badge variant="destructive">Live</Badge>;
   if (status === "completed") return <Badge variant="outline">Completed</Badge>;
   return <Badge variant="default">Upcoming</Badge>;
+}
+
+function SessionWinnersCard({
+  type,
+  rows,
+}: {
+  type: string;
+  rows: SessionResult[];
+}) {
+  const isQuali = type === "Q";
+  const isRace = type === "RACE";
+  if (!isQuali && !isRace) return null;
+
+  // Q: top of each class (position is grid for our ingest, so == 1).
+  // Race: class_position == 1, falls back to overall position == 1 when
+  // class_position wasn't computed.
+  const topByClass = new Map<string, SessionResult>();
+  for (const r of rows) {
+    const cp = isRace ? r.classPosition || r.position : r.position;
+    if (cp !== 1) continue;
+    if (!topByClass.has(r.raceClass)) {
+      topByClass.set(r.raceClass, r);
+    }
+  }
+  const winners = Array.from(topByClass.values());
+  if (winners.length === 0) return null;
+
+  const heading = isQuali ? "Pole positions" : "Race winners";
+  const sub = isQuali
+    ? "Pole sitters per class — best lap from Hyperpole."
+    : "Class winners.";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{heading}</CardTitle>
+        <p className="text-xs text-muted-foreground">{sub}</p>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {winners.map((r) => (
+            <div
+              key={`${r.raceClass}-${r.carNumber}`}
+              className="rounded-lg border border-border bg-secondary/30 p-4"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <ClassBadge raceClass={r.raceClass} />
+                <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                  #{r.carNumber}
+                </span>
+              </div>
+              <div className="font-semibold">{r.team}</div>
+              {r.drivers && (
+                <div className="text-sm text-muted-foreground">
+                  {r.drivers}
+                </div>
+              )}
+              {isQuali && r.bestLap && (
+                <div className="mt-3 font-mono text-2xl font-bold tabular-nums">
+                  {r.bestLap}
+                </div>
+              )}
+              {isRace && (
+                <div className="mt-3 flex items-baseline gap-2">
+                  {r.laps !== null && (
+                    <span className="font-mono text-2xl font-bold tabular-nums">
+                      {r.laps}
+                    </span>
+                  )}
+                  {r.laps !== null && (
+                    <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                      laps
+                    </span>
+                  )}
+                  {r.gap && (
+                    <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">
+                      {r.gap}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 function PracticeFastestCard({
