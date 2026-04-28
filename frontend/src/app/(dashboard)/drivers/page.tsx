@@ -42,11 +42,19 @@ export default async function DriversPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Drivers</h1>
-        <p className="text-muted-foreground">
-          {drivers.length} entries · 2026 season
-        </p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight">Drivers</h1>
+          <p className="text-muted-foreground">
+            {drivers.length} entries · 2026 season
+          </p>
+        </div>
+        <Link
+          href="/drivers/compare"
+          className="inline-flex items-center rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-medium hover:bg-secondary"
+        >
+          Compare →
+        </Link>
       </header>
 
       <Tabs defaultValue="HYPERCAR">
