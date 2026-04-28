@@ -20,6 +20,7 @@ import { ClassBadge } from "@/components/class-badge";
 import { DriversPodium, buildPodiumRows } from "@/components/drivers-podium";
 import { Flag } from "@/components/flag";
 import { RaceCountdown } from "@/components/race-countdown";
+import { SeasonRecapHero } from "@/components/season-recap-hero";
 import { getSelectedSeason } from "@/lib/season";
 import {
   getDriverStandings,
@@ -27,6 +28,7 @@ import {
   getEvent,
   getEvents,
   getLastCompletedEvent,
+  getManufacturerStandings,
   getNextEvent,
   getSessionByType,
   getSessionResults,
@@ -34,17 +36,22 @@ import {
   getUpcomingEvents,
   type Event,
   type SessionResult,
+  type StandingManufacturer,
   type StandingTeam,
 } from "@/lib/api";
 
 export default async function HomePage() {
   const year = await getSelectedSeason();
-  const [events, driverStandings, teams, driverEntries] = await Promise.all([
-    getEvents(year),
-    getDriverStandings("HYPERCAR", year),
-    getTeamStandings("HYPERCAR", year),
-    getDrivers(year),
-  ]);
+  const [events, driverStandings, teams, driverEntries, mfrStandings] =
+    await Promise.all([
+      getEvents(year),
+      getDriverStandings("HYPERCAR", year),
+      getTeamStandings("HYPERCAR", year),
+      getDrivers(year),
+      getManufacturerStandings("HYPERCAR", year).catch(
+        () => [] as StandingManufacturer[],
+      ),
+    ]);
   // Photos live on driver entries, not standings rows — bridge by id.
   const photoById = new Map(driverEntries.map((d) => [d.id, d.photoUrl]));
   const podium = buildPodiumRows(driverStandings, photoById);
@@ -57,6 +64,15 @@ export default async function HomePage() {
   const completedRounds = events.filter(
     (e) => e.dateEnd < today.toISOString().slice(0, 10),
   ).length;
+  // A "past" season is one with no upcoming events left. Show the recap
+  // hero in that case; the next-race countdown is meaningless for those.
+  const isPastSeason = !next && events.length > 0;
+  const seasonYear = events[0]?.dateStart
+    ? new Date(events[0].dateStart).getFullYear()
+    : year ?? new Date().getFullYear();
+  const champions = driverStandings.filter((d) => d.position === 1);
+  const manufacturerChamp =
+    mfrStandings.find((m) => m.position === 1) ?? null;
 
   // Pull race results for the last completed event in a second hop.
   let lastResult: SessionResult[] = [];
@@ -77,6 +93,15 @@ export default async function HomePage() {
   return (
     <div className="space-y-8">
       {next && <NextRaceHero event={next} />}
+      {isPastSeason && (
+        <SeasonRecapHero
+          year={seasonYear}
+          rounds={completedRounds}
+          champions={champions}
+          manufacturerChamp={manufacturerChamp}
+          driverEntries={driverEntries}
+        />
+      )}
 
       {remaining.length > 0 && <UpcomingCard events={remaining} />}
 
