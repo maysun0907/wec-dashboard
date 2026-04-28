@@ -12,6 +12,7 @@ import { ClassBadge } from "@/components/class-badge";
 import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { RaceCountdown } from "@/components/race-countdown";
+import { ScheduleRowTime } from "@/components/schedule-row-time";
 import { SessionTime } from "@/components/session-time";
 import {
   getEvent,
@@ -458,7 +459,7 @@ function ScheduleRow({
           <div className="text-xs text-muted-foreground">
             <ScheduleRowTime
               iso={session.startTime}
-              tz={tz}
+              circuitTz={tz}
               now={now}
               status={status}
             />
@@ -471,35 +472,6 @@ function ScheduleRow({
       </div>
     </li>
   );
-}
-
-function ScheduleRowTime({
-  iso,
-  tz,
-  now,
-  status,
-}: {
-  iso: string;
-  tz: string;
-  now: number;
-  status: SessionStatus;
-}) {
-  const startMs = new Date(iso).getTime();
-  const diffMin = Math.round((startMs - now) / 60_000);
-  if (status === "upcoming") {
-    if (diffMin > 60 * 24)
-      return (
-        <span>in {Math.round(diffMin / 60 / 24)}d</span>
-      );
-    if (diffMin > 60) return <span>in {Math.round(diffMin / 60)}h</span>;
-    return <span>in {diffMin}m</span>;
-  }
-  if (status === "live") return <span>now</span>;
-  // past
-  const ago = Math.abs(diffMin);
-  if (ago > 60 * 24) return <span>{Math.round(ago / 60 / 24)}d ago</span>;
-  if (ago > 60) return <span>{Math.round(ago / 60)}h ago</span>;
-  return <span>{ago}m ago</span>;
 }
 
 function SessionRecap({
