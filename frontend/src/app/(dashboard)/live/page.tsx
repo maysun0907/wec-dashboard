@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
-import { Check, ExternalLink, Radio, Trophy } from "lucide-react";
+import { Check, ExternalLink, Trophy } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -27,9 +27,8 @@ import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Live" };
 
-const AL_KAMEL_URL = "https://livetiming.alkamelsystems.com/";
 const FIAWEC_URL = "https://www.fiawec.com/";
-const FIAWEC_TV_URL = "https://wectv.fiawec.com/";
+const FIAWEC_TV_URL = "https://plus.fiawec.com/en";
 const TWITTER_URL = "https://twitter.com/FIAWEC";
 
 const SESSION_LABEL: Record<string, string> = {
@@ -327,17 +326,10 @@ export default async function LivePage() {
         <CardHeader>
           <CardTitle>Where to watch</CardTitle>
           <CardDescription>
-            Direct live timing isn&rsquo;t embedded — Al Kamel blocks
-            iframes. These links open the official sources.
+            Official streaming, broadcasters, and live updates.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-1">
-          <ExternalLinkRow
-            href={AL_KAMEL_URL}
-            label="Live timing"
-            detail="Al Kamel Systems — official"
-            Icon={Radio}
-          />
           <ExternalLinkRow
             href={FIAWEC_TV_URL}
             label="WEC TV"
