@@ -16,7 +16,9 @@ import { SessionTime } from "@/components/session-time";
 import {
   getEvent,
   getEvents,
+  getLastCompletedEvent,
   getNextEvent,
+  getSessionByType,
   getSessionResults,
   type Event,
   type SessionResult,
@@ -123,15 +125,38 @@ export default async function LivePage() {
   const tz = tzForCircuit(next.circuit.name);
 
   const sessions = (detail?.sessions ?? [])
+    .filter((s) => s.startTime !== null)
     .map((s) => classifySession(s, next.name, now))
     .sort((a, b) => (ORDER[a.type] ?? 99) - (ORDER[b.type] ?? 99));
 
   const liveSession = sessions.find((s) => s.status === "live") ?? null;
-  const lastDone =
-    [...sessions].reverse().find((s) => s.status === "past") ?? null;
   const upNext = sessions.find((s) => s.status === "upcoming") ?? null;
 
-  // Pull results for the most recently completed session for the recap card.
+  // Latest completed session, with two fallbacks:
+  //   - inside the active weekend, look at this event's past sessions
+  //   - between race weekends, fall back to the previous round's RACE
+  let lastDone: TimedSession | null =
+    [...sessions].reverse().find((s) => s.status === "past") ?? null;
+  let lastDoneEvent: Event | null = next;
+  if (!lastDone && !live) {
+    const prev = getLastCompletedEvent(events, new Date(now)) ?? null;
+    if (prev) {
+      const prevDetail = await getEvent(prev.id).catch(() => null);
+      const race = prevDetail
+        ? getSessionByType(prevDetail.sessions, "RACE")
+        : null;
+      if (race) {
+        lastDone = {
+          ...race,
+          status: "past",
+          startMs: race.startTime ? new Date(race.startTime).getTime() : null,
+          endMs: null,
+        };
+        lastDoneEvent = prev;
+      }
+    }
+  }
+
   let lastDoneResults: SessionResult[] = [];
   if (lastDone) {
     lastDoneResults = await getSessionResults(lastDone.id).catch(
@@ -240,6 +265,11 @@ export default async function LivePage() {
           <CardHeader>
             <CardTitle>
               Latest result · {SESSION_LABEL[lastDone.type] ?? lastDone.type}
+              {lastDoneEvent && lastDoneEvent.id !== next.id && (
+                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                  · {lastDoneEvent.name}
+                </span>
+              )}
             </CardTitle>
             <CardDescription>
               {lastDone.type === "Q"
