@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { ClassBadge } from "@/components/class-badge";
 import { DriverPhoto } from "@/components/driver-photo";
+import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import {
   describeRounds,
@@ -81,17 +82,18 @@ export default async function ManufacturerDetailPage({
             size="lg"
           />
           <div className="min-w-0 flex-1 space-y-1">
-            <CardTitle className="text-2xl sm:text-3xl">
+            <CardTitle className="flex items-center gap-2 text-2xl sm:text-3xl">
+              {manufacturer.country && (
+                <Flag
+                  code={manufacturer.country}
+                  flagOnly
+                  className="text-2xl"
+                />
+              )}
               {manufacturer.name}
             </CardTitle>
             <CardDescription>
-              {[
-                manufacturer.country,
-                `${totalCars} cars`,
-                `${totalDrivers} drivers`,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
+              {`${totalCars} cars · ${totalDrivers} drivers`}
             </CardDescription>
           </div>
         </CardHeader>

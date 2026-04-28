@@ -18,6 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ClassBadge } from "@/components/class-badge";
 import { DriversPodium, buildPodiumRows } from "@/components/drivers-podium";
+import { Flag } from "@/components/flag";
 import { RaceCountdown } from "@/components/race-countdown";
 import {
   getDriverStandings,
@@ -113,10 +114,12 @@ function NextRaceHero({ event }: { event: Event }) {
           <span className="size-1.5 animate-pulse rounded-full bg-[var(--racing-red)]" />
           Next Race · Round {event.round} · 2026
         </div>
-        <CardTitle className="mt-2 text-2xl sm:text-3xl">{event.name}</CardTitle>
+        <CardTitle className="mt-2 flex items-center gap-2 text-2xl sm:text-3xl">
+          <Flag code={event.circuit.country} flagOnly className="text-2xl" />
+          {event.name}
+        </CardTitle>
         <CardDescription>
-          {event.circuit.name} · {event.circuit.country} ·{" "}
-          {event.format ?? "—"}
+          {event.circuit.name} · {event.format ?? "—"}
         </CardDescription>
       </CardHeader>
       <CardContent className="relative space-y-4">
@@ -162,8 +165,9 @@ function UpcomingCard({ events }: { events: Event[] }) {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">{e.name}</span>
-                  <span className="block text-xs text-muted-foreground">
-                    {e.circuit.name} · {e.circuit.country}
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Flag code={e.circuit.country} flagOnly />
+                    {e.circuit.name}
                   </span>
                 </span>
                 <span className="hidden text-right text-xs text-muted-foreground sm:block">

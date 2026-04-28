@@ -16,6 +16,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
 import { DriverPhoto } from "@/components/driver-photo";
+import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import {
   RACE_CLASSES,
@@ -123,8 +124,8 @@ function DriversTable({ drivers }: { drivers: DriverEntry[] }) {
                       {d.team}
                     </span>
                   </TableCell>
-                  <TableCell className="hidden font-mono text-muted-foreground sm:table-cell">
-                    {d.nationality ?? "—"}
+                  <TableCell className="hidden text-muted-foreground sm:table-cell">
+                    <Flag code={d.nationality} />
                   </TableCell>
                   <TableCell className="pr-4">
                     <ClassBadge raceClass={d.raceClass} />

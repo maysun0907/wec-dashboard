@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Flag } from "@/components/flag";
 import { ClassBadge } from "@/components/class-badge";
 import {
   eventStatus,
@@ -110,7 +111,10 @@ export default async function RaceDetailPage({
             Round {event.round} · 2026
             <StatusBadge status={status} />
           </div>
-          <CardTitle className="text-2xl sm:text-3xl">{event.name}</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-2xl sm:text-3xl">
+            <Flag code={event.circuit.country} flagOnly className="text-2xl" />
+            {event.name}
+          </CardTitle>
           <CardDescription>
             <Link
               href={`/circuits/${event.circuit.id}`}
@@ -118,8 +122,7 @@ export default async function RaceDetailPage({
             >
               {event.circuit.name}
             </Link>{" "}
-            · {event.circuit.country !== "UNK" ? event.circuit.country : "—"} ·{" "}
-            {event.format ?? "—"}
+            · {event.format ?? "—"}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">

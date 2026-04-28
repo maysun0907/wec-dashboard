@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { ClassBadge } from "@/components/class-badge";
 import { DriverPhoto } from "@/components/driver-photo";
+import { Flag } from "@/components/flag";
 import { FormChart } from "@/components/form-chart";
 import {
   describeRounds,
@@ -86,11 +87,14 @@ export default async function DriverDetailPage({
                 <span className="text-muted-foreground">{driver.team}</span>
               )}
             </div>
-            <CardTitle className="text-2xl sm:text-3xl">
+            <CardTitle className="flex items-center gap-2 text-2xl sm:text-3xl">
+              {driver.nationality && (
+                <Flag code={driver.nationality} flagOnly className="text-2xl" />
+              )}
               {driver.name}
             </CardTitle>
             <CardDescription>
-              {[driver.nationality, driver.manufacturer, driver.carModel]
+              {[driver.manufacturer, driver.carModel]
                 .filter(Boolean)
                 .join(" · ") || "—"}
             </CardDescription>

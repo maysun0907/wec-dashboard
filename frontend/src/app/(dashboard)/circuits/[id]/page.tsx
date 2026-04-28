@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ClassBadge } from "@/components/class-badge";
+import { Flag } from "@/components/flag";
 import { getCircuit, type CircuitDetail } from "@/lib/api";
 
 type Params = { id: string };
@@ -54,9 +55,12 @@ export default async function CircuitDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl sm:text-3xl">{circuit.name}</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-2xl sm:text-3xl">
+            <Flag code={circuit.country} flagOnly className="text-2xl" />
+            {circuit.name}
+          </CardTitle>
           <CardDescription>
-            {circuit.country !== "UNK" ? circuit.country : "—"}
+            <Flag code={circuit.country} />
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -6,6 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Flag } from "@/components/flag";
 import { getCircuits } from "@/lib/api";
 
 export const metadata = { title: "Circuits" };
@@ -33,7 +34,7 @@ export default async function CircuitsPage() {
               <CardHeader>
                 <CardTitle>{c.name}</CardTitle>
                 <CardDescription>
-                  {c.country !== "UNK" ? c.country : "—"}
+                  <Flag code={c.country} />
                 </CardDescription>
               </CardHeader>
               <CardContent>

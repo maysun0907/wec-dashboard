@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Flag } from "@/components/flag";
 import { eventStatus, getEvents, type EventStatus } from "@/lib/api";
 
 export const metadata = { title: "Schedule" };
@@ -74,13 +75,15 @@ export default async function RacesPage() {
                       </Link>
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground md:table-cell">
-                      <Link
-                        href={`/circuits/${e.circuit.id}`}
-                        className="hover:text-foreground"
-                      >
-                        {e.circuit.name}
-                      </Link>{" "}
-                      · {e.circuit.country !== "UNK" ? e.circuit.country : "—"}
+                      <span className="inline-flex items-center gap-2">
+                        <Flag code={e.circuit.country} flagOnly />
+                        <Link
+                          href={`/circuits/${e.circuit.id}`}
+                          className="hover:text-foreground"
+                        >
+                          {e.circuit.name}
+                        </Link>
+                      </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {format(parseISO(e.dateStart), "MMM d, yyyy")}
