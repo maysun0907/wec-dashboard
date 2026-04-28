@@ -206,12 +206,13 @@ function SessionWinnersCard({
   const isRace = type === "RACE";
   if (!isQuali && !isRace) return null;
 
-  // Q: top of each class (position is grid for our ingest, so == 1).
-  // Race: class_position == 1, falls back to overall position == 1 when
-  // class_position wasn't computed.
+  // Class winner of each class. For both Q and Race, use class_position
+  // (computed by the backend per session) — Q stores `position` as the
+  // overall grid number, so filtering on `position == 1` would only ever
+  // match the Hypercar pole and miss the LMGT3 pole sitter.
   const topByClass = new Map<string, SessionResult>();
   for (const r of rows) {
-    const cp = isRace ? r.classPosition || r.position : r.position;
+    const cp = r.classPosition || r.position;
     if (cp !== 1) continue;
     if (!topByClass.has(r.raceClass)) {
       topByClass.set(r.raceClass, r);
