@@ -33,6 +33,12 @@ class _OrmBase(BaseModel):
 # --- Reference entities ---
 
 
+class SeasonOut(_OrmBase):
+    id: int
+    year: int
+    championship_name: str
+
+
 class CircuitOut(_OrmBase):
     id: int
     name: str

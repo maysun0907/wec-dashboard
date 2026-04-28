@@ -26,14 +26,18 @@ import {
   type DriverDetail,
   type DriverResult,
 } from "@/lib/api";
+import { getSelectedSeason } from "@/lib/season";
 
 type Params = { id: string };
 
-async function fetchDriver(id: string): Promise<DriverDetail | null> {
+async function fetchDriver(
+  id: string,
+  year: number | null,
+): Promise<DriverDetail | null> {
   const numId = Number(id);
   if (!Number.isFinite(numId)) return null;
   try {
-    return await getDriver(numId);
+    return await getDriver(numId, year);
   } catch {
     return null;
   }
@@ -45,7 +49,8 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const d = await fetchDriver(id);
+  const year = await getSelectedSeason();
+  const d = await fetchDriver(id, year);
   return { title: d?.name ?? "Driver" };
 }
 
@@ -55,7 +60,8 @@ export default async function DriverDetailPage({
   params: Promise<Params>;
 }) {
   const { id } = await params;
-  const driver = await fetchDriver(id);
+  const year = await getSelectedSeason();
+  const driver = await fetchDriver(id, year);
   if (driver === null) notFound();
 
   return (

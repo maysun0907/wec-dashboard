@@ -1,8 +1,17 @@
 import Link from "next/link";
+import { SeasonSwitcher } from "./season-switcher";
 import { SiteNav } from "./site-nav";
 import { SiteSearch } from "./site-search";
+import { getSeasons, type Season } from "@/lib/api";
+import { getSelectedSeason } from "@/lib/season";
 
-export function SiteHeader() {
+export async function SiteHeader() {
+  // Best-effort — the API may be cold or down. Header should still render.
+  const [seasons, selected] = await Promise.all([
+    getSeasons().catch(() => [] as Season[]),
+    getSelectedSeason(),
+  ]);
+
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
@@ -17,7 +26,8 @@ export function SiteHeader() {
           </span>
         </Link>
         <SiteNav />
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <SeasonSwitcher seasons={seasons} selected={selected} />
           <SiteSearch />
         </div>
       </div>

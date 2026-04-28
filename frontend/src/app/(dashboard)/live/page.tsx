@@ -7,11 +7,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getEvents, getNextEvent } from "@/lib/api";
+import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Live" };
 
 export default async function LivePage() {
-  const events = await getEvents();
+  const year = await getSelectedSeason();
+  const events = await getEvents(year);
   const next = getNextEvent(events);
 
   return (

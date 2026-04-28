@@ -271,6 +271,12 @@ export type StandingManufacturer = {
   points: number;
 };
 
+export type Season = {
+  id: number;
+  year: number;
+  championshipName: string;
+};
+
 // --- Fetcher ---
 
 type FetchOpts = { revalidate?: number };
@@ -285,7 +291,17 @@ async function api<T>(path: string, opts: FetchOpts = {}): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** Append `year=` to the path if specified. Falsy values omit the param so
+ *  the API falls back to its own "latest season" default. */
+function withYear(path: string, year?: number | null): string {
+  if (!year) return path;
+  return `${path}${path.includes("?") ? "&" : "?"}year=${year}`;
+}
+
 // --- Endpoints ---
+
+export const getSeasons = () =>
+  api<Season[]>("/api/v1/seasons", { revalidate: 3600 });
 
 // Circuits / drivers / teams change rarely during a season — 1 hour.
 export const getCircuits = () =>
@@ -294,24 +310,28 @@ export const getCircuits = () =>
 export const getCircuit = (id: number) =>
   api<CircuitDetail>(`/api/v1/circuits/${id}`, { revalidate: 3600 });
 
-export const getDrivers = () =>
-  api<DriverEntry[]>("/api/v1/drivers", { revalidate: 3600 });
+export const getDrivers = (year?: number | null) =>
+  api<DriverEntry[]>(withYear("/api/v1/drivers", year), { revalidate: 3600 });
 
-export const getDriver = (id: number) =>
-  api<DriverDetail>(`/api/v1/drivers/${id}`, { revalidate: 600 });
+export const getDriver = (id: number, year?: number | null) =>
+  api<DriverDetail>(withYear(`/api/v1/drivers/${id}`, year), {
+    revalidate: 600,
+  });
 
-export const getTeams = () =>
-  api<TeamEntry[]>("/api/v1/teams", { revalidate: 3600 });
+export const getTeams = (year?: number | null) =>
+  api<TeamEntry[]>(withYear("/api/v1/teams", year), { revalidate: 3600 });
 
-export const getTeam = (id: number) =>
-  api<TeamDetail>(`/api/v1/teams/${id}`, { revalidate: 600 });
+export const getTeam = (id: number, year?: number | null) =>
+  api<TeamDetail>(withYear(`/api/v1/teams/${id}`, year), { revalidate: 600 });
 
-export const getManufacturer = (id: number) =>
-  api<ManufacturerDetail>(`/api/v1/manufacturers/${id}`, { revalidate: 600 });
+export const getManufacturer = (id: number, year?: number | null) =>
+  api<ManufacturerDetail>(withYear(`/api/v1/manufacturers/${id}`, year), {
+    revalidate: 600,
+  });
 
 // Events change occasionally (status transitions) — 10 minutes.
-export const getEvents = () =>
-  api<Event[]>("/api/v1/events", { revalidate: 600 });
+export const getEvents = (year?: number | null) =>
+  api<Event[]>(withYear("/api/v1/events", year), { revalidate: 600 });
 
 export const getEvent = (id: number) =>
   api<EventDetail>(`/api/v1/events/${id}`, { revalidate: 600 });
@@ -322,41 +342,80 @@ export const getSessionResults = (sessionId: number) =>
     revalidate: 300,
   });
 
-export const getDriverStandings = (raceClass?: RaceClass) =>
+export const getDriverStandings = (
+  raceClass?: RaceClass,
+  year?: number | null,
+) =>
   api<StandingDriver[]>(
-    `/api/v1/standings/drivers${raceClass ? `?raceClass=${raceClass}` : ""}`,
+    withYear(
+      `/api/v1/standings/drivers${raceClass ? `?raceClass=${raceClass}` : ""}`,
+      year,
+    ),
     { revalidate: 300 },
   );
 
-export const getDriverProgression = (raceClass: RaceClass, limit = 5) =>
+export const getDriverProgression = (
+  raceClass: RaceClass,
+  limit = 5,
+  year?: number | null,
+) =>
   api<DriverProgression[]>(
-    `/api/v1/standings/drivers/progression?raceClass=${raceClass}&limit=${limit}`,
+    withYear(
+      `/api/v1/standings/drivers/progression?raceClass=${raceClass}&limit=${limit}`,
+      year,
+    ),
     { revalidate: 300 },
   );
 
-export const getManufacturerProgression = (raceClass: RaceClass, limit = 8) =>
+export const getManufacturerProgression = (
+  raceClass: RaceClass,
+  limit = 8,
+  year?: number | null,
+) =>
   api<ManufacturerProgression[]>(
-    `/api/v1/standings/manufacturers/progression?raceClass=${raceClass}&limit=${limit}`,
+    withYear(
+      `/api/v1/standings/manufacturers/progression?raceClass=${raceClass}&limit=${limit}`,
+      year,
+    ),
     { revalidate: 300 },
   );
 
-export const getTeamProgression = (raceClass: RaceClass, limit = 8) =>
+export const getTeamProgression = (
+  raceClass: RaceClass,
+  limit = 8,
+  year?: number | null,
+) =>
   api<TeamProgression[]>(
-    `/api/v1/standings/teams/progression?raceClass=${raceClass}&limit=${limit}`,
+    withYear(
+      `/api/v1/standings/teams/progression?raceClass=${raceClass}&limit=${limit}`,
+      year,
+    ),
     { revalidate: 300 },
   );
 
-export const getTeamStandings = (raceClass?: RaceClass) =>
+export const getTeamStandings = (
+  raceClass?: RaceClass,
+  year?: number | null,
+) =>
   api<StandingTeam[]>(
-    `/api/v1/standings/teams${raceClass ? `?raceClass=${raceClass}` : ""}`,
+    withYear(
+      `/api/v1/standings/teams${raceClass ? `?raceClass=${raceClass}` : ""}`,
+      year,
+    ),
     { revalidate: 300 },
   );
 
-export const getManufacturerStandings = (raceClass?: RaceClass) =>
+export const getManufacturerStandings = (
+  raceClass?: RaceClass,
+  year?: number | null,
+) =>
   api<StandingManufacturer[]>(
-    `/api/v1/standings/manufacturers${
-      raceClass ? `?raceClass=${raceClass}` : ""
-    }`,
+    withYear(
+      `/api/v1/standings/manufacturers${
+        raceClass ? `?raceClass=${raceClass}` : ""
+      }`,
+      year,
+    ),
     { revalidate: 300 },
   );
 

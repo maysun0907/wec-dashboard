@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { RACE_CLASSES, getTeams, type RaceClass, type TeamEntry } from "@/lib/api";
+import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Cars" };
 
@@ -47,7 +48,8 @@ function groupByModel(teams: TeamEntry[]): CarModelEntry[] {
 }
 
 export default async function CarsPage() {
-  const teams = await getTeams();
+  const year = await getSelectedSeason();
+  const teams = await getTeams(year);
   const all = groupByModel(teams);
 
   return (
@@ -55,7 +57,7 @@ export default async function CarsPage() {
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Cars</h1>
         <p className="text-muted-foreground">
-          {all.length} car models · 2026 season
+          {all.length} car models
         </p>
       </header>
 

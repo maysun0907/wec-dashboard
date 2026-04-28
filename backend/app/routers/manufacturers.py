@@ -4,19 +4,16 @@ from sqlalchemy.orm import Session, joinedload
 from app import models, schemas
 from app.db import get_db
 from app.scoring import class_position_for, points_for
+from app.season import YearParam, resolve_season
 
 router = APIRouter(prefix="/manufacturers", tags=["manufacturers"])
-
-CURRENT_SEASON_YEAR = 2026
-
-
-def _current_season(db: Session) -> models.Season | None:
-    return db.query(models.Season).filter_by(year=CURRENT_SEASON_YEAR).first()
 
 
 @router.get("/{manufacturer_id}", response_model=schemas.ManufacturerDetailOut)
 def get_manufacturer(
-    manufacturer_id: int, db: Session = Depends(get_db)
+    manufacturer_id: int,
+    year: int | None = YearParam,
+    db: Session = Depends(get_db),
 ) -> schemas.ManufacturerDetailOut:
     """Profile for a manufacturer in the current season — every car running
     the brand (across all teams), per-round results, and championship rows
@@ -26,7 +23,7 @@ def get_manufacturer(
     if manuf is None:
         raise HTTPException(status_code=404, detail="Manufacturer not found")
 
-    season = _current_season(db)
+    season = resolve_season(db, year)
     if season is None:
         return schemas.ManufacturerDetailOut(
             id=manuf.id,

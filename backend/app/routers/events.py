@@ -5,6 +5,7 @@ from app import models, schemas
 from app.db import get_db
 from app.rounds import driver_in_round
 from app.scoring import class_position_for, points_for
+from app.season import YearParam, resolve_season
 
 router = APIRouter(tags=["events"])
 
@@ -12,10 +13,17 @@ _SESSION_ORDER = {"FP1": 1, "FP2": 2, "FP3": 3, "Q": 4, "RACE": 5}
 
 
 @router.get("/events", response_model=list[schemas.EventOut])
-def list_events(db: Session = Depends(get_db)) -> list[models.Event]:
+def list_events(
+    year: int | None = YearParam,
+    db: Session = Depends(get_db),
+) -> list[models.Event]:
+    season = resolve_season(db, year)
+    if season is None:
+        return []
     return (
         db.query(models.Event)
         .options(joinedload(models.Event.circuit))
+        .filter(models.Event.season_id == season.id)
         .order_by(models.Event.round)
         .all()
     )

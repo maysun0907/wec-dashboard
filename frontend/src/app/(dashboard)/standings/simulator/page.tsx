@@ -8,10 +8,12 @@ import {
   getTeamStandings,
   getTeams,
 } from "@/lib/api";
+import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Championship simulator" };
 
 export default async function SimulatorPage() {
+  const year = await getSelectedSeason();
   const [
     events,
     drivers,
@@ -21,13 +23,13 @@ export default async function SimulatorPage() {
     hyperManufacturers,
     lmgt3Teams,
   ] = await Promise.all([
-    getEvents(),
-    getDrivers(),
-    getTeams(),
-    getDriverStandings("HYPERCAR"),
-    getDriverStandings("LMGT3"),
-    getManufacturerStandings("HYPERCAR"),
-    getTeamStandings("LMGT3"),
+    getEvents(year),
+    getDrivers(year),
+    getTeams(year),
+    getDriverStandings("HYPERCAR", year),
+    getDriverStandings("LMGT3", year),
+    getManufacturerStandings("HYPERCAR", year),
+    getTeamStandings("LMGT3", year),
   ]);
 
   return (

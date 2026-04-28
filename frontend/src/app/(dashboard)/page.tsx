@@ -20,6 +20,7 @@ import { ClassBadge } from "@/components/class-badge";
 import { DriversPodium, buildPodiumRows } from "@/components/drivers-podium";
 import { Flag } from "@/components/flag";
 import { RaceCountdown } from "@/components/race-countdown";
+import { getSelectedSeason } from "@/lib/season";
 import {
   getDriverStandings,
   getDrivers,
@@ -37,11 +38,12 @@ import {
 } from "@/lib/api";
 
 export default async function HomePage() {
+  const year = await getSelectedSeason();
   const [events, driverStandings, teams, driverEntries] = await Promise.all([
-    getEvents(),
-    getDriverStandings("HYPERCAR"),
-    getTeamStandings("HYPERCAR"),
-    getDrivers(),
+    getEvents(year),
+    getDriverStandings("HYPERCAR", year),
+    getTeamStandings("HYPERCAR", year),
+    getDrivers(year),
   ]);
   // Photos live on driver entries, not standings rows — bridge by id.
   const photoById = new Map(driverEntries.map((d) => [d.id, d.photoUrl]));

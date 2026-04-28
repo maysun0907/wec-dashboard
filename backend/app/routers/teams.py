@@ -4,25 +4,27 @@ from sqlalchemy.orm import Session, joinedload
 from app import models, schemas
 from app.db import get_db
 from app.scoring import class_position_for, points_for
+from app.season import YearParam, resolve_season
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
-CURRENT_SEASON_YEAR = 2026
-
-
-def _current_season(db: Session) -> models.Season | None:
-    return db.query(models.Season).filter_by(year=CURRENT_SEASON_YEAR).first()
-
 
 @router.get("", response_model=list[schemas.TeamEntryOut])
-def list_teams(db: Session = Depends(get_db)) -> list[schemas.TeamEntryOut]:
-    """Team entries — one row per car in the current season."""
+def list_teams(
+    year: int | None = YearParam,
+    db: Session = Depends(get_db),
+) -> list[schemas.TeamEntryOut]:
+    """Team entries — one row per car in the selected season."""
+    season = resolve_season(db, year)
+    if season is None:
+        return []
     cars = (
         db.query(models.Car)
         .options(
             joinedload(models.Car.team).joinedload(models.Team.manufacturer),
             joinedload(models.Car.race_class),
         )
+        .filter(models.Car.season_id == season.id)
         .all()
     )
     # Sort numerically; "007" → 7 places it next to other 7-ish entries.
@@ -49,7 +51,9 @@ def list_teams(db: Session = Depends(get_db)) -> list[schemas.TeamEntryOut]:
 
 @router.get("/{team_id}", response_model=schemas.TeamDetailOut)
 def get_team(
-    team_id: int, db: Session = Depends(get_db)
+    team_id: int,
+    year: int | None = YearParam,
+    db: Session = Depends(get_db),
 ) -> schemas.TeamDetailOut:
     team = (
         db.query(models.Team)
@@ -60,7 +64,7 @@ def get_team(
     if team is None:
         raise HTTPException(status_code=404, detail="Team not found")
 
-    season = _current_season(db)
+    season = resolve_season(db, year)
     if season is None:
         return schemas.TeamDetailOut(
             id=team.id,

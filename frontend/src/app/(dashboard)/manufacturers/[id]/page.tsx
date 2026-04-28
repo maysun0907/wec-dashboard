@@ -26,16 +26,18 @@ import {
   type ManufacturerDetail,
   type ManufacturerResult,
 } from "@/lib/api";
+import { getSelectedSeason } from "@/lib/season";
 
 type Params = { id: string };
 
 async function fetchManufacturer(
   id: string,
+  year: number | null,
 ): Promise<ManufacturerDetail | null> {
   const numId = Number(id);
   if (!Number.isFinite(numId)) return null;
   try {
-    return await getManufacturer(numId);
+    return await getManufacturer(numId, year);
   } catch {
     return null;
   }
@@ -47,7 +49,8 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const m = await fetchManufacturer(id);
+  const year = await getSelectedSeason();
+  const m = await fetchManufacturer(id, year);
   return { title: m?.name ?? "Manufacturer" };
 }
 
@@ -57,7 +60,8 @@ export default async function ManufacturerDetailPage({
   params: Promise<Params>;
 }) {
   const { id } = await params;
-  const manufacturer = await fetchManufacturer(id);
+  const year = await getSelectedSeason();
+  const manufacturer = await fetchManufacturer(id, year);
   if (manufacturer === null) notFound();
 
   const totalCars = manufacturer.cars.length;

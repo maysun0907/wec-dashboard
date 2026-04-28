@@ -7,6 +7,7 @@ from app import models, schemas
 from app.db import get_db
 from app.rounds import driver_in_round
 from app.scoring import class_position_for, points_for
+from app.season import YearParam, resolve_season
 
 router = APIRouter(prefix="/standings", tags=["standings"])
 
@@ -24,12 +25,13 @@ def _class_filter(query, model, race_class: str | None):
 @router.get("/drivers", response_model=list[schemas.StandingDriverOut])
 def driver_standings(
     race_class: str | None = RaceClassParam,
+    year: int | None = YearParam,
     db: Session = Depends(get_db),
 ) -> list[schemas.StandingDriverOut]:
-    season = (
-        db.query(models.Season).order_by(models.Season.year.desc()).first()
-    )
-    season_id = season.id if season else None
+    season = resolve_season(db, year)
+    if season is None:
+        return []
+    season_id = season.id
 
     q = (
         db.query(
@@ -50,6 +52,7 @@ def driver_standings(
             models.Manufacturer, models.Team.manufacturer_id == models.Manufacturer.id
         )
         .options(joinedload(models.StandingDriver.race_class))
+        .filter(models.StandingDriver.season_id == season_id)
     )
     q = _class_filter(q, models.StandingDriver, race_class)
     rows = q.order_by(models.StandingDriver.position).all()
@@ -79,11 +82,19 @@ def driver_standings(
 @router.get("/teams", response_model=list[schemas.StandingTeamOut])
 def team_standings(
     race_class: str | None = RaceClassParam,
+    year: int | None = YearParam,
     db: Session = Depends(get_db),
 ) -> list[schemas.StandingTeamOut]:
-    q = db.query(models.StandingTeam).options(
-        joinedload(models.StandingTeam.team).joinedload(models.Team.manufacturer),
-        joinedload(models.StandingTeam.race_class),
+    season = resolve_season(db, year)
+    if season is None:
+        return []
+    q = (
+        db.query(models.StandingTeam)
+        .options(
+            joinedload(models.StandingTeam.team).joinedload(models.Team.manufacturer),
+            joinedload(models.StandingTeam.race_class),
+        )
+        .filter(models.StandingTeam.season_id == season.id)
     )
     q = _class_filter(q, models.StandingTeam, race_class)
     rows = q.order_by(models.StandingTeam.position).all()
@@ -114,6 +125,7 @@ def team_standings(
 def driver_progression(
     race_class: str | None = RaceClassParam,
     limit: int = Query(5, ge=1, le=20),
+    year: int | None = YearParam,
     db: Session = Depends(get_db),
 ) -> list[schemas.DriverProgressionOut]:
     """Cumulative championship points per driver after each completed round.
@@ -127,9 +139,7 @@ def driver_progression(
     )
     if rc is None:
         return []
-    season = (
-        db.query(models.Season).order_by(models.Season.year.desc()).first()
-    )
+    season = resolve_season(db, year)
     if season is None:
         return []
 
@@ -238,6 +248,7 @@ def driver_progression(
 def manufacturer_progression(
     race_class: str | None = RaceClassParam,
     limit: int = Query(8, ge=1, le=20),
+    year: int | None = YearParam,
     db: Session = Depends(get_db),
 ) -> list[schemas.ManufacturerProgressionOut]:
     """Cumulative points per manufacturer after each completed round.
@@ -251,9 +262,7 @@ def manufacturer_progression(
     )
     if rc is None:
         return []
-    season = (
-        db.query(models.Season).order_by(models.Season.year.desc()).first()
-    )
+    season = resolve_season(db, year)
     if season is None:
         return []
 
@@ -349,6 +358,7 @@ def manufacturer_progression(
 def team_progression(
     race_class: str | None = RaceClassParam,
     limit: int = Query(8, ge=1, le=20),
+    year: int | None = YearParam,
     db: Session = Depends(get_db),
 ) -> list[schemas.TeamProgressionOut]:
     """Cumulative points per team-car (per car) after each completed round.
@@ -363,9 +373,7 @@ def team_progression(
     )
     if rc is None:
         return []
-    season = (
-        db.query(models.Season).order_by(models.Season.year.desc()).first()
-    )
+    season = resolve_season(db, year)
     if season is None:
         return []
 
@@ -464,11 +472,19 @@ def team_progression(
 @router.get("/manufacturers", response_model=list[schemas.StandingManufacturerOut])
 def manufacturer_standings(
     race_class: str | None = RaceClassParam,
+    year: int | None = YearParam,
     db: Session = Depends(get_db),
 ) -> list[schemas.StandingManufacturerOut]:
-    q = db.query(models.StandingManufacturer).options(
-        joinedload(models.StandingManufacturer.manufacturer),
-        joinedload(models.StandingManufacturer.race_class),
+    season = resolve_season(db, year)
+    if season is None:
+        return []
+    q = (
+        db.query(models.StandingManufacturer)
+        .options(
+            joinedload(models.StandingManufacturer.manufacturer),
+            joinedload(models.StandingManufacturer.race_class),
+        )
+        .filter(models.StandingManufacturer.season_id == season.id)
     )
     q = _class_filter(q, models.StandingManufacturer, race_class)
     rows = q.order_by(models.StandingManufacturer.position).all()

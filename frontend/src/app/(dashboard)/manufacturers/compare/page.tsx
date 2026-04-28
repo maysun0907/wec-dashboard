@@ -17,6 +17,7 @@ import {
   type ManufacturerProgression,
   type StandingManufacturer,
 } from "@/lib/api";
+import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Compare manufacturers" };
 
@@ -37,13 +38,14 @@ export default async function ManufacturerComparePage({
 }) {
   const sp = await searchParams;
   let ids = parseIds(sp.ids);
+  const year = await getSelectedSeason();
 
   // Manufacturer championship is Hypercar-only — no need for a class toggle.
   const [standings, progression] = await Promise.all([
-    getManufacturerStandings("HYPERCAR").catch(
+    getManufacturerStandings("HYPERCAR", year).catch(
       () => [] as StandingManufacturer[],
     ),
-    getManufacturerProgression("HYPERCAR", 20).catch(
+    getManufacturerProgression("HYPERCAR", 20, year).catch(
       () => [] as ManufacturerProgression[],
     ),
   ]);

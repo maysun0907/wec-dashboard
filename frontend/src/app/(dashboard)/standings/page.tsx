@@ -35,6 +35,7 @@ import {
   type StandingManufacturer,
   type TeamProgression,
 } from "@/lib/api";
+import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Standings" };
 
@@ -47,6 +48,7 @@ function groupByClass<T extends { raceClass: RaceClass }>(rows: T[]) {
 }
 
 export default async function StandingsPage() {
+  const year = await getSelectedSeason();
   const [
     drivers,
     teams,
@@ -57,18 +59,24 @@ export default async function StandingsPage() {
     hyperManufacturerProg,
     lmgt3TeamProg,
   ] = await Promise.all([
-    getDriverStandings(),
-    getTeamStandings(),
-    getManufacturerStandings(),
-    getEvents(),
+    getDriverStandings(undefined, year),
+    getTeamStandings(undefined, year),
+    getManufacturerStandings(undefined, year),
+    getEvents(year),
     // Backend redeploy may lag the frontend build; fall back to empty so
     // the rest of /standings still prerenders.
-    getDriverProgression("HYPERCAR").catch(() => [] as DriverProgression[]),
-    getDriverProgression("LMGT3").catch(() => [] as DriverProgression[]),
-    getManufacturerProgression("HYPERCAR").catch(
+    getDriverProgression("HYPERCAR", 5, year).catch(
+      () => [] as DriverProgression[],
+    ),
+    getDriverProgression("LMGT3", 5, year).catch(
+      () => [] as DriverProgression[],
+    ),
+    getManufacturerProgression("HYPERCAR", 8, year).catch(
       () => [] as ManufacturerProgression[],
     ),
-    getTeamProgression("LMGT3").catch(() => [] as TeamProgression[]),
+    getTeamProgression("LMGT3", 8, year).catch(
+      () => [] as TeamProgression[],
+    ),
   ]);
 
   const driverProgByClass: Partial<Record<RaceClass, DriverProgression[]>> = {
@@ -97,7 +105,7 @@ export default async function StandingsPage() {
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">Standings</h1>
           <p className="text-muted-foreground">
-            2026 season · After R{completedRounds}
+            After R{completedRounds}
           </p>
         </div>
         <Link

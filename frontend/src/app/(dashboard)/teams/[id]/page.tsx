@@ -20,14 +20,18 @@ import { ClassBadge } from "@/components/class-badge";
 import { DriverPhoto } from "@/components/driver-photo";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { describeRounds, getTeam, type TeamDetail } from "@/lib/api";
+import { getSelectedSeason } from "@/lib/season";
 
 type Params = { id: string };
 
-async function fetchTeam(id: string): Promise<TeamDetail | null> {
+async function fetchTeam(
+  id: string,
+  year: number | null,
+): Promise<TeamDetail | null> {
   const numId = Number(id);
   if (!Number.isFinite(numId)) return null;
   try {
-    return await getTeam(numId);
+    return await getTeam(numId, year);
   } catch {
     return null;
   }
@@ -39,7 +43,8 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const t = await fetchTeam(id);
+  const year = await getSelectedSeason();
+  const t = await fetchTeam(id, year);
   return { title: t?.name ?? "Team" };
 }
 
@@ -49,7 +54,8 @@ export default async function TeamDetailPage({
   params: Promise<Params>;
 }) {
   const { id } = await params;
-  const team = await fetchTeam(id);
+  const year = await getSelectedSeason();
+  const team = await fetchTeam(id, year);
   if (team === null) notFound();
 
   return (

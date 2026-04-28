@@ -17,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Flag } from "@/components/flag";
 import { eventStatus, getEvents, type EventStatus } from "@/lib/api";
+import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Schedule" };
 
@@ -30,7 +31,8 @@ const STATUS_VARIANT: Record<
 };
 
 export default async function RacesPage() {
-  const events = await getEvents();
+  const year = await getSelectedSeason();
+  const events = await getEvents(year);
   const today = new Date();
 
   return (

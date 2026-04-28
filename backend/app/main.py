@@ -8,6 +8,7 @@ from app.routers import (
     events,
     health,
     manufacturers,
+    seasons,
     standings,
     teams,
 )
@@ -27,6 +28,7 @@ app.include_router(health.router)
 
 # All resource routers live under /api/v1
 API_V1_PREFIX = "/api/v1"
+app.include_router(seasons.router, prefix=API_V1_PREFIX)
 app.include_router(events.router, prefix=API_V1_PREFIX)
 app.include_router(standings.router, prefix=API_V1_PREFIX)
 app.include_router(drivers.router, prefix=API_V1_PREFIX)

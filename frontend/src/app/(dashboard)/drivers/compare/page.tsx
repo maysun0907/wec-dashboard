@@ -19,6 +19,7 @@ import {
   type DriverDetail,
   type RaceClass,
 } from "@/lib/api";
+import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Compare drivers" };
 
@@ -50,11 +51,12 @@ export default async function ComparePage({
   const sp = await searchParams;
   const raceClass = parseClass(sp.class);
   let ids = parseIds(sp.ids);
+  const year = await getSelectedSeason();
 
   // Default: top 3 in the chosen class so the page is useful on first load.
   if (ids.length === 0) {
     try {
-      const standings = await getDriverStandings(raceClass);
+      const standings = await getDriverStandings(raceClass, year);
       ids = standings.slice(0, 3).map((s) => s.driverId);
     } catch {
       ids = [];
@@ -62,9 +64,9 @@ export default async function ComparePage({
   }
 
   const [allDrivers, ...selectedRaw] = await Promise.all([
-    getDrivers(),
+    getDrivers(year),
     ...ids.map((id) =>
-      getDriver(id).catch(() => null as DriverDetail | null),
+      getDriver(id, year).catch(() => null as DriverDetail | null),
     ),
   ]);
   const selected = selectedRaw.filter(

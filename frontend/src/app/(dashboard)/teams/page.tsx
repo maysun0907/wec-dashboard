@@ -22,6 +22,7 @@ import {
   type RaceClass,
   type TeamEntry,
 } from "@/lib/api";
+import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Teams" };
 
@@ -36,7 +37,8 @@ function groupByClass(teams: TeamEntry[]): Record<RaceClass, TeamEntry[]> {
 }
 
 export default async function TeamsPage() {
-  const teams = await getTeams();
+  const year = await getSelectedSeason();
+  const teams = await getTeams(year);
   const byClass = groupByClass(teams);
 
   return (
@@ -44,7 +46,7 @@ export default async function TeamsPage() {
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight">Teams</h1>
         <p className="text-muted-foreground">
-          {teams.length} entries · 2026 season
+          {teams.length} entries
         </p>
       </header>
 

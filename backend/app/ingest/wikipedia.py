@@ -28,8 +28,14 @@ from app.ingest._common import (
 )
 
 USER_AGENT = "wec-dashboard/0.1 (https://github.com/maysun0907/wec-dashboard)"
-DEFAULT_URL = "https://en.wikipedia.org/wiki/2026_FIA_World_Endurance_Championship"
 DEFAULT_YEAR = 2026
+
+
+def url_for_year(year: int) -> str:
+    return f"https://en.wikipedia.org/wiki/{year}_FIA_World_Endurance_Championship"
+
+
+DEFAULT_URL = url_for_year(DEFAULT_YEAR)
 
 MONTHS = {
     "January": 1, "February": 2, "March": 3, "April": 4, "May": 5, "June": 6,
@@ -776,12 +782,12 @@ def _upsert_circuit(db: Session, name: str, country: str | None) -> models.Circu
 
 
 def _ingest_calendar(
-    soup: BeautifulSoup, db: Session, season_id: int
+    soup: BeautifulSoup, db: Session, season_id: int, year: int
 ) -> int:
     table = find_table_by_heading(soup, "Calendar")
     if table is None:
         return 0
-    rounds = parse_calendar(table, year=DEFAULT_YEAR)
+    rounds = parse_calendar(table, year=year)
     for rd in rounds:
         circuit = _upsert_circuit(db, rd["circuit_name"], rd["country"])
         db.add(
@@ -1123,7 +1129,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
 
         _clear_season(db, season.id)
 
-        events_n = _ingest_calendar(soup, db, season.id)
+        events_n = _ingest_calendar(soup, db, season.id, year)
         cars_n, car_drivers_n = _ingest_entries(
             soup, db, season.id, race_class_ids
         )
@@ -1161,8 +1167,22 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
 
 
 def main() -> None:
-    url = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_URL
-    ingest(year=DEFAULT_YEAR, url=url)
+    """CLI: `python -m app.ingest.wikipedia [year] [url]`. Either or both
+    optional. With `year` only, the URL is derived from the year. With
+    `url` only, year stays the default — passing both is the safest
+    when the article slug doesn't match the year."""
+    year = DEFAULT_YEAR
+    url = DEFAULT_URL
+    if len(sys.argv) > 1:
+        first = sys.argv[1]
+        if first.isdigit():
+            year = int(first)
+            url = url_for_year(year)
+        else:
+            url = first
+    if len(sys.argv) > 2:
+        url = sys.argv[2]
+    ingest(year=year, url=url)
 
 
 if __name__ == "__main__":

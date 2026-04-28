@@ -4,19 +4,20 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.db import get_db
 from app.scoring import class_position_for, points_for
+from app.season import YearParam, resolve_season
 
 router = APIRouter(prefix="/drivers", tags=["drivers"])
 
-CURRENT_SEASON_YEAR = 2026
-
-
-def _current_season(db: Session) -> models.Season | None:
-    return db.query(models.Season).filter_by(year=CURRENT_SEASON_YEAR).first()
-
 
 @router.get("", response_model=list[schemas.DriverEntryOut])
-def list_drivers(db: Session = Depends(get_db)) -> list[schemas.DriverEntryOut]:
-    """Driver entries for the current season, joined with their car/team/class."""
+def list_drivers(
+    year: int | None = YearParam,
+    db: Session = Depends(get_db),
+) -> list[schemas.DriverEntryOut]:
+    """Driver entries for the selected season, joined with their car/team/class."""
+    season = resolve_season(db, year)
+    if season is None:
+        return []
     rows = (
         db.query(
             models.Driver,
@@ -32,6 +33,8 @@ def list_drivers(db: Session = Depends(get_db)) -> list[schemas.DriverEntryOut]:
             models.Manufacturer, models.Team.manufacturer_id == models.Manufacturer.id
         )
         .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
+        .filter(models.Car.season_id == season.id)
+        .filter(models.CarDriver.season_id == season.id)
         .order_by(models.Driver.name)
         .all()
     )
@@ -52,13 +55,15 @@ def list_drivers(db: Session = Depends(get_db)) -> list[schemas.DriverEntryOut]:
 
 @router.get("/{driver_id}", response_model=schemas.DriverDetailOut)
 def get_driver(
-    driver_id: int, db: Session = Depends(get_db)
+    driver_id: int,
+    year: int | None = YearParam,
+    db: Session = Depends(get_db),
 ) -> schemas.DriverDetailOut:
     driver = db.get(models.Driver, driver_id)
     if driver is None:
         raise HTTPException(status_code=404, detail="Driver not found")
 
-    season = _current_season(db)
+    season = resolve_season(db, year)
     if season is None:
         return schemas.DriverDetailOut(
             id=driver.id,

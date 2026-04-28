@@ -24,6 +24,7 @@ import {
   type DriverEntry,
   type RaceClass,
 } from "@/lib/api";
+import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Drivers" };
 
@@ -38,7 +39,8 @@ function groupByClass(drivers: DriverEntry[]): Record<RaceClass, DriverEntry[]> 
 }
 
 export default async function DriversPage() {
-  const drivers = await getDrivers();
+  const year = await getSelectedSeason();
+  const drivers = await getDrivers(year);
   const byClass = groupByClass(drivers);
 
   return (
