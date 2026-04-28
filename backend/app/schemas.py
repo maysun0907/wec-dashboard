@@ -216,6 +216,21 @@ class TeamResultOut(_BaseSchema):
     gap: str | None = None
 
 
+class TeamSeasonOut(_BaseSchema):
+    """One row of a team's archive — per (year, race_class, car_number).
+    LMGT3 teams running two cars produce two rows per season because the
+    LMGT3 trophy is car-scoped."""
+
+    year: int
+    race_class: str
+    car_number: str
+    championship_position: int | None = None
+    points: float | None = None
+    races: int = 0
+    wins: int = 0
+    podiums: int = 0
+
+
 class TeamDetailOut(_BaseSchema):
     id: int
     name: str
@@ -223,6 +238,7 @@ class TeamDetailOut(_BaseSchema):
     manufacturer_logo_url: str | None = None
     cars: list[TeamCarOut] = []
     results: list[TeamResultOut] = []
+    seasons: list[TeamSeasonOut] = []
 
 
 class ManufacturerCarOut(_BaseSchema):

@@ -19,7 +19,13 @@ import {
 import { ClassBadge } from "@/components/class-badge";
 import { DriverPhoto } from "@/components/driver-photo";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
-import { describeRounds, getTeam, type TeamDetail } from "@/lib/api";
+import {
+  describeRounds,
+  getTeam,
+  raceClassLabel,
+  type TeamDetail,
+  type TeamSeason,
+} from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
 
 type Params = { id: string };
@@ -141,6 +147,18 @@ export default async function TeamDetailPage({
         </div>
       </section>
 
+      {team.seasons.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Career</CardTitle>
+            <CardDescription>{teamCareerSummary(team.seasons)}</CardDescription>
+          </CardHeader>
+          <CardContent className="px-0">
+            <TeamCareerTable rows={team.seasons} />
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Race results</CardTitle>
@@ -210,5 +228,79 @@ export default async function TeamDetailPage({
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function teamCareerSummary(seasons: TeamSeason[]): string {
+  const titles = seasons.filter((s) => s.championshipPosition === 1).length;
+  const totalRaces = seasons.reduce((s, r) => s + r.races, 0);
+  const totalWins = seasons.reduce((s, r) => s + r.wins, 0);
+  const totalPodiums = seasons.reduce((s, r) => s + r.podiums, 0);
+  const years = Array.from(new Set(seasons.map((s) => s.year))).sort();
+  const span =
+    years.length > 1
+      ? `${years[0]}–${years[years.length - 1]}`
+      : `${years[0]}`;
+  const titlesText = titles > 0 ? `${titles} title${titles === 1 ? "" : "s"} · ` : "";
+  return `${span} · ${titlesText}${totalRaces} car-races · ${totalWins} wins · ${totalPodiums} podiums`;
+}
+
+function TeamCareerTable({ rows }: { rows: TeamSeason[] }) {
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="w-16 pl-4">Year</TableHead>
+          <TableHead className="w-20">Class</TableHead>
+          <TableHead className="w-12 text-right">#</TableHead>
+          <TableHead className="w-16 text-right">Pos</TableHead>
+          <TableHead className="w-20 text-right">Pts</TableHead>
+          <TableHead className="hidden w-12 text-right md:table-cell">R</TableHead>
+          <TableHead className="hidden w-12 text-right md:table-cell">W</TableHead>
+          <TableHead className="w-14 pr-4 text-right">P</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {rows.map((s, i) => {
+          const isTitle = s.championshipPosition === 1;
+          return (
+            <TableRow
+              key={`${s.year}-${s.raceClass}-${s.carNumber}-${i}`}
+              className={isTitle ? "bg-[var(--racing-yellow)]/5" : undefined}
+            >
+              <TableCell className="pl-4 font-mono tabular-nums">{s.year}</TableCell>
+              <TableCell>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {raceClassLabel(s.raceClass)}
+                </span>
+              </TableCell>
+              <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+                #{s.carNumber}
+              </TableCell>
+              <TableCell
+                className={
+                  "text-right font-mono tabular-nums " +
+                  (isTitle ? "font-semibold text-[var(--racing-yellow)]" : "")
+                }
+              >
+                {s.championshipPosition !== null ? `P${s.championshipPosition}` : "—"}
+              </TableCell>
+              <TableCell className="text-right font-mono tabular-nums">
+                {s.points !== null ? s.points : "—"}
+              </TableCell>
+              <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground md:table-cell">
+                {s.races}
+              </TableCell>
+              <TableCell className="hidden text-right font-mono tabular-nums md:table-cell">
+                {s.wins > 0 ? s.wins : "—"}
+              </TableCell>
+              <TableCell className="pr-4 text-right font-mono tabular-nums">
+                {s.podiums > 0 ? s.podiums : "—"}
+              </TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 }

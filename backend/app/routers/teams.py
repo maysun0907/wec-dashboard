@@ -49,6 +49,79 @@ def list_teams(
     ]
 
 
+def _team_career(db: Session, team_id: int) -> list[schemas.TeamSeasonOut]:
+    """One row per (season, race_class, car_number) the team fielded.
+    Pulls championship_position + points from standings_teams when it has
+    a row matching all three (LMGT3 + LMP2 trophy in some seasons), else
+    leaves both null."""
+    rows = (
+        db.query(models.Season, models.Car, models.RaceClass)
+        .join(models.Car, models.Car.season_id == models.Season.id)
+        .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
+        .filter(models.Car.team_id == team_id)
+        .order_by(models.Season.year.desc())
+        .all()
+    )
+
+    out: list[schemas.TeamSeasonOut] = []
+    for season, car, rc in rows:
+        # Match standing by car_number when set (LMGT3); else just by
+        # (team, season, race_class) — older teams' trophies were per-team.
+        standing = (
+            db.query(models.StandingTeam)
+            .filter_by(
+                team_id=team_id,
+                season_id=season.id,
+                race_class_id=rc.id,
+                car_number=car.number,
+            )
+            .first()
+        )
+        if standing is None:
+            standing = (
+                db.query(models.StandingTeam)
+                .filter_by(
+                    team_id=team_id,
+                    season_id=season.id,
+                    race_class_id=rc.id,
+                    car_number=None,
+                )
+                .first()
+            )
+
+        result_rows = (
+            db.query(models.SessionResult)
+            .join(models.Session, models.SessionResult.session_id == models.Session.id)
+            .filter(models.SessionResult.car_id == car.id)
+            .filter(models.Session.type == "RACE")
+            .all()
+        )
+        races = len(result_rows)
+        wins = 0
+        podiums = 0
+        for sr in result_rows:
+            cp = class_position_for(db, sr.session_id, rc.id, sr.position)
+            if cp == 1:
+                wins += 1
+            if 1 <= cp <= 3:
+                podiums += 1
+
+        out.append(
+            schemas.TeamSeasonOut(
+                year=season.year,
+                race_class=rc.name,
+                car_number=car.number,
+                championship_position=standing.position if standing else None,
+                points=standing.points if standing else None,
+                races=races,
+                wins=wins,
+                podiums=podiums,
+            )
+        )
+    out.sort(key=lambda s: (-s.year, s.race_class, s.car_number))
+    return out
+
+
 @router.get("/{team_id}", response_model=schemas.TeamDetailOut)
 def get_team(
     team_id: int,
@@ -64,12 +137,15 @@ def get_team(
     if team is None:
         raise HTTPException(status_code=404, detail="Team not found")
 
+    career = _team_career(db, team_id)
+
     season = resolve_season(db, year)
     if season is None:
         return schemas.TeamDetailOut(
             id=team.id,
             name=team.name,
             manufacturer=team.manufacturer.name if team.manufacturer else None,
+            seasons=career,
         )
 
     # All cars this team operates this season
@@ -160,4 +236,5 @@ def get_team(
             )
             for sr, ev, car, rc in result_rows
         ],
+        seasons=career,
     )

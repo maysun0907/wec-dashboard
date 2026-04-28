@@ -171,6 +171,17 @@ export type TeamResult = {
   gap: string | null;
 };
 
+export type TeamSeason = {
+  year: number;
+  raceClass: RaceClass;
+  carNumber: string;
+  championshipPosition: number | null;
+  points: number | null;
+  races: number;
+  wins: number;
+  podiums: number;
+};
+
 export type TeamDetail = {
   id: number;
   name: string;
@@ -178,6 +189,7 @@ export type TeamDetail = {
   manufacturerLogoUrl: string | null;
   cars: TeamCar[];
   results: TeamResult[];
+  seasons: TeamSeason[];
 };
 
 export type ManufacturerCar = {
