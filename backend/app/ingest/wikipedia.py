@@ -1083,8 +1083,12 @@ def parse_standings_teams(table: Tag, race_class: str) -> list[dict]:
 
 
 def _clear_season(db: Session, season_id: int) -> None:
-    """Clear all season-2026 rows so re-ingestion is fully fresh."""
-    # Standings (FK: events.id via after_event_id, drivers/teams/manufacturers)
+    """Clear season-scoped rows that get rebuilt from scratch each ingest.
+    `events` are intentionally preserved — their primary keys appear in
+    user-facing URLs (/races/{id}, OG image links, share-card hash) so
+    deleting + recreating them on every cron run would silently 404 every
+    bookmark. Events get upserted-in-place by (season, round)."""
+    # Standings (FK: events.id via after_event_id)
     db.execute(
         delete(models.StandingDriver).where(
             models.StandingDriver.season_id == season_id
@@ -1114,9 +1118,7 @@ def _clear_season(db: Session, season_id: int) -> None:
     db.execute(
         delete(models.Session).where(models.Session.event_id.in_(event_ids_subq))
     )
-    # Events
-    db.execute(delete(models.Event).where(models.Event.season_id == season_id))
-    # Cars + car_drivers
+    # Cars + car_drivers (events stay)
     db.execute(
         delete(models.CarDriver).where(models.CarDriver.season_id == season_id)
     )
@@ -1145,6 +1147,10 @@ def _upsert_circuit(db: Session, name: str, country: str | None) -> models.Circu
 def _ingest_calendar(
     soup: BeautifulSoup, db: Session, season_id: int, year: int
 ) -> int:
+    """Upsert events by (season_id, round) so their primary keys stay
+    stable across re-ingests. Wikipedia occasionally renames a round
+    (sponsor changes) or shifts the date — those get applied to the
+    existing row rather than spawning a new event."""
     # Recent seasons use 'Calendar', older ones used 'Schedule'.
     table = find_table_by_heading(soup, "Calendar") or find_table_by_heading(
         soup, "Schedule"
@@ -1152,19 +1158,43 @@ def _ingest_calendar(
     if table is None:
         return 0
     rounds = parse_calendar(table, year=year)
+    seen_rounds: set[int] = set()
     for rd in rounds:
         circuit = _upsert_circuit(db, rd["circuit_name"], rd["country"])
-        db.add(
-            models.Event(
-                season_id=season_id,
-                circuit_id=circuit.id,
-                round=rd["round"],
-                name=rd["name"],
-                date_start=rd["date_start"],
-                date_end=rd["date_end"],
-                format=None,
-            )
+        ev = (
+            db.query(models.Event)
+            .filter_by(season_id=season_id, round=rd["round"])
+            .first()
         )
+        if ev is None:
+            db.add(
+                models.Event(
+                    season_id=season_id,
+                    circuit_id=circuit.id,
+                    round=rd["round"],
+                    name=rd["name"],
+                    date_start=rd["date_start"],
+                    date_end=rd["date_end"],
+                    format=None,
+                )
+            )
+        else:
+            ev.circuit_id = circuit.id
+            ev.name = rd["name"]
+            ev.date_start = rd["date_start"]
+            ev.date_end = rd["date_end"]
+        seen_rounds.add(rd["round"])
+    # Drop events for rounds the season page no longer lists (rare, but
+    # keeps the calendar honest if a round is cancelled mid-season).
+    stale = (
+        db.query(models.Event)
+        .filter(models.Event.season_id == season_id)
+        .filter(~models.Event.round.in_(seen_rounds))
+        .all()
+    )
+    for ev in stale:
+        # Cascade — sessions / results were already wiped in _clear_season.
+        db.delete(ev)
     db.flush()
     return len(rounds)
 
