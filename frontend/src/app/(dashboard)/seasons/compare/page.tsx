@@ -36,22 +36,33 @@ function parseYears(raw: string | string[] | undefined): number[] {
 
 type SeasonData = {
   year: number;
+  topClass: string;
   events: Event[];
   drivers: StandingDriver[];
   manufacturers: StandingManufacturer[];
   driverEntries: DriverEntry[];
 };
 
+/** WEC's top class flipped from LMP1 to Hypercar in 2021. Use the right
+ *  one for the season being compared so 2014 doesn't render an empty
+ *  Hypercar column. */
+function topClassFor(year: number) {
+  return year >= 2021 ? "HYPERCAR" : "LMP1";
+}
+
 async function fetchSeason(year: number): Promise<SeasonData> {
+  const cls = topClassFor(year);
   const [events, drivers, manufacturers, driverEntries] = await Promise.all([
     getEvents(year).catch(() => [] as Event[]),
-    getDriverStandings("HYPERCAR", year).catch(() => [] as StandingDriver[]),
-    getManufacturerStandings("HYPERCAR", year).catch(
+    getDriverStandings(cls as never, year).catch(
+      () => [] as StandingDriver[],
+    ),
+    getManufacturerStandings(cls as never, year).catch(
       () => [] as StandingManufacturer[],
     ),
     getDrivers(year).catch(() => [] as DriverEntry[]),
   ]);
-  return { year, events, drivers, manufacturers, driverEntries };
+  return { year, topClass: cls, events, drivers, manufacturers, driverEntries };
 }
 
 export default async function SeasonComparePage({
@@ -83,7 +94,8 @@ export default async function SeasonComparePage({
         <h1 className="text-3xl font-bold tracking-tight">Compare seasons</h1>
         <p className="text-muted-foreground">
           Drivers&rsquo; champion, manufacturers&rsquo; champion, and the top
-          standings of two or three Hypercar seasons side by side.
+          standings of two or three seasons side by side. Top class
+          auto-switches from LMP1 (pre-2021) to Hypercar.
         </p>
       </header>
 
@@ -133,7 +145,9 @@ function SeasonColumn({ data }: { data: SeasonData }) {
             {data.events.length} rounds
           </span>
         </div>
-        <CardDescription>Hypercar championship</CardDescription>
+        <CardDescription>
+          {data.topClass === "HYPERCAR" ? "Hypercar" : "LMP1"} championship
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {champion && (
