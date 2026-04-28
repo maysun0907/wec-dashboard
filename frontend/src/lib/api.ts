@@ -313,6 +313,23 @@ export type TeamProgression = {
   points: ProgressionPoint[];
 };
 
+export type PodiumCar = {
+  classPosition: number;
+  carNumber: string;
+  team: string;
+  teamId: number;
+  manufacturer: string | null;
+  manufacturerLogoUrl: string | null;
+  drivers: string;
+};
+
+export type RoundPodium = {
+  eventId: number;
+  round: number;
+  eventName: string;
+  podium: PodiumCar[];
+};
+
 export type StandingTeam = {
   position: number;
   teamId: number;
@@ -497,6 +514,12 @@ export const getTeamProgression = (
       `/api/v1/standings/teams/progression?raceClass=${raceClass}&limit=${limit}`,
       year,
     ),
+    { revalidate: 300 },
+  );
+
+export const getRoundPodiums = (raceClass: RaceClass, year?: number | null) =>
+  api<RoundPodium[]>(
+    withYear(`/api/v1/standings/podiums?raceClass=${raceClass}`, year),
     { revalidate: 300 },
   );
 

@@ -469,6 +469,90 @@ def team_progression(
     ]
 
 
+@router.get(
+    "/podiums",
+    response_model=list[schemas.RoundPodiumOut],
+)
+def round_podiums(
+    race_class: str | None = RaceClassParam,
+    year: int | None = YearParam,
+    db: Session = Depends(get_db),
+) -> list[schemas.RoundPodiumOut]:
+    """Per-round top-3 cars in a class. Walks every completed race
+    session in the season, sorts overall results to derive class
+    position, and returns the top three with team / manufacturer / car
+    number / drivers per finish."""
+    if race_class is None:
+        return []
+    rc = (
+        db.query(models.RaceClass)
+        .filter(models.RaceClass.name == race_class.upper())
+        .first()
+    )
+    if rc is None:
+        return []
+    season = resolve_season(db, year)
+    if season is None:
+        return []
+
+    events = (
+        db.query(models.Event)
+        .filter(models.Event.season_id == season.id)
+        .order_by(models.Event.round)
+        .all()
+    )
+    out: list[schemas.RoundPodiumOut] = []
+    for ev in events:
+        race_session = (
+            db.query(models.Session)
+            .filter_by(event_id=ev.id, type="RACE")
+            .first()
+        )
+        if race_session is None:
+            continue
+        results = (
+            db.query(
+                models.SessionResult,
+                models.Car,
+                models.Team,
+                models.Manufacturer,
+            )
+            .join(models.Car, models.SessionResult.car_id == models.Car.id)
+            .join(models.Team, models.Car.team_id == models.Team.id)
+            .outerjoin(
+                models.Manufacturer,
+                models.Team.manufacturer_id == models.Manufacturer.id,
+            )
+            .filter(models.SessionResult.session_id == race_session.id)
+            .filter(models.Car.race_class_id == rc.id)
+            .order_by(models.SessionResult.position)
+            .all()
+        )
+        if not results:
+            continue
+        podium = [
+            schemas.PodiumCarOut(
+                class_position=i + 1,
+                car_number=car.number,
+                team=team.name,
+                team_id=team.id,
+                manufacturer=manuf.name if manuf else None,
+                manufacturer_logo_url=manuf.logo_url if manuf else None,
+                drivers=sr.drivers or "",
+            )
+            for i, (sr, car, team, manuf) in enumerate(results[:3])
+        ]
+        out.append(
+            schemas.RoundPodiumOut(
+                event_id=ev.id,
+                round=ev.round,
+                event_name=ev.name,
+                podium=podium,
+            )
+        )
+    return out
+
+
 @router.get("/manufacturers", response_model=list[schemas.StandingManufacturerOut])
 def manufacturer_standings(
     race_class: str | None = RaceClassParam,

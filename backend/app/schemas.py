@@ -379,6 +379,23 @@ class StandingManufacturerOut(_BaseSchema):
     points: float
 
 
+class PodiumCarOut(_BaseSchema):
+    class_position: int
+    car_number: str
+    team: str
+    team_id: int
+    manufacturer: str | None = None
+    manufacturer_logo_url: str | None = None
+    drivers: str
+
+
+class RoundPodiumOut(_BaseSchema):
+    event_id: int
+    round: int
+    event_name: str
+    podium: list[PodiumCarOut] = []
+
+
 class StatRowOut(_BaseSchema):
     """Generic title-leaderboard row (drivers / manufacturers / teams)."""
 

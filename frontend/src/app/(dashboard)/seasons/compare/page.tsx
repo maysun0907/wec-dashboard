@@ -19,11 +19,13 @@ import {
   getDrivers,
   getEvents,
   getManufacturerStandings,
+  getRoundPodiums,
   getSeasons,
   getTeamProgression,
   getTeams,
   type DriverEntry,
   type Event,
+  type RoundPodium,
   type StandingDriver,
   type StandingManufacturer,
   type TeamEntry,
@@ -51,6 +53,7 @@ type SeasonData = {
   driverEntries: DriverEntry[];
   teamEntries: TeamEntry[];
   carProgression: TeamProgression[];
+  podiums: RoundPodium[];
 };
 
 /** WEC's top class flipped from LMP1 to Hypercar in 2021. Use the right
@@ -69,6 +72,7 @@ async function fetchSeason(year: number): Promise<SeasonData> {
     driverEntries,
     teamEntries,
     carProgression,
+    podiums,
   ] = await Promise.all([
     getEvents(year).catch(() => [] as Event[]),
     getDriverStandings(cls as never, year).catch(
@@ -85,6 +89,7 @@ async function fetchSeason(year: number): Promise<SeasonData> {
     getTeamProgression(cls as never, 3, year).catch(
       () => [] as TeamProgression[],
     ),
+    getRoundPodiums(cls as never, year).catch(() => [] as RoundPodium[]),
   ]);
   return {
     year,
@@ -95,6 +100,7 @@ async function fetchSeason(year: number): Promise<SeasonData> {
     driverEntries,
     teamEntries,
     carProgression,
+    podiums,
   };
 }
 
@@ -360,7 +366,69 @@ function SeasonColumn({ data }: { data: SeasonData }) {
             </ul>
           </div>
         )}
+
+        {data.podiums.length > 0 && <RoundPodiumsTable rows={data.podiums} />}
       </CardContent>
     </Card>
+  );
+}
+
+function RoundPodiumsTable({ rows }: { rows: RoundPodium[] }) {
+  // Compact per-round podium grid: each row = a round, three columns
+  // for P1/P2/P3 with manufacturer logo + car #.
+  return (
+    <div className="space-y-1">
+      <div className="text-xs uppercase tracking-wider text-muted-foreground">
+        Round podiums
+      </div>
+      <table className="w-full text-xs">
+        <thead className="text-[10px] uppercase tracking-wider text-muted-foreground">
+          <tr>
+            <th className="px-1 py-1 text-left">Rd</th>
+            <th className="px-1 py-1 text-left">P1</th>
+            <th className="px-1 py-1 text-left">P2</th>
+            <th className="px-1 py-1 text-left">P3</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.round} className="border-t border-border/40">
+              <td className="px-1 py-1 font-mono tabular-nums text-muted-foreground">
+                <Link
+                  href={`/races/${r.eventId}`}
+                  className="hover:text-foreground"
+                  title={r.eventName}
+                >
+                  R{r.round}
+                </Link>
+              </td>
+              {[0, 1, 2].map((i) => {
+                const p = r.podium[i];
+                return (
+                  <td key={i} className="px-1 py-1">
+                    {p ? (
+                      <span
+                        className="inline-flex items-center gap-1.5"
+                        title={`${p.team} #${p.carNumber}${p.drivers ? " — " + p.drivers : ""}`}
+                      >
+                        <ManufacturerLogo
+                          src={p.manufacturerLogoUrl}
+                          name={p.manufacturer ?? p.team}
+                        />
+                        <span className="font-mono tabular-nums text-foreground">
+                          #{p.carNumber}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
