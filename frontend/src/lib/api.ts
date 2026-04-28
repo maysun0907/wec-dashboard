@@ -119,6 +119,20 @@ export type DriverStandingRef = {
   points: number;
 };
 
+export type DriverSeason = {
+  year: number;
+  team: string;
+  manufacturer: string | null;
+  manufacturerLogoUrl: string | null;
+  raceClass: RaceClass;
+  carNumber: string;
+  championshipPosition: number | null;
+  points: number | null;
+  races: number;
+  wins: number;
+  podiums: number;
+};
+
 export type DriverDetail = {
   id: number;
   name: string;
@@ -133,6 +147,7 @@ export type DriverDetail = {
   coDrivers: DriverRef[];
   results: DriverResult[];
   standing: DriverStandingRef | null;
+  seasons: DriverSeason[];
 };
 
 export type TeamCar = {
