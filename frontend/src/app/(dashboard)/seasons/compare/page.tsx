@@ -7,25 +7,27 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { DriverPhoto } from "@/components/driver-photo";
 import {
-  DriverProgressionCard,
-  type DriverProgressionSeries,
-} from "@/components/driver-progression-card";
+  CarProgressionCard,
+  type CarProgressionSeries,
+} from "@/components/car-progression-card";
+import { DriverPhoto } from "@/components/driver-photo";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { SeasonComparePicker } from "@/components/season-compare-picker";
 import {
-  getDriverProgression,
   getDriverStandings,
   getDrivers,
   getEvents,
   getManufacturerStandings,
   getSeasons,
+  getTeamProgression,
+  getTeams,
   type DriverEntry,
-  type DriverProgression,
   type Event,
   type StandingDriver,
   type StandingManufacturer,
+  type TeamEntry,
+  type TeamProgression,
 } from "@/lib/api";
 
 export const metadata = { title: "Compare seasons" };
@@ -47,7 +49,8 @@ type SeasonData = {
   drivers: StandingDriver[];
   manufacturers: StandingManufacturer[];
   driverEntries: DriverEntry[];
-  progression: DriverProgression[];
+  teamEntries: TeamEntry[];
+  carProgression: TeamProgression[];
 };
 
 /** WEC's top class flipped from LMP1 to Hypercar in 2021. Use the right
@@ -59,20 +62,30 @@ function topClassFor(year: number) {
 
 async function fetchSeason(year: number): Promise<SeasonData> {
   const cls = topClassFor(year);
-  const [events, drivers, manufacturers, driverEntries, progression] =
-    await Promise.all([
-      getEvents(year).catch(() => [] as Event[]),
-      getDriverStandings(cls as never, year).catch(
-        () => [] as StandingDriver[],
-      ),
-      getManufacturerStandings(cls as never, year).catch(
-        () => [] as StandingManufacturer[],
-      ),
-      getDrivers(year).catch(() => [] as DriverEntry[]),
-      getDriverProgression(cls as never, 3, year).catch(
-        () => [] as DriverProgression[],
-      ),
-    ]);
+  const [
+    events,
+    drivers,
+    manufacturers,
+    driverEntries,
+    teamEntries,
+    carProgression,
+  ] = await Promise.all([
+    getEvents(year).catch(() => [] as Event[]),
+    getDriverStandings(cls as never, year).catch(
+      () => [] as StandingDriver[],
+    ),
+    getManufacturerStandings(cls as never, year).catch(
+      () => [] as StandingManufacturer[],
+    ),
+    getDrivers(year).catch(() => [] as DriverEntry[]),
+    getTeams(year).catch(() => [] as TeamEntry[]),
+    // /api/v1/standings/teams/progression returns one row per (team_id,
+    // car_number), which is exactly the unit we want — top 3 cars by
+    // points instead of three drivers from the same trio.
+    getTeamProgression(cls as never, 3, year).catch(
+      () => [] as TeamProgression[],
+    ),
+  ]);
   return {
     year,
     topClass: cls,
@@ -80,7 +93,8 @@ async function fetchSeason(year: number): Promise<SeasonData> {
     drivers,
     manufacturers,
     driverEntries,
-    progression,
+    teamEntries,
+    carProgression,
   };
 }
 
@@ -152,29 +166,39 @@ function SeasonColumn({ data }: { data: SeasonData }) {
   const photoById = new Map(
     data.driverEntries.map((d) => [d.id, d.photoUrl]),
   );
-  // Join progression rows against the standings table for team, and the
-  // entry list for photo / car number, so the hover card can render the
-  // full driver context.
-  const standingByDriver = new Map(
-    data.drivers.map((d) => [d.driverId, d]),
+  // For each (team, carNumber) progression row, look up the
+  // manufacturer logo from the team-entry list and the driver trio
+  // from the driver-entry list. Hover card shows car + team + drivers.
+  const teamMetaByCar = new Map(
+    data.teamEntries.map((t) => [`${t.id}-${t.carNumber}`, t]),
   );
-  const entryByDriver = new Map(
-    data.driverEntries.map((d) => [d.id, d]),
-  );
-  const progressionSeries: DriverProgressionSeries[] = data.progression.map(
-    (p) => {
-      const standing = standingByDriver.get(p.driverId);
-      const entry = entryByDriver.get(p.driverId);
-      return {
-        driverId: p.driverId,
-        driverName: p.driverName,
-        team: standing?.team ?? entry?.team ?? null,
-        carNumber: entry?.carNumber ?? null,
-        photoUrl: photoById.get(p.driverId) ?? null,
-        points: p.points,
-      };
-    },
-  );
+  const driversByCar = new Map<string, DriverEntry[]>();
+  for (const d of data.driverEntries) {
+    // driverEntries doesn't carry team_id directly — match by team name
+    // + car number, which is unique for the season.
+    const teamMatches = data.teamEntries.filter(
+      (t) => t.name === d.team && t.carNumber === d.carNumber,
+    );
+    for (const t of teamMatches) {
+      const k = `${t.id}-${t.carNumber}`;
+      driversByCar.set(k, [...(driversByCar.get(k) ?? []), d]);
+    }
+  }
+  const carSeries: CarProgressionSeries[] = data.carProgression.map((p) => {
+    const k = `${p.teamId}-${p.carNumber}`;
+    const meta = teamMetaByCar.get(k);
+    const drivers = driversByCar.get(k) ?? [];
+    return {
+      key: k,
+      label: `${p.teamName} #${p.carNumber}`,
+      team: p.teamName,
+      manufacturer: meta?.manufacturer ?? null,
+      manufacturerLogoUrl: meta?.manufacturerLogoUrl ?? null,
+      carNumber: p.carNumber,
+      drivers: drivers.map((d) => ({ id: d.id, name: d.name })),
+      points: p.points,
+    };
+  });
 
   return (
     <Card>
@@ -297,12 +321,12 @@ function SeasonColumn({ data }: { data: SeasonData }) {
           </div>
         )}
 
-        {progressionSeries.length > 0 && (
+        {carSeries.length > 0 && (
           <div className="space-y-1">
             <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              Title race
+              Title race · top 3 cars
             </div>
-            <DriverProgressionCard series={progressionSeries} />
+            <CarProgressionCard series={carSeries} />
           </div>
         )}
 
