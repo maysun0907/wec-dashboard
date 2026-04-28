@@ -294,7 +294,10 @@ def find_entry_tables(soup: BeautifulSoup) -> list[tuple[str, Tag]]:
     map to a class are skipped — that drops e.g. the standings tables
     which also have Entrant + Drivers in some seasons."""
     out: list[tuple[str, Tag]] = []
-    seen_classes: set[str] = set()
+    # Track (class, heading-id) so LMP1-H + LMP1-L both contribute (they map
+    # to LMP1 but live under separate headings) while a single class' entry
+    # table doesn't get scraped twice from a constructor/sub-section table.
+    seen_headings: set[tuple[str, int]] = set()
     for table in soup.select("table.wikitable"):
         first_tr = table.find("tr")
         if first_tr is None:
@@ -313,12 +316,10 @@ def find_entry_tables(soup: BeautifulSoup) -> list[tuple[str, Tag]]:
         cls = _normalize_class(h.get_text(" ", strip=True))
         if cls is None:
             continue
-        # The first table after the heading is the entry list; later
-        # tables under the same class heading (e.g. constructors' table)
-        # would re-trigger and we don't want them.
-        if cls in seen_classes:
+        key = (cls, id(h))
+        if key in seen_headings:
             continue
-        seen_classes.add(cls)
+        seen_headings.add(key)
         out.append((cls, table))
     return out
 
@@ -510,12 +511,14 @@ def _normalize_class(raw: str) -> str | None:
     """Map free-form class labels (race-page Class column or page heading)
     onto our canonical class names. Covers every WEC class since 2012:
     HYPERCAR (LMH/LMDh), LMP1, LMP2, LMGT3, LMGTE_PRO, LMGTE_AM."""
-    s = raw.strip().upper().replace(".", "").replace(" ", "")
+    s = raw.strip().upper().replace(".", "").replace(" ", "").replace("-", "")
     if s in {"H", "HYPERCAR", "LMH", "LMDH"}:
         return "HYPERCAR"
     if s in {"GT3", "LMGT3"}:
         return "LMGT3"
-    if s == "LMP1":
+    # 2014–2017 split LMP1 into LMP1-H (hybrid) and LMP1-L (privateer).
+    # Treat both as plain LMP1 for our purposes.
+    if s in {"LMP1", "LMP1H", "LMP1L"}:
         return "LMP1"
     if s == "LMP2":
         return "LMP2"
