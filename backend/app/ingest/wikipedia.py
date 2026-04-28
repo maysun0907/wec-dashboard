@@ -9,11 +9,14 @@ Run:
 """
 import re
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from urllib.parse import unquote
+from zoneinfo import ZoneInfo
 
 import httpx
 from bs4 import BeautifulSoup, Tag
+
+from app.circuit_tz import tz_for_circuit
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -325,6 +328,213 @@ def find_entry_tables(soup: BeautifulSoup) -> list[tuple[str, Tag]]:
 
 
 # ---------------------------------------------------------------------------
+# Schedule + practice + qualifying parsing (race-page level)
+# ---------------------------------------------------------------------------
+
+
+# Map raw schedule event labels onto our 5-bucket session type.
+def _session_type_for(event_text: str) -> str | None:
+    e = event_text.lower().strip()
+    if e.startswith("free practice 1") or e == "practice 1":
+        return "FP1"
+    if e.startswith("free practice 2") or e == "practice 2":
+        return "FP2"
+    if e.startswith("free practice 3") or e == "practice 3":
+        return "FP3"
+    if e.startswith("final practice"):
+        return "FP3"
+    if e.startswith("qualifying") or e.startswith("hyperpole"):
+        return "Q"
+    if e.startswith("race"):
+        return "RACE"
+    return None
+
+
+_SCHED_DATE_RE = re.compile(r"(?:\w+,\s+)?(\d{1,2})\s+(\w+)")
+_SCHED_TIME_RE = re.compile(r"^(\d{1,2}):(\d{2})$")
+
+
+def parse_session_schedule(
+    soup: BeautifulSoup, year: int, circuit_tz: str
+) -> list[tuple[str, datetime]]:
+    """Walk the 'Schedule' table on a race page and return one row per
+    canonical session type (FP1/FP2/FP3/Q/RACE) with the earliest start
+    time across any sub-sessions of that bucket — Hyperpole + class
+    qualifyings collapse into Q. Returned datetimes are naive UTC."""
+    h = next(
+        (
+            x
+            for x in soup.find_all(["h2", "h3"])
+            if x.get_text(" ", strip=True).lower() == "schedule"
+        ),
+        None,
+    )
+    if h is None:
+        return []
+    table = h.find_next("table")
+    if table is None or not isinstance(table, Tag):
+        return []
+    rows = expand_rowspan(table)
+    if len(rows) < 2:
+        return []
+    header = [_clean(c) for c in rows[0]]
+    lower = {h.lower(): i for i, h in enumerate(header)}
+    date_idx = lower.get("date")
+    event_idx = lower.get("event")
+    time_idx = next(
+        (lower[k] for k in lower if k.startswith("time")), None
+    )
+    if date_idx is None or event_idx is None or time_idx is None:
+        return []
+
+    earliest: dict[str, datetime] = {}
+    try:
+        tz = ZoneInfo(circuit_tz)
+    except Exception:
+        tz = ZoneInfo("UTC")
+    for row in rows[1:]:
+        if len(row) <= max(date_idx, event_idx, time_idx):
+            continue
+        date_text = _clean(row[date_idx])
+        time_text = _clean(row[time_idx])
+        event_text = _clean(row[event_idx])
+        kind = _session_type_for(event_text)
+        if kind is None:
+            continue
+        m_d = _SCHED_DATE_RE.search(date_text)
+        m_t = _SCHED_TIME_RE.match(time_text)
+        if m_d is None or m_t is None:
+            continue
+        day = int(m_d.group(1))
+        month_name = m_d.group(2)
+        if month_name not in MONTHS:
+            continue
+        month = MONTHS[month_name]
+        hour = int(m_t.group(1))
+        minute = int(m_t.group(2))
+        try:
+            local = datetime(year, month, day, hour, minute, tzinfo=tz)
+        except ValueError:
+            continue
+        utc = local.astimezone(timezone.utc).replace(tzinfo=None)
+        if kind not in earliest or utc < earliest[kind]:
+            earliest[kind] = utc
+    return sorted(earliest.items(), key=lambda kv: kv[1])
+
+
+def _practice_table_for(soup: BeautifulSoup, label: str) -> Tag | None:
+    """Find the wikitable directly following a heading whose text equals
+    the given practice label (e.g. 'Practice 1', 'Final practice')."""
+    target = label.lower().strip()
+    for h in soup.find_all(["h3", "h4"]):
+        if h.get_text(" ", strip=True).lower() == target:
+            t = h.find_next("table")
+            if isinstance(t, Tag):
+                return t
+    return None
+
+
+def parse_practice_fastest(
+    table: Tag,
+) -> list[dict]:
+    """Practice tables list only the fastest car per class (Hypercar +
+    LMGT3, sometimes LMP2). Returns one row per class with car number,
+    driver, and lap time."""
+    rows = expand_rowspan(table)
+    if len(rows) < 2:
+        return []
+    header = [_clean(c) for c in rows[0]]
+    cols = {h: i for i, h in enumerate(header)}
+    if "Class" not in cols:
+        return []
+    no_key = next((k for k in ("No.", "No") if k in cols), None)
+    if no_key is None:
+        return []
+    out: list[dict] = []
+    for row in rows[1:]:
+        if len(row) < len(header):
+            continue
+        cls = _normalize_class(_clean(row[cols["Class"]]))
+        if cls is None:
+            continue
+        out.append(
+            {
+                "race_class": cls,
+                "car_number": _clean(row[cols[no_key]]),
+                "entrant": (
+                    _clean(row[cols["Entrant"]]) if "Entrant" in cols else ""
+                ),
+                "driver": (
+                    _clean(row[cols["Driver"]]) if "Driver" in cols else ""
+                ),
+                "time": _clean(row[cols["Time"]]) if "Time" in cols else "",
+            }
+        )
+    return out
+
+
+def parse_qualifying_classification(soup: BeautifulSoup) -> list[dict]:
+    """Walk the 'Qualifying results' table and return per-car rows with
+    class, grid position, qualifying lap time, and hyperpole lap time."""
+    h = next(
+        (
+            x
+            for x in soup.find_all(["h2", "h3"])
+            if x.get_text(" ", strip=True).lower().startswith("qualifying")
+            and "result" in x.get_text(" ", strip=True).lower()
+        ),
+        None,
+    )
+    if h is None:
+        return []
+    table = h.find_next("table")
+    if table is None or not isinstance(table, Tag):
+        return []
+    rows = expand_rowspan(table)
+    if len(rows) < 2:
+        return []
+    header = [_clean(c) for c in rows[0]]
+    cols = {h: i for i, h in enumerate(header)}
+    pos_key = next((k for k in ("Pos.", "Pos") if k in cols), None)
+    if pos_key is None or "Class" not in cols:
+        return []
+    no_key = next((k for k in ("No.", "No") if k in cols), None)
+    if no_key is None:
+        return []
+    out: list[dict] = []
+    for row in rows[1:]:
+        if len(row) < len(header):
+            continue
+        pos_raw = _clean(row[cols[pos_key]])
+        if not pos_raw.isdigit():
+            continue
+        cls = _normalize_class(_clean(row[cols["Class"]]))
+        if cls is None:
+            continue
+        out.append(
+            {
+                "race_class": cls,
+                "position": int(pos_raw),
+                "car_number": _clean(row[cols[no_key]]),
+                "q_time": (
+                    _clean(row[cols["Qualifying"]])
+                    if "Qualifying" in cols
+                    else ""
+                ),
+                "hp_time": (
+                    _clean(row[cols["Hyperpole"]])
+                    if "Hyperpole" in cols
+                    else ""
+                ),
+                "grid": (
+                    _clean(row[cols["Grid"]]) if "Grid" in cols else ""
+                ),
+            }
+        )
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Domain parsing
 # ---------------------------------------------------------------------------
 
@@ -478,6 +688,48 @@ def parse_calendar(table: Tag, year: int) -> list[dict]:
 
 
 _NO_RE = re.compile(r"^No\.\s+(\d+)\s+(.+)$")
+
+
+def parse_calendar_urls(table: Tag) -> dict[int, str]:
+    """From the season page's Calendar table, extract Race-name anchor
+    hrefs per round. Useful for upcoming rounds whose schedule is on
+    Wikipedia even though no race-report URL exists yet."""
+    out: dict[int, str] = {}
+    rows = table.find_all("tr")
+    if not rows:
+        return out
+    headers = [
+        _clean(c.get_text(" ", strip=True))
+        for c in rows[0].find_all(["th", "td"])
+    ]
+    rnd_idx = next(
+        (i for i, h in enumerate(headers) if h in ("Rnd", "Rnd.", "Round")),
+        None,
+    )
+    race_idx = next(
+        (i for i, h in enumerate(headers) if h == "Race"), None
+    )
+    if rnd_idx is None or race_idx is None:
+        return out
+    for tr in rows[1:]:
+        cells = tr.find_all(["th", "td"])
+        if len(cells) <= max(rnd_idx, race_idx):
+            continue
+        rnd_text = _clean(cells[rnd_idx].get_text(" ", strip=True))
+        if not rnd_text.isdigit():
+            continue
+        a = cells[race_idx].find("a", href=True)
+        if a is None:
+            continue
+        href = a["href"]
+        if "redlink=1" in href or "action=edit" in href:
+            continue
+        if href.startswith("/wiki/"):
+            href = "https://en.wikipedia.org" + href
+        elif not href.startswith("http"):
+            continue
+        out[int(rnd_text)] = href
+    return out
 
 
 def parse_race_report_urls(table: Tag) -> dict[int, str]:
@@ -1015,18 +1267,142 @@ def _ingest_results_summary(
     return inserted
 
 
+def _upsert_session(
+    db: Session, event_id: int, type_: str, start_time: datetime | None
+) -> models.Session:
+    sess = (
+        db.query(models.Session)
+        .filter_by(event_id=event_id, type=type_)
+        .first()
+    )
+    if sess is None:
+        sess = models.Session(
+            event_id=event_id, type=type_, start_time=start_time
+        )
+        db.add(sess)
+        db.flush()
+    elif start_time is not None and sess.start_time != start_time:
+        sess.start_time = start_time
+    return sess
+
+
+def _ingest_practice_session(
+    race_soup: BeautifulSoup,
+    db: Session,
+    event_id: int,
+    label: str,
+    type_: str,
+    season_id: int,
+    race_class_ids: dict[str, int],
+    start_time: datetime | None,
+) -> int:
+    table = _practice_table_for(race_soup, label)
+    if table is None:
+        return 0
+    rows = parse_practice_fastest(table)
+    if not rows:
+        return 0
+    session = _upsert_session(db, event_id, type_, start_time)
+    db.execute(
+        delete(models.SessionResult).where(
+            models.SessionResult.session_id == session.id
+        )
+    )
+    inserted = 0
+    for r in rows:
+        car = (
+            db.query(models.Car)
+            .filter_by(
+                season_id=season_id,
+                number=r["car_number"],
+                race_class_id=race_class_ids[r["race_class"]],
+            )
+            .first()
+        )
+        if car is None:
+            continue
+        db.add(
+            models.SessionResult(
+                session_id=session.id,
+                car_id=car.id,
+                position=1,  # practice tables only list class-fastest
+                best_lap=r["time"] or None,
+                drivers=r["driver"] or None,
+            )
+        )
+        inserted += 1
+    return inserted
+
+
+def _ingest_qualifying_session(
+    race_soup: BeautifulSoup,
+    db: Session,
+    event_id: int,
+    season_id: int,
+    race_class_ids: dict[str, int],
+    start_time: datetime | None,
+) -> int:
+    rows = parse_qualifying_classification(race_soup)
+    if not rows:
+        return 0
+    session = _upsert_session(db, event_id, "Q", start_time)
+    db.execute(
+        delete(models.SessionResult).where(
+            models.SessionResult.session_id == session.id
+        )
+    )
+    inserted = 0
+    for r in rows:
+        car = (
+            db.query(models.Car)
+            .filter_by(
+                season_id=season_id,
+                number=r["car_number"],
+                race_class_id=race_class_ids[r["race_class"]],
+            )
+            .first()
+        )
+        if car is None:
+            continue
+        # Best-effort lap time: prefer hyperpole (final pole laps), else Q.
+        best = r.get("hp_time") or r.get("q_time") or None
+        db.add(
+            models.SessionResult(
+                session_id=session.id,
+                car_id=car.id,
+                # position = grid (the qualifying outcome the fan sees);
+                # falls back to declared position if grid is missing.
+                position=int(r["grid"]) if (r["grid"] or "").isdigit() else r["position"],
+                best_lap=best,
+            )
+        )
+        inserted += 1
+    return inserted
+
+
 def _ingest_race_classifications(
     soup: BeautifulSoup,
     db: Session,
     season_id: int,
     race_class_ids: dict[str, int],
 ) -> dict[int, int]:
-    """For each completed round, fetch its individual Wikipedia race page
-    and replace the winner-only session_results with a full classification."""
+    """For every round where a Wikipedia article exists (completed AND
+    upcoming), fetch it once and harvest whatever's available — schedule,
+    practice, qualifying, race classification. Returns per-round count of
+    race-classified cars for the orchestrator summary."""
+    # Race-report URLs only exist for completed rounds; calendar URLs
+    # also cover upcoming weekends whose page has the schedule.
     results_table = find_table_by_heading(soup, "Race results")
-    if results_table is None:
-        return {}
-    round_urls = parse_race_report_urls(results_table)
+    calendar_table = find_table_by_heading(soup, "Calendar") or find_table_by_heading(
+        soup, "Schedule"
+    )
+    round_urls: dict[int, str] = {}
+    if calendar_table is not None:
+        round_urls.update(parse_calendar_urls(calendar_table))
+    if results_table is not None:
+        # Race-report URLs override calendar ones — they're more reliable
+        # for finished rounds (article slug rarely diverges).
+        round_urls.update(parse_race_report_urls(results_table))
 
     counts: dict[int, int] = {}
     for round_num, url in round_urls.items():
@@ -1044,20 +1420,53 @@ def _ingest_race_classifications(
             print(f"  R{round_num}: failed to fetch {url} — {exc}")
             continue
         race_soup = BeautifulSoup(race_html, "lxml")
+
+        # 1) Schedule — populates Session.start_time per type.
+        circuit = (
+            db.query(models.Circuit).filter_by(id=event.circuit_id).first()
+        )
+        circuit_tz = tz_for_circuit(circuit.name if circuit else None)
+        race_year = event.date_start.year if event.date_start else 2026
+        schedule = parse_session_schedule(race_soup, race_year, circuit_tz)
+        type_to_start: dict[str, datetime] = dict(schedule)
+
+        # 2) Practice 1 / 2 / 3 — fastest per class.
+        for label, type_ in [
+            ("Practice 1", "FP1"),
+            ("Practice 2", "FP2"),
+            ("Practice 3", "FP3"),
+            ("Final practice", "FP3"),
+        ]:
+            _ingest_practice_session(
+                race_soup,
+                db,
+                event.id,
+                label,
+                type_,
+                season_id,
+                race_class_ids,
+                type_to_start.get(type_),
+            )
+
+        # 3) Qualifying — full grid.
+        _ingest_qualifying_session(
+            race_soup,
+            db,
+            event.id,
+            season_id,
+            race_class_ids,
+            type_to_start.get("Q"),
+        )
+
+        # 4) Race classification.
         rows = parse_race_classification(race_soup)
         if not rows:
             print(f"  R{round_num}: no classification table at {url}")
             continue
 
-        session = (
-            db.query(models.Session)
-            .filter_by(event_id=event.id, type="RACE")
-            .first()
+        session = _upsert_session(
+            db, event.id, "RACE", type_to_start.get("RACE")
         )
-        if session is None:
-            session = models.Session(event_id=event.id, type="RACE")
-            db.add(session)
-            db.flush()
 
         # Replace winner-only entries with detailed classification.
         db.execute(
