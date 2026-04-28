@@ -12,7 +12,15 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// metadataBase makes the OG image URLs absolute on Vercel deploys; falls
+// back to localhost for `bun dev` so the social-share previews still
+// render in tooling that requires an absolute URL.
+const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : "http://localhost:3000";
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: {
     default: "WEC Dashboard",
     template: "%s · WEC Dashboard",

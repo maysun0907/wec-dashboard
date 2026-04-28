@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ChampionBadge } from "@/components/champion-badge";
 import { ClassBadge } from "@/components/class-badge";
 import { DriverPhoto } from "@/components/driver-photo";
 import { Flag } from "@/components/flag";
@@ -96,11 +97,17 @@ export default async function DriverDetailPage({
                 <span className="text-muted-foreground">{driver.team}</span>
               )}
             </div>
-            <CardTitle className="flex items-center gap-2 text-2xl sm:text-3xl">
+            <CardTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl sm:text-3xl">
               {driver.nationality && (
                 <Flag code={driver.nationality} flagOnly className="text-2xl" />
               )}
-              {driver.name}
+              <span>{driver.name}</span>
+              <ChampionBadge
+                titles={driver.seasons.filter(
+                  (s) => s.championshipPosition === 1,
+                ).length}
+                size="md"
+              />
             </CardTitle>
             <CardDescription>
               {[driver.manufacturer, driver.carModel]

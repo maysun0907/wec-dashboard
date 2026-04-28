@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ChampionBadge } from "@/components/champion-badge";
 import { ClassBadge } from "@/components/class-badge";
 import { DriverPhoto } from "@/components/driver-photo";
 import { Flag } from "@/components/flag";
@@ -96,7 +97,7 @@ export default async function ManufacturerDetailPage({
             size="lg"
           />
           <div className="min-w-0 flex-1 space-y-1">
-            <CardTitle className="flex items-center gap-2 text-2xl sm:text-3xl">
+            <CardTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl sm:text-3xl">
               {manufacturer.country && (
                 <Flag
                   code={manufacturer.country}
@@ -104,7 +105,13 @@ export default async function ManufacturerDetailPage({
                   className="text-2xl"
                 />
               )}
-              {manufacturer.name}
+              <span>{manufacturer.name}</span>
+              <ChampionBadge
+                titles={manufacturer.seasons.filter(
+                  (s) => s.championshipPosition === 1,
+                ).length}
+                size="md"
+              />
             </CardTitle>
             <CardDescription>
               {`${totalCars} cars · ${totalDrivers} drivers`}
