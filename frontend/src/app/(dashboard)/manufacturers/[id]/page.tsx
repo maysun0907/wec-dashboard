@@ -67,12 +67,20 @@ export default async function ManufacturerDetailPage({
 
   return (
     <div className="space-y-6">
-      <Link
-        href="/standings"
-        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
-      >
-        ← Standings
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link
+          href="/standings"
+          className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+        >
+          ← Standings
+        </Link>
+        <Link
+          href={`/manufacturers/compare?ids=${manufacturer.id}`}
+          className="inline-flex items-center rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-medium hover:bg-secondary"
+        >
+          Compare →
+        </Link>
+      </div>
 
       <Card className="relative overflow-hidden">
         <CardHeader className="flex flex-row items-center gap-4 space-y-0">
