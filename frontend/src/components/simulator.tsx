@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Check, Link as LinkIcon } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import {
   Card,
@@ -86,6 +87,83 @@ const EMPTY_PICKS: Picks = {
   LMP2: EMPTY_CLASS_PICKS,
   LMGT3: EMPTY_CLASS_PICKS,
 };
+
+// Class → 1-char tag for the URL param. Keeps shareable links short.
+const CLASS_TAG: Record<RaceClass, string> = {
+  HYPERCAR: "h",
+  LMP2: "p",
+  LMGT3: "g",
+};
+const TAG_TO_CLASS: Record<string, RaceClass> = {
+  h: "HYPERCAR",
+  p: "LMP2",
+  g: "LMGT3",
+};
+
+type CompactPicks = Record<string, Record<string, [string, string, string, string]>>;
+
+/** Pack picks into a [p1,p2,p3,pole] tuple per round, drop empty rounds and
+ *  empty classes, then base64-url. Decoder reverses each step. */
+function encodePicks(picks: Picks): string {
+  const out: CompactPicks = {};
+  for (const cls of RACE_CLASSES) {
+    const tag = CLASS_TAG[cls];
+    const rounds: Record<string, [string, string, string, string]> = {};
+    for (const [eid, slots] of Object.entries(picks[cls])) {
+      const tuple: [string, string, string, string] = [
+        slots.p1 ?? "",
+        slots.p2 ?? "",
+        slots.p3 ?? "",
+        slots.pole ?? "",
+      ];
+      if (tuple.some(Boolean)) rounds[eid] = tuple;
+    }
+    if (Object.keys(rounds).length > 0) out[tag] = rounds;
+  }
+  if (Object.keys(out).length === 0) return "";
+  return toBase64Url(JSON.stringify(out));
+}
+
+function decodePicks(param: string | null): Picks | null {
+  if (!param) return null;
+  try {
+    const json = fromBase64Url(param);
+    const parsed = JSON.parse(json) as CompactPicks;
+    const result: Picks = {
+      HYPERCAR: {},
+      LMP2: {},
+      LMGT3: {},
+    };
+    for (const [tag, rounds] of Object.entries(parsed)) {
+      const cls = TAG_TO_CLASS[tag];
+      if (!cls) continue;
+      const classPicks: ClassPicks = {};
+      for (const [eid, tuple] of Object.entries(rounds)) {
+        if (!Array.isArray(tuple) || tuple.length !== 4) continue;
+        const slots: RoundPicks = {};
+        if (tuple[0]) slots.p1 = tuple[0];
+        if (tuple[1]) slots.p2 = tuple[1];
+        if (tuple[2]) slots.p3 = tuple[2];
+        if (tuple[3]) slots.pole = tuple[3];
+        if (Object.keys(slots).length > 0) classPicks[Number(eid)] = slots;
+      }
+      result[cls] = classPicks;
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
+function toBase64Url(s: string): string {
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function fromBase64Url(s: string): string {
+  const b64 = s.replace(/-/g, "+").replace(/_/g, "/");
+  const pad = (4 - (b64.length % 4)) % 4;
+  return atob(b64 + "=".repeat(pad));
+}
 
 type SimRow = {
   key: string;
@@ -315,6 +393,50 @@ export function ChampionshipSimulator({
   );
 
   const [picks, setPicks] = useState<Picks>(EMPTY_PICKS);
+  const [hydrated, setHydrated] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Hydrate from ?p=... once after mount. Avoids SSR/CSR state mismatch and
+  // sidesteps the Suspense-boundary requirement of next/navigation's
+  // useSearchParams when the page is otherwise statically renderable.
+  useEffect(() => {
+    if (hydrated) return;
+    const param = new URLSearchParams(window.location.search).get("p");
+    const decoded = decodePicks(param);
+    if (decoded) setPicks(decoded);
+    setHydrated(true);
+  }, [hydrated]);
+
+  // Push picks back into the URL — replaceState so we don't pollute history
+  // and so the route doesn't re-render. Skips the first hydration tick.
+  useEffect(() => {
+    if (!hydrated) return;
+    const encoded = encodePicks(picks);
+    const url = new URL(window.location.href);
+    if (encoded) url.searchParams.set("p", encoded);
+    else url.searchParams.delete("p");
+    window.history.replaceState(null, "", url.toString());
+  }, [picks, hydrated]);
+
+  async function copyShareLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // clipboard blocked (insecure context, no permission) — silent
+    }
+  }
+
+  const totalPicks = useMemo(() => {
+    let n = 0;
+    for (const cls of RACE_CLASSES) {
+      for (const slots of Object.values(picks[cls])) {
+        n += Object.values(slots).filter(Boolean).length;
+      }
+    }
+    return n;
+  }, [picks]);
 
   function setSlot(
     raceClass: RaceClass,
@@ -340,13 +462,34 @@ export function ChampionshipSimulator({
 
   return (
     <Tabs defaultValue="HYPERCAR">
-      <TabsList>
-        {RACE_CLASSES.map((c) => (
-          <TabsTrigger key={c} value={c}>
-            {c}
-          </TabsTrigger>
-        ))}
-      </TabsList>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <TabsList>
+          {RACE_CLASSES.map((c) => (
+            <TabsTrigger key={c} value={c}>
+              {c}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={copyShareLink}
+          disabled={totalPicks === 0}
+          className="gap-1.5"
+        >
+          {copied ? (
+            <>
+              <Check className="size-3.5" />
+              Copied
+            </>
+          ) : (
+            <>
+              <LinkIcon className="size-3.5" />
+              Share picks
+            </>
+          )}
+        </Button>
+      </div>
 
       {RACE_CLASSES.map((c) => (
         <TabsContent key={c} value={c} className="mt-4">
