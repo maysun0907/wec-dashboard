@@ -3,13 +3,31 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
+from app.season import YearParam, resolve_season
 
 router = APIRouter(prefix="/circuits", tags=["circuits"])
 
 
 @router.get("", response_model=list[schemas.CircuitOut])
-def list_circuits(db: Session = Depends(get_db)) -> list[models.Circuit]:
-    return db.query(models.Circuit).order_by(models.Circuit.name).all()
+def list_circuits(
+    year: int | None = YearParam,
+    db: Session = Depends(get_db),
+) -> list[models.Circuit]:
+    """List circuits, filtered to those that host an event in the
+    resolved season. Pass `year=` explicitly to pin a season; without it
+    the API uses the latest ingested season. To get every circuit ever,
+    pass `year=0` (no season matches → unfiltered fallback)."""
+    season = resolve_season(db, year)
+    q = db.query(models.Circuit).order_by(models.Circuit.name)
+    if season is not None:
+        q = q.filter(
+            models.Circuit.id.in_(
+                db.query(models.Event.circuit_id).filter(
+                    models.Event.season_id == season.id
+                )
+            )
+        )
+    return q.all()
 
 
 @router.get("/{circuit_id}", response_model=schemas.CircuitDetailOut)

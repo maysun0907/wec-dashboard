@@ -366,8 +366,8 @@ export const getSeasons = () =>
   api<Season[]>("/api/v1/seasons", { revalidate: 3600 });
 
 // Circuits / drivers / teams change rarely during a season — 1 hour.
-export const getCircuits = () =>
-  api<Circuit[]>("/api/v1/circuits", { revalidate: 3600 });
+export const getCircuits = (year?: number | null) =>
+  api<Circuit[]>(withYear("/api/v1/circuits", year), { revalidate: 3600 });
 
 export const getCircuit = (id: number) =>
   api<CircuitDetail>(`/api/v1/circuits/${id}`, { revalidate: 3600 });
