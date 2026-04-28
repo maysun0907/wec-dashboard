@@ -146,13 +146,22 @@ export default async function RaceDetailPage({
 
           {sessionsWithResults.map((s) => {
             const rows = resultMap.get(s.id) ?? [];
+            const isPractice =
+              s.type === "FP1" || s.type === "FP2" || s.type === "FP3";
             return (
               <TabsContent key={s.id} value={s.type} className="mt-4">
-                <ResultsCard
-                  label={SESSION_LABELS[s.type] ?? s.type}
-                  type={s.type}
-                  rows={rows}
-                />
+                {isPractice ? (
+                  <PracticeFastestCard
+                    label={SESSION_LABELS[s.type] ?? s.type}
+                    rows={rows}
+                  />
+                ) : (
+                  <ResultsCard
+                    label={SESSION_LABELS[s.type] ?? s.type}
+                    type={s.type}
+                    rows={rows}
+                  />
+                )}
               </TabsContent>
             );
           })}
@@ -177,6 +186,60 @@ function StatusBadge({ status }: { status: EventStatus }) {
   if (status === "live") return <Badge variant="destructive">Live</Badge>;
   if (status === "completed") return <Badge variant="outline">Completed</Badge>;
   return <Badge variant="default">Upcoming</Badge>;
+}
+
+function PracticeFastestCard({
+  label,
+  rows,
+}: {
+  label: string;
+  rows: SessionResult[];
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{label} · session fastest</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          Wikipedia only publishes the fastest car per class for free
+          practice. Full timesheets are on the WEC results portal.
+        </p>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            No fastest-lap data published.
+          </p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {rows.map((r) => (
+              <div
+                key={`${r.raceClass}-${r.carNumber}`}
+                className="rounded-lg border border-border bg-secondary/30 p-4"
+              >
+                <div className="mb-3 flex items-center justify-between">
+                  <ClassBadge raceClass={r.raceClass} />
+                  <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                    #{r.carNumber}
+                  </span>
+                </div>
+                <div className="font-semibold">{r.team}</div>
+                {r.drivers && (
+                  <div className="text-sm text-muted-foreground">
+                    {r.drivers}
+                  </div>
+                )}
+                {r.bestLap && (
+                  <div className="mt-3 font-mono text-2xl font-bold tabular-nums">
+                    {r.bestLap}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 function ResultsCard({
