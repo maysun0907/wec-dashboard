@@ -173,6 +173,26 @@ export default async function ComparePage({
               <ProgressionChart series={progressionSeries} />
             </CardContent>
           </Card>
+
+          {selected.length >= 2 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Head to head</CardTitle>
+                <CardDescription>
+                  {selected.length === 2
+                    ? "Round-by-round class finish — lower wins."
+                    : "Pairwise wins across rounds both drivers contested."}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="px-0">
+                {selected.length === 2 ? (
+                  <HeadToHeadRounds drivers={selected} />
+                ) : (
+                  <HeadToHeadMatrix drivers={selected} />
+                )}
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>
@@ -219,6 +239,175 @@ function StatsTable({ drivers }: { drivers: DriverDetail[] }) {
                 </td>
                 <td className="px-4 py-2 text-right font-mono tabular-nums">
                   {avg !== null ? avg.toFixed(1) : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+type ClassPosByRound = Map<number, number>;
+
+function classPosByRound(d: DriverDetail): ClassPosByRound {
+  const m = new Map<number, number>();
+  for (const r of d.results) m.set(r.round, r.classPosition);
+  return m;
+}
+
+function HeadToHeadRounds({ drivers }: { drivers: DriverDetail[] }) {
+  const [a, b] = drivers;
+  if (!a || !b) return null;
+  const aMap = classPosByRound(a);
+  const bMap = classPosByRound(b);
+  const rounds = Array.from(new Set([...aMap.keys(), ...bMap.keys()])).sort(
+    (x, y) => x - y,
+  );
+
+  let aWins = 0;
+  let bWins = 0;
+  let ties = 0;
+  for (const r of rounds) {
+    const av = aMap.get(r);
+    const bv = bMap.get(r);
+    if (av === undefined || bv === undefined) continue;
+    if (av < bv) aWins++;
+    else if (bv < av) bWins++;
+    else ties++;
+  }
+  const both = aWins + bWins + ties;
+
+  return (
+    <div>
+      <div className="border-b border-border bg-secondary/30 px-4 py-2 text-xs uppercase tracking-wider text-muted-foreground">
+        <span className="font-mono text-foreground">{aWins}</span>
+        <span> · </span>
+        <span className="font-medium text-foreground">{a.name}</span>
+        <span className="mx-3">vs</span>
+        <span className="font-medium text-foreground">{b.name}</span>
+        <span> · </span>
+        <span className="font-mono text-foreground">{bWins}</span>
+        {ties > 0 && (
+          <span className="ml-3 text-muted-foreground">
+            ({ties} tied · {both} shared rounds)
+          </span>
+        )}
+      </div>
+      <table className="w-full text-sm">
+        <thead className="text-xs uppercase tracking-wider text-muted-foreground">
+          <tr className="border-b border-border">
+            <th className="w-16 px-4 py-2 text-left">Round</th>
+            <th className="py-2 text-right">{a.name}</th>
+            <th className="w-12 py-2 text-center">vs</th>
+            <th className="py-2 text-left">{b.name}</th>
+            <th className="w-20 px-4 py-2 text-right">Edge</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rounds.map((r) => {
+            const av = aMap.get(r);
+            const bv = bMap.get(r);
+            const winner =
+              av !== undefined && bv !== undefined
+                ? av < bv
+                  ? "a"
+                  : bv < av
+                    ? "b"
+                    : "tie"
+                : null;
+            return (
+              <tr key={r} className="border-b border-border/50 last:border-0">
+                <td className="px-4 py-2 font-mono tabular-nums text-muted-foreground">
+                  R{r}
+                </td>
+                <td
+                  className={
+                    "py-2 text-right font-mono tabular-nums " +
+                    (winner === "a"
+                      ? "font-semibold text-[var(--racing-yellow)]"
+                      : "")
+                  }
+                >
+                  {av !== undefined ? `P${av}` : "—"}
+                </td>
+                <td className="py-2 text-center text-xs text-muted-foreground">
+                  vs
+                </td>
+                <td
+                  className={
+                    "py-2 font-mono tabular-nums " +
+                    (winner === "b"
+                      ? "font-semibold text-[var(--racing-yellow)]"
+                      : "")
+                  }
+                >
+                  {bv !== undefined ? `P${bv}` : "—"}
+                </td>
+                <td className="px-4 py-2 text-right font-mono tabular-nums">
+                  {winner === "tie"
+                    ? "tie"
+                    : winner !== null
+                      ? `+${Math.abs((av ?? 0) - (bv ?? 0))}`
+                      : "—"}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function HeadToHeadMatrix({ drivers }: { drivers: DriverDetail[] }) {
+  const maps = drivers.map(classPosByRound);
+  // wins[i][j] = number of rounds driver i beat driver j (lower class pos)
+  const wins: number[][] = drivers.map(() => drivers.map(() => 0));
+  for (let i = 0; i < drivers.length; i++) {
+    for (let j = 0; j < drivers.length; j++) {
+      if (i === j) continue;
+      for (const [r, pi] of maps[i]!) {
+        const pj = maps[j]!.get(r);
+        if (pj !== undefined && pi < pj) wins[i]![j] = (wins[i]![j] ?? 0) + 1;
+      }
+    }
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="text-xs uppercase tracking-wider text-muted-foreground">
+          <tr className="border-b border-border">
+            <th className="px-4 py-2 text-left">Driver</th>
+            {drivers.map((d) => (
+              <th key={d.id} className="px-2 py-2 text-center font-medium">
+                {d.name.split(" ").slice(-1)[0]}
+              </th>
+            ))}
+            <th className="px-4 py-2 text-right">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {drivers.map((d, i) => {
+            const total = wins[i]!.reduce((s, n) => s + n, 0);
+            return (
+              <tr key={d.id} className="border-b border-border/50 last:border-0">
+                <td className="px-4 py-2 font-medium">{d.name}</td>
+                {drivers.map((_, j) => (
+                  <td
+                    key={j}
+                    className={
+                      "px-2 py-2 text-center font-mono tabular-nums " +
+                      (i === j ? "text-muted-foreground/40" : "")
+                    }
+                  >
+                    {i === j ? "—" : wins[i]![j]}
+                  </td>
+                ))}
+                <td className="px-4 py-2 text-right font-mono tabular-nums">
+                  {total}
                 </td>
               </tr>
             );
