@@ -516,7 +516,8 @@ def parse_race_classification(soup: BeautifulSoup) -> list[dict]:
     cols = {h: i for i, h in enumerate(header)}
 
     pos_key = next((k for k in ("Pos", "Pos.") if k in cols), None)
-    if pos_key is None or "Class" not in cols or "No." not in cols:
+    no_key = next((k for k in ("No.", "No") if k in cols), None)
+    if pos_key is None or "Class" not in cols or no_key is None:
         return []
 
     def flatten(s: str) -> str:
@@ -546,7 +547,7 @@ def parse_race_classification(soup: BeautifulSoup) -> list[dict]:
             entry = {
                 "position": int(pos_raw),
                 "class": flatten(row[cols["Class"]]),
-                "number": flatten(row[cols["No."]]),
+                "number": flatten(row[cols[no_key]]),
                 "laps": flatten(row[cols[laps_key]]) if laps_key else "",
                 "gap": (
                     flatten(row[cols[time_key]]).rstrip("‡†*") if time_key else ""
@@ -576,20 +577,27 @@ def parse_results_summary(table: Tag) -> dict[int, dict]:
     if not rows:
         return {}
     header = rows[0]
-    cols = {h: i for i, h in enumerate(header)}
-    if "Rnd." not in cols or "Hypercar winners" not in cols:
+    # Header capitalization changed across season pages
+    # ("Hypercar winners" vs "Hypercar Winners"); match case-insensitively.
+    lower_to_idx = {h.lower(): i for i, h in enumerate(header)}
+    rnd_key = next(
+        (lower_to_idx[k] for k in ("rnd.", "rnd") if k in lower_to_idx), None
+    )
+    hyper_key = lower_to_idx.get("hypercar winners")
+    lmgt3_key = lower_to_idx.get("lmgt3 winners")
+    if rnd_key is None or hyper_key is None:
         return {}
 
     out: dict[int, dict] = {}
     for row in rows[1:]:
         if len(row) < len(header):
             continue
-        rnd_text = row[cols["Rnd."]]
+        rnd_text = row[rnd_key]
         if not rnd_text.strip().isdigit():
             continue
         rnd_num = int(rnd_text)
-        hyper = row[cols["Hypercar winners"]]
-        lmgt3 = row[cols.get("LMGT3 winners", -1)] if "LMGT3 winners" in cols else ""
+        hyper = row[hyper_key]
+        lmgt3 = row[lmgt3_key] if lmgt3_key is not None else ""
 
         bucket = out.setdefault(rnd_num, {})
         m_h = _NO_RE.match(hyper.strip())
