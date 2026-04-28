@@ -11,18 +11,25 @@ import { DriverPhoto } from "@/components/driver-photo";
 import { type StandingDriver } from "@/lib/api";
 
 type StepStyle = {
-  /** Tailwind h-* — taller for P1 */
+  /** Tailwind h-* — taller for P1, shorter for P2/P3 */
   bar: string;
-  /** color for the trophy/medal accent */
+  /** Trophy / accent color */
   accent: string;
-  label: string;
 };
 
-const STEPS: Record<1 | 2 | 3, StepStyle> = {
-  1: { bar: "h-24", accent: "text-yellow-400", label: "Winner" },
-  2: { bar: "h-20", accent: "text-gray-300", label: "2nd" },
-  3: { bar: "h-16", accent: "text-amber-700", label: "3rd" },
+// Style is keyed by the driver's actual championship position. Three
+// drivers tied at P1 (a single car's trio) all get gold + the tallest
+// step, instead of being incorrectly painted gold/silver/bronze by the
+// display slot.
+const STEPS: Record<number, StepStyle> = {
+  1: { bar: "h-24", accent: "text-yellow-400" },
+  2: { bar: "h-20", accent: "text-gray-300" },
+  3: { bar: "h-16", accent: "text-amber-700" },
 };
+
+function stepFor(position: number): StepStyle {
+  return STEPS[position] ?? STEPS[3]!;
+}
 
 type Driver = {
   id: number;
@@ -40,18 +47,7 @@ export function DriversPodium({
   rows: Driver[];
   rounds: number;
 }) {
-  // Visual layout uses index — slot 1 (left, silver), slot 0 (center,
-  // gold), slot 2 (right, bronze). Keying by `position` would collapse
-  // the entire Toyota trio onto a single P1 slot whenever a car's three
-  // drivers share the championship lead.
-  const SLOT_ORDER: Array<{ index: number; step: 1 | 2 | 3 }> = [
-    { index: 1, step: 2 },
-    { index: 0, step: 1 },
-    { index: 2, step: 3 },
-  ];
-  const visible = SLOT_ORDER.filter((s) => rows[s.index] !== undefined);
-
-  if (visible.length === 0) return null;
+  if (rows.length === 0) return null;
 
   return (
     <Card>
@@ -64,21 +60,15 @@ export function DriversPodium({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-3 gap-3 sm:gap-6">
-          {visible.map(({ index, step: stepNum }) => {
-            const r = rows[index]!;
-            const step = STEPS[stepNum];
+        <div className="grid grid-cols-3 items-end gap-3 sm:gap-6">
+          {rows.map((r) => {
+            const step = stepFor(r.position);
             return (
               <div
                 key={r.id}
-                className="flex flex-col items-center text-center"
+                className="flex h-full flex-col items-center text-center"
               >
-                <div
-                  className={
-                    "relative " +
-                    (stepNum === 1 ? "size-24 sm:size-28" : "size-20 sm:size-24")
-                  }
-                >
+                <div className="relative size-20 sm:size-24">
                   <Link href={`/drivers/${r.id}`}>
                     <DriverPhoto
                       src={r.photoUrl}
@@ -109,7 +99,7 @@ export function DriversPodium({
                 )}
                 <div
                   className={
-                    "mt-2 flex w-full flex-col items-center justify-end rounded-t bg-secondary/40 " +
+                    "mt-auto flex w-full flex-col items-center justify-end rounded-t bg-secondary/40 " +
                     step.bar
                   }
                 >
