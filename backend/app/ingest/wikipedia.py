@@ -213,8 +213,8 @@ def parse_driver_links(table: Tag) -> dict[str, str]:
     return out
 
 
-# Match Wikipedia footnote markers: [1], [12], [ a ], [b], etc.
-_REF_RE = re.compile(r"\s*\[\s*[\w\d]+\s*\]\s*")
+# Match Wikipedia footnote markers: [1], [12], [ a ], [b], [N 1], [Note 2], etc.
+_REF_RE = re.compile(r"\s*\[\s*[^\[\]]{1,12}\s*\]\s*")
 
 
 def _clean(text: str) -> str:
