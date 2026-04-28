@@ -69,6 +69,39 @@ type TimedSession = SessionT & {
   endMs: number | null;
 };
 
+/** Build an ISO UTC string from a date plus an hour-of-day in a given
+ *  IANA timezone. Used to estimate session start times when the
+ *  weekend's schedule hasn't been published yet. */
+function circuitLocalToIso(
+  dateIso: string,
+  hour: number,
+  circuitTz: string,
+): string {
+  // Parse the date in the circuit's timezone then offset to UTC. Browsers
+  // can't directly construct a Date in a foreign timezone; use formatToParts
+  // to read back the offset for the constructed instant.
+  const probe = new Date(`${dateIso}T${String(hour).padStart(2, "0")}:00:00Z`);
+  const partsFmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: circuitTz,
+    timeZoneName: "shortOffset",
+    hour: "numeric",
+  });
+  const offsetPart = partsFmt
+    .formatToParts(probe)
+    .find((p) => p.type === "timeZoneName")?.value;
+  let offsetMin = 0;
+  if (offsetPart) {
+    const m = offsetPart.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+    if (m) {
+      const sign = m[1] === "+" ? 1 : -1;
+      const h = Number(m[2]);
+      const mm = m[3] ? Number(m[3]) : 0;
+      offsetMin = sign * (h * 60 + mm);
+    }
+  }
+  return new Date(probe.getTime() - offsetMin * 60_000).toISOString();
+}
+
 function classifySession(
   s: SessionT,
   eventName: string,
@@ -128,6 +161,15 @@ export default async function LivePage() {
 
   const liveSession = sessions.find((s) => s.status === "live") ?? null;
   const upNext = sessions.find((s) => s.status === "upcoming") ?? null;
+
+  // Fallback when Wikipedia hasn't published the weekend's schedule yet
+  // (typical for races > 2 weeks out): point the countdown at FP1 at
+  // 09:00 circuit-local on the event's first listed date. The number
+  // is approximate but better than no countdown at all.
+  let estimatedFp1Iso: string | null = null;
+  if (sessions.length === 0 && next.dateStart) {
+    estimatedFp1Iso = circuitLocalToIso(next.dateStart, 9, tz);
+  }
 
   // Last completed session of THIS weekend only — not previous rounds.
   // The home page and standings already surface inter-weekend results.
@@ -211,7 +253,30 @@ export default async function LivePage() {
           {!liveSession && upNext && upNext.startMs !== null && (
             <NextSessionPanel session={upNext} tz={tz} />
           )}
-          {!liveSession && !upNext && (
+          {!liveSession && !upNext && estimatedFp1Iso && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Next: Free Practice 1
+                  <span className="ml-2 normal-case text-muted-foreground/70">
+                    (estimated)
+                  </span>
+                </div>
+                <RaceCountdown targetIso={estimatedFp1Iso} />
+              </div>
+              <div className="space-y-2">
+                <div className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Estimated start
+                </div>
+                <SessionTime iso={estimatedFp1Iso} circuitTz={tz} />
+                <p className="text-[10px] text-muted-foreground">
+                  Schedule not yet on Wikipedia — falls back to 09:00
+                  circuit local on day 1.
+                </p>
+              </div>
+            </div>
+          )}
+          {!liveSession && !upNext && !estimatedFp1Iso && sessions.length > 0 && (
             <p className="text-sm text-muted-foreground">
               All sessions for this weekend are done.
             </p>
