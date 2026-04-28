@@ -43,6 +43,7 @@ def list_drivers(db: Session = Depends(get_db)) -> list[schemas.DriverEntryOut]:
             car_number=c.number,
             team=t.name,
             manufacturer_logo_url=m.logo_url if m else None,
+            photo_url=d.photo_url,
             race_class=rc.name,
         )
         for d, c, t, m, rc in rows
@@ -60,7 +61,10 @@ def get_driver(
     season = _current_season(db)
     if season is None:
         return schemas.DriverDetailOut(
-            id=driver.id, name=driver.name, nationality=driver.nationality
+            id=driver.id,
+            name=driver.name,
+            nationality=driver.nationality,
+            photo_url=driver.photo_url,
         )
 
     # Current-season car / team / class
@@ -79,7 +83,10 @@ def get_driver(
 
     if row is None:
         return schemas.DriverDetailOut(
-            id=driver.id, name=driver.name, nationality=driver.nationality
+            id=driver.id,
+            name=driver.name,
+            nationality=driver.nationality,
+            photo_url=driver.photo_url,
         )
 
     car, team, manuf, rc = row
@@ -127,10 +134,13 @@ def get_driver(
         team=team.name,
         manufacturer=manuf.name if manuf else None,
         manufacturer_logo_url=manuf.logo_url if manuf else None,
+        photo_url=driver.photo_url,
         race_class=rc.name,
         car_model=car.model,
         co_drivers=[
-            schemas.DriverRef(id=d.id, name=d.name, rounds=cd.rounds)
+            schemas.DriverRef(
+                id=d.id, name=d.name, rounds=cd.rounds, photo_url=d.photo_url
+            )
             for cd, d in co_driver_rows
         ],
         results=[

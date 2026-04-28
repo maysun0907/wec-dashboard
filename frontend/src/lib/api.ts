@@ -60,6 +60,7 @@ export type DriverEntry = {
   carNumber: string;
   team: string;
   manufacturerLogoUrl: string | null;
+  photoUrl: string | null;
   raceClass: RaceClass;
 };
 
@@ -67,6 +68,7 @@ export type DriverRef = {
   id: number;
   name: string;
   rounds?: string | null;
+  photoUrl?: string | null;
 };
 
 /** Returns a short human-readable rounds tag (e.g., 'TBC', '1-3', '1') or
@@ -102,6 +104,7 @@ export type DriverDetail = {
   team: string | null;
   manufacturer: string | null;
   manufacturerLogoUrl: string | null;
+  photoUrl: string | null;
   raceClass: RaceClass | null;
   carModel: string | null;
   coDrivers: DriverRef[];

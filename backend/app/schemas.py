@@ -63,6 +63,8 @@ class DriverEntryOut(_BaseSchema):
     nationality: str | None = None
     car_number: str
     team: str
+    manufacturer_logo_url: str | None = None
+    photo_url: str | None = None
     race_class: str
 
 
@@ -130,6 +132,7 @@ class DriverRef(_BaseSchema):
     id: int
     name: str
     rounds: str | None = None
+    photo_url: str | None = None
 
 
 class DriverResultOut(_BaseSchema):
@@ -159,6 +162,7 @@ class DriverDetailOut(_BaseSchema):
     team: str | None = None
     manufacturer: str | None = None
     manufacturer_logo_url: str | None = None
+    photo_url: str | None = None
     race_class: str | None = None
     car_model: str | None = None
     co_drivers: list[DriverRef] = []

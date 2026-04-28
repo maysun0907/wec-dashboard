@@ -10,6 +10,7 @@ Run:
 import re
 import sys
 from datetime import date
+from urllib.parse import unquote
 
 import httpx
 from bs4 import BeautifulSoup, Tag
@@ -155,6 +156,55 @@ def fetch_manufacturer_logo(name: str) -> str | None:
         return None
 
     return f"https://commons.wikimedia.org/wiki/Special:FilePath/{filename.replace(' ', '_')}"
+
+
+def fetch_driver_photo(title: str) -> str | None:
+    """Pull the lead-image thumbnail for a driver's Wikipedia article.
+
+    `title` should be the article title (e.g., 'Sébastien_Buemi'), typically
+    extracted from the entry-list anchor href. The summary REST endpoint
+    returns disambiguation pages with type=='disambiguation' — those have no
+    portrait; skip them. Returns the thumbnail.source URL (~320px wide) or
+    None if the article has no lead image.
+    """
+    headers = {"User-Agent": USER_AGENT}
+    try:
+        r = httpx.get(
+            f"https://en.wikipedia.org/api/rest_v1/page/summary/{title}",
+            headers=headers,
+            timeout=10.0,
+        )
+        if r.status_code != 200:
+            return None
+        data = r.json()
+        if data.get("type") == "disambiguation":
+            return None
+        thumb = data.get("thumbnail") or {}
+        src = thumb.get("source")
+        return src if isinstance(src, str) else None
+    except (httpx.HTTPError, ValueError):
+        return None
+
+
+def parse_driver_links(table: Tag) -> dict[str, str]:
+    """Build a {anchor_text: wikipedia_title} map from any wikitable.
+
+    The entry-list table links each driver to their article. We harvest
+    every blue (non-redlink) anchor — overlapping with team/car names is
+    harmless because consumers only look up by driver name.
+    """
+    out: dict[str, str] = {}
+    for a in table.find_all("a", href=True):
+        href = a["href"]
+        if "redlink=1" in href or "action=edit" in href:
+            continue
+        if not href.startswith("/wiki/"):
+            continue
+        title = unquote(href.removeprefix("/wiki/").split("#")[0])
+        name = _clean(a.get_text(" ", strip=True))
+        if name and title:
+            out.setdefault(name, title)
+    return out
 
 
 _REF_RE = re.compile(r"\s*\[\s*\d+\s*\]\s*")
@@ -760,6 +810,12 @@ def _ingest_entries(
         )
     hyper = group_by_car(parse_entries(hyper_table, "HYPERCAR"))
     lmgt3 = group_by_car(parse_entries(lmgt3_table, "LMGT3"))
+    # Map driver display name → linked Wikipedia article title (when present).
+    # Used to fetch portrait thumbnails for new drivers.
+    driver_titles: dict[str, str] = {
+        **parse_driver_links(hyper_table),
+        **parse_driver_links(lmgt3_table),
+    }
     car_drivers_count = 0
     for entry in hyper + lmgt3:
         manuf = upsert_manufacturer(db, _extract_manufacturer(entry["car"]))
@@ -779,6 +835,12 @@ def _ingest_entries(
         db.flush()
         for driver_info in entry["drivers"]:
             driver = upsert_driver(db, driver_info["name"])
+            if not driver.photo_url:
+                title = driver_titles.get(driver_info["name"])
+                if title:
+                    photo = fetch_driver_photo(title)
+                    if photo:
+                        driver.photo_url = photo
             db.add(
                 models.CarDriver(
                     car_id=car.id,

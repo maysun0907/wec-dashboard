@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClassBadge } from "@/components/class-badge";
+import { DriverPhoto } from "@/components/driver-photo";
 import { FormChart } from "@/components/form-chart";
 import {
   describeRounds,
@@ -66,28 +67,34 @@ export default async function DriverDetailPage({
       </Link>
 
       <Card className="relative overflow-hidden">
-        <CardHeader>
-          <div className="flex items-center gap-3 text-xs font-semibold tracking-widest uppercase">
-            {driver.raceClass && <ClassBadge raceClass={driver.raceClass} />}
-            {driver.carNumber && (
-              <span className="font-mono text-muted-foreground">
-                #{driver.carNumber}
-              </span>
-            )}
-            {driver.team && (
-              <span className="text-muted-foreground">{driver.team}</span>
-            )}
+        <CardHeader className="flex flex-row items-start gap-4 space-y-0">
+          <DriverPhoto
+            src={driver.photoUrl}
+            name={driver.name}
+            size="xl"
+            className="mt-1"
+          />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <div className="flex items-center gap-3 text-xs font-semibold tracking-widest uppercase">
+              {driver.raceClass && <ClassBadge raceClass={driver.raceClass} />}
+              {driver.carNumber && (
+                <span className="font-mono text-muted-foreground">
+                  #{driver.carNumber}
+                </span>
+              )}
+              {driver.team && (
+                <span className="text-muted-foreground">{driver.team}</span>
+              )}
+            </div>
+            <CardTitle className="text-2xl sm:text-3xl">
+              {driver.name}
+            </CardTitle>
+            <CardDescription>
+              {[driver.nationality, driver.manufacturer, driver.carModel]
+                .filter(Boolean)
+                .join(" · ") || "—"}
+            </CardDescription>
           </div>
-          <CardTitle className="text-2xl sm:text-3xl">{driver.name}</CardTitle>
-          <CardDescription>
-            {[
-              driver.nationality,
-              driver.manufacturer,
-              driver.carModel,
-            ]
-              .filter(Boolean)
-              .join(" · ") || "—"}
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-baseline gap-x-6 gap-y-3 text-sm">
@@ -165,6 +172,7 @@ export default async function DriverDetailPage({
                   const tag = describeRounds(c.rounds);
                   return (
                     <li key={c.id} className="flex items-center gap-2">
+                      <DriverPhoto src={c.photoUrl} name={c.name} size="sm" />
                       <Link
                         href={`/drivers/${c.id}`}
                         className="hover:text-[var(--racing-red)]"

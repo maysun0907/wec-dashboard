@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
+import { DriverPhoto } from "@/components/driver-photo";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import {
   RACE_CLASSES,
@@ -96,10 +97,7 @@ function DriversTable({ drivers }: { drivers: DriverEntry[] }) {
                   </TableCell>
                   <TableCell className="font-medium">
                     <span className="inline-flex items-center gap-2">
-                      <ManufacturerLogo
-                        src={d.manufacturerLogoUrl}
-                        name={d.team}
-                      />
+                      <DriverPhoto src={d.photoUrl} name={d.name} size="md" />
                       <Link
                         href={`/drivers/${d.id}`}
                         className="hover:text-[var(--racing-red)]"
@@ -109,7 +107,13 @@ function DriversTable({ drivers }: { drivers: DriverEntry[] }) {
                     </span>
                   </TableCell>
                   <TableCell className="hidden text-muted-foreground md:table-cell">
-                    {d.team}
+                    <span className="inline-flex items-center gap-2">
+                      <ManufacturerLogo
+                        src={d.manufacturerLogoUrl}
+                        name={d.team}
+                      />
+                      {d.team}
+                    </span>
                   </TableCell>
                   <TableCell className="hidden font-mono text-muted-foreground sm:table-cell">
                     {d.nationality ?? "—"}

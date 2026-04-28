@@ -17,6 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClassBadge } from "@/components/class-badge";
+import { DriverPhoto } from "@/components/driver-photo";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { describeRounds, getTeam, type TeamDetail } from "@/lib/api";
 
@@ -111,6 +112,7 @@ export default async function TeamDetailPage({
                       const tag = describeRounds(d.rounds);
                       return (
                         <li key={d.id} className="flex items-center gap-2">
+                          <DriverPhoto src={d.photoUrl} name={d.name} size="sm" />
                           <Link
                             href={`/drivers/${d.id}`}
                             className="hover:text-[var(--racing-red)]"

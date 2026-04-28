@@ -123,7 +123,12 @@ def get_team(
                 race_class=c.race_class.name,
                 model=c.model,
                 drivers=[
-                    schemas.DriverRef(id=d.id, name=d.name, rounds=cd.rounds)
+                    schemas.DriverRef(
+                        id=d.id,
+                        name=d.name,
+                        rounds=cd.rounds,
+                        photo_url=d.photo_url,
+                    )
                     for cd, d in drivers_by_car.get(c.id, [])
                 ],
             )
