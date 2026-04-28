@@ -150,6 +150,7 @@ export default async function RaceDetailPage({
               <TabsContent key={s.id} value={s.type} className="mt-4">
                 <ResultsCard
                   label={SESSION_LABELS[s.type] ?? s.type}
+                  type={s.type}
                   rows={rows}
                 />
               </TabsContent>
@@ -180,66 +181,113 @@ function StatusBadge({ status }: { status: EventStatus }) {
 
 function ResultsCard({
   label,
+  type,
   rows,
 }: {
   label: string;
+  type: string;
   rows: SessionResult[];
 }) {
+  const isPractice = type === "FP1" || type === "FP2" || type === "FP3";
+  const isQuali = type === "Q";
+  const isRace = type === "RACE";
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>{label} results</CardTitle>
+        {isPractice && (
+          <p className="text-xs text-muted-foreground">
+            Wikipedia lists only the class-fastest lap for free practice;
+            the table reflects that.
+          </p>
+        )}
       </CardHeader>
       <CardContent className="px-0">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12 pl-4">Pos</TableHead>
-              <TableHead className="hidden w-14 sm:table-cell">Cls</TableHead>
+              <TableHead className="w-12 pl-4">
+                {isQuali ? "Grid" : "Pos"}
+              </TableHead>
+              {isRace && (
+                <TableHead className="hidden w-14 sm:table-cell">Cls</TableHead>
+              )}
               <TableHead className="w-12">#</TableHead>
               <TableHead>Team</TableHead>
               <TableHead className="hidden md:table-cell">Drivers</TableHead>
               <TableHead className="w-16">Class</TableHead>
-              <TableHead className="hidden w-12 text-right sm:table-cell">
-                Pts
-              </TableHead>
-              <TableHead className="pr-4 text-right">Gap</TableHead>
+              {(isPractice || isQuali) && (
+                <TableHead className="pr-4 text-right">Best lap</TableHead>
+              )}
+              {isRace && (
+                <>
+                  <TableHead className="hidden w-12 text-right sm:table-cell">
+                    Pts
+                  </TableHead>
+                  <TableHead className="pr-4 text-right">Gap</TableHead>
+                </>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row) => (
-              <TableRow key={`${row.position}-${row.carNumber}`}>
-                <TableCell className="pl-4 font-mono tabular-nums">
-                  {row.position}
-                </TableCell>
-                <TableCell className="hidden font-mono tabular-nums sm:table-cell">
-                  P{row.classPosition}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {row.carNumber}
-                </TableCell>
-                <TableCell className="font-medium">{row.team}</TableCell>
-                <TableCell className="hidden text-muted-foreground md:table-cell">
-                  {row.drivers}
-                </TableCell>
-                <TableCell>
-                  <ClassBadge raceClass={row.raceClass} />
-                </TableCell>
-                <TableCell
-                  className={
-                    "hidden text-right font-mono tabular-nums sm:table-cell " +
-                    (row.pointsAwarded > 0
-                      ? "text-foreground"
-                      : "text-muted-foreground")
-                  }
+            {rows.map((row) => {
+              const isPole = isQuali && row.position === 1;
+              return (
+                <TableRow
+                  key={`${row.position}-${row.carNumber}`}
+                  className={isPole ? "bg-[var(--racing-yellow)]/5" : undefined}
                 >
-                  {row.pointsAwarded > 0 ? row.pointsAwarded : "—"}
-                </TableCell>
-                <TableCell className="pr-4 text-right font-mono tabular-nums">
-                  {row.gap ?? "—"}
-                </TableCell>
-              </TableRow>
-            ))}
+                  <TableCell
+                    className={
+                      "pl-4 font-mono tabular-nums " +
+                      (isPole
+                        ? "font-semibold text-[var(--racing-yellow)]"
+                        : "")
+                    }
+                  >
+                    {row.position}
+                  </TableCell>
+                  {isRace && (
+                    <TableCell className="hidden font-mono tabular-nums sm:table-cell">
+                      P{row.classPosition}
+                    </TableCell>
+                  )}
+                  <TableCell className="font-mono tabular-nums">
+                    {row.carNumber}
+                  </TableCell>
+                  <TableCell className="font-medium">{row.team}</TableCell>
+                  <TableCell className="hidden text-muted-foreground md:table-cell">
+                    {row.drivers}
+                  </TableCell>
+                  <TableCell>
+                    <ClassBadge raceClass={row.raceClass} />
+                  </TableCell>
+                  {(isPractice || isQuali) && (
+                    <TableCell className="pr-4 text-right font-mono tabular-nums">
+                      {row.bestLap ?? "—"}
+                    </TableCell>
+                  )}
+                  {isRace && (
+                    <>
+                      <TableCell
+                        className={
+                          "hidden text-right font-mono tabular-nums sm:table-cell " +
+                          (row.pointsAwarded > 0
+                            ? "text-foreground"
+                            : "text-muted-foreground")
+                        }
+                      >
+                        {row.pointsAwarded > 0 ? row.pointsAwarded : "—"}
+                      </TableCell>
+                      <TableCell className="pr-4 text-right font-mono tabular-nums">
+                        {row.gap ?? "—"}
+                      </TableCell>
+                    </>
+                  )}
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </CardContent>
