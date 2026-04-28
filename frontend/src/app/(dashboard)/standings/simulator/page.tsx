@@ -60,8 +60,11 @@ export default async function SimulatorPage() {
         teams={teams}
         driversByClass={{
           HYPERCAR: hyperDrivers,
+          LMP1: [],
           LMP2: [],
           LMGT3: lmgt3Drivers,
+          LMGTE_PRO: [],
+          LMGTE_AM: [],
         }}
         manufacturersByClass={{ HYPERCAR: hyperManufacturers }}
         teamsByClass={{ LMGT3: lmgt3Teams }}

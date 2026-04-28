@@ -23,7 +23,14 @@ import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Compare drivers" };
 
-const VALID_CLASSES: RaceClass[] = ["HYPERCAR", "LMGT3"];
+const VALID_CLASSES: RaceClass[] = [
+  "HYPERCAR",
+  "LMP1",
+  "LMP2",
+  "LMGT3",
+  "LMGTE_PRO",
+  "LMGTE_AM",
+];
 
 function parseIds(raw: string | string[] | undefined): number[] {
   const text = Array.isArray(raw) ? raw.join(",") : raw ?? "";

@@ -8,7 +8,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
-import { RACE_CLASSES, getTeams, type RaceClass, type TeamEntry } from "@/lib/api";
+import {
+  RACE_CLASSES,
+  getTeams,
+  raceClassLabel,
+  type RaceClass,
+  type TeamEntry,
+} from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Cars" };
@@ -61,15 +67,20 @@ export default async function CarsPage() {
         </p>
       </header>
 
-      <Tabs defaultValue="HYPERCAR">
+      {(() => {
+        const present = RACE_CLASSES.filter(
+          (c) => all.some((m) => m.raceClass === c),
+        );
+        return (
+      <Tabs defaultValue={present[0] ?? "HYPERCAR"}>
         <TabsList>
-          {RACE_CLASSES.map((c) => (
+          {present.map((c) => (
             <TabsTrigger key={c} value={c}>
-              {c} · {all.filter((m) => m.raceClass === c).length}
+              {raceClassLabel(c)} · {all.filter((m) => m.raceClass === c).length}
             </TabsTrigger>
           ))}
         </TabsList>
-        {RACE_CLASSES.map((c) => {
+        {present.map((c) => {
           const models = all
             .filter((m) => m.raceClass === c)
             .sort((a, b) => a.model.localeCompare(b.model));
@@ -90,6 +101,8 @@ export default async function CarsPage() {
           );
         })}
       </Tabs>
+        );
+      })()}
     </div>
   );
 }

@@ -21,6 +21,7 @@ import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import {
   RACE_CLASSES,
   getDrivers,
+  raceClassLabel,
   type DriverEntry,
   type RaceClass,
 } from "@/lib/api";
@@ -28,13 +29,20 @@ import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Drivers" };
 
-function groupByClass(drivers: DriverEntry[]): Record<RaceClass, DriverEntry[]> {
+function groupByClass(
+  drivers: DriverEntry[],
+): Record<RaceClass, DriverEntry[]> {
   const out: Record<RaceClass, DriverEntry[]> = {
     HYPERCAR: [],
+    LMP1: [],
     LMP2: [],
     LMGT3: [],
+    LMGTE_PRO: [],
+    LMGTE_AM: [],
   };
-  for (const d of drivers) out[d.raceClass].push(d);
+  for (const d of drivers) {
+    if (out[d.raceClass]) out[d.raceClass].push(d);
+  }
   return out;
 }
 
@@ -42,15 +50,15 @@ export default async function DriversPage() {
   const year = await getSelectedSeason();
   const drivers = await getDrivers(year);
   const byClass = groupByClass(drivers);
+  const presentClasses = RACE_CLASSES.filter((c) => byClass[c].length > 0);
+  const defaultTab = presentClasses[0] ?? "HYPERCAR";
 
   return (
     <div className="space-y-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight">Drivers</h1>
-          <p className="text-muted-foreground">
-            {drivers.length} entries · 2026 season
-          </p>
+          <p className="text-muted-foreground">{drivers.length} entries</p>
         </div>
         <Link
           href="/drivers/compare"
@@ -60,15 +68,15 @@ export default async function DriversPage() {
         </Link>
       </header>
 
-      <Tabs defaultValue="HYPERCAR">
+      <Tabs defaultValue={defaultTab}>
         <TabsList>
-          {RACE_CLASSES.map((c) => (
+          {presentClasses.map((c) => (
             <TabsTrigger key={c} value={c}>
-              {c} · {byClass[c].length}
+              {raceClassLabel(c)} · {byClass[c].length}
             </TabsTrigger>
           ))}
         </TabsList>
-        {RACE_CLASSES.map((c) => (
+        {presentClasses.map((c) => (
           <TabsContent key={c} value={c} className="mt-4">
             <DriversTable drivers={byClass[c]} />
           </TabsContent>

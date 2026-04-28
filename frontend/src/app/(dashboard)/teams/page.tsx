@@ -19,6 +19,7 @@ import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import {
   RACE_CLASSES,
   getTeams,
+  raceClassLabel,
   type RaceClass,
   type TeamEntry,
 } from "@/lib/api";
@@ -29,10 +30,15 @@ export const metadata = { title: "Teams" };
 function groupByClass(teams: TeamEntry[]): Record<RaceClass, TeamEntry[]> {
   const out: Record<RaceClass, TeamEntry[]> = {
     HYPERCAR: [],
+    LMP1: [],
     LMP2: [],
     LMGT3: [],
+    LMGTE_PRO: [],
+    LMGTE_AM: [],
   };
-  for (const t of teams) out[t.raceClass].push(t);
+  for (const t of teams) {
+    if (out[t.raceClass]) out[t.raceClass].push(t);
+  }
   return out;
 }
 
@@ -40,6 +46,7 @@ export default async function TeamsPage() {
   const year = await getSelectedSeason();
   const teams = await getTeams(year);
   const byClass = groupByClass(teams);
+  const presentClasses = RACE_CLASSES.filter((c) => byClass[c].length > 0);
 
   return (
     <div className="space-y-6">
@@ -50,15 +57,15 @@ export default async function TeamsPage() {
         </p>
       </header>
 
-      <Tabs defaultValue="HYPERCAR">
+      <Tabs defaultValue={presentClasses[0] ?? "HYPERCAR"}>
         <TabsList>
-          {RACE_CLASSES.map((c) => (
+          {presentClasses.map((c) => (
             <TabsTrigger key={c} value={c}>
-              {c} · {byClass[c].length}
+              {raceClassLabel(c)} · {byClass[c].length}
             </TabsTrigger>
           ))}
         </TabsList>
-        {RACE_CLASSES.map((c) => (
+        {presentClasses.map((c) => (
           <TabsContent key={c} value={c} className="mt-4">
             <TeamsTable teams={byClass[c]} />
           </TabsContent>

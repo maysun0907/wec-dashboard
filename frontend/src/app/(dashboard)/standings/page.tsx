@@ -42,8 +42,17 @@ export const metadata = { title: "Standings" };
 type AnyStanding = StandingDriver | StandingTeam | StandingManufacturer;
 
 function groupByClass<T extends { raceClass: RaceClass }>(rows: T[]) {
-  const out: Record<RaceClass, T[]> = { HYPERCAR: [], LMP2: [], LMGT3: [] };
-  for (const r of rows) out[r.raceClass].push(r);
+  const out: Record<RaceClass, T[]> = {
+    HYPERCAR: [],
+    LMP1: [],
+    LMP2: [],
+    LMGT3: [],
+    LMGTE_PRO: [],
+    LMGTE_AM: [],
+  };
+  for (const r of rows) {
+    if (out[r.raceClass]) out[r.raceClass].push(r);
+  }
   return out;
 }
 
@@ -116,16 +125,24 @@ export default async function StandingsPage() {
         </Link>
       </header>
 
-      <Tabs defaultValue="HYPERCAR">
+      {(() => {
+        const present = RACE_CLASSES.filter(
+          (c) =>
+            (driversByClass[c]?.length ?? 0) > 0 ||
+            (teamsByClass[c]?.length ?? 0) > 0 ||
+            (manufacturersByClass[c]?.length ?? 0) > 0,
+        );
+        return (
+      <Tabs defaultValue={present[0] ?? "HYPERCAR"}>
         <TabsList>
-          {RACE_CLASSES.map((c) => (
+          {present.map((c) => (
             <TabsTrigger key={c} value={c}>
               {c}
             </TabsTrigger>
           ))}
         </TabsList>
 
-        {RACE_CLASSES.map((c) => {
+        {present.map((c) => {
           const d = driversByClass[c];
           const t = teamsByClass[c];
           const m = manufacturersByClass[c];
@@ -255,6 +272,8 @@ export default async function StandingsPage() {
           );
         })}
       </Tabs>
+        );
+      })()}
     </div>
   );
 }

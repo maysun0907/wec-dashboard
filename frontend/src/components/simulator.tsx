@@ -57,8 +57,11 @@ type ChampType = "drivers" | "manufacturers" | "teams";
 
 const CHAMPIONSHIPS_BY_CLASS: Record<RaceClass, ChampType[]> = {
   HYPERCAR: ["drivers", "manufacturers"],
+  LMP1: [],
   LMP2: [],
   LMGT3: ["drivers", "teams"],
+  LMGTE_PRO: [],
+  LMGTE_AM: [],
 };
 
 const CHAMP_LABEL: Record<ChampType, string> = {
@@ -84,20 +87,29 @@ type Picks = Record<RaceClass, ClassPicks>;
 const EMPTY_CLASS_PICKS: ClassPicks = {};
 const EMPTY_PICKS: Picks = {
   HYPERCAR: EMPTY_CLASS_PICKS,
+  LMP1: EMPTY_CLASS_PICKS,
   LMP2: EMPTY_CLASS_PICKS,
   LMGT3: EMPTY_CLASS_PICKS,
+  LMGTE_PRO: EMPTY_CLASS_PICKS,
+  LMGTE_AM: EMPTY_CLASS_PICKS,
 };
 
 // Class → 1-char tag for the URL param. Keeps shareable links short.
 const CLASS_TAG: Record<RaceClass, string> = {
   HYPERCAR: "h",
+  LMP1: "1",
   LMP2: "p",
   LMGT3: "g",
+  LMGTE_PRO: "P",
+  LMGTE_AM: "A",
 };
 const TAG_TO_CLASS: Record<string, RaceClass> = {
   h: "HYPERCAR",
+  "1": "LMP1",
   p: "LMP2",
   g: "LMGT3",
+  P: "LMGTE_PRO",
+  A: "LMGTE_AM",
 };
 
 type CompactPicks = Record<string, Record<string, [string, string, string, string]>>;
@@ -131,8 +143,11 @@ function decodePicks(param: string | null): Picks | null {
     const parsed = JSON.parse(json) as CompactPicks;
     const result: Picks = {
       HYPERCAR: {},
+      LMP1: {},
       LMP2: {},
       LMGT3: {},
+      LMGTE_PRO: {},
+      LMGTE_AM: {},
     };
     for (const [tag, rounds] of Object.entries(parsed)) {
       const cls = TAG_TO_CLASS[tag];
@@ -464,7 +479,9 @@ export function ChampionshipSimulator({
     <Tabs defaultValue="HYPERCAR">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <TabsList>
-          {RACE_CLASSES.map((c) => (
+          {RACE_CLASSES.filter(
+            (c) => CHAMPIONSHIPS_BY_CLASS[c].length > 0,
+          ).map((c) => (
             <TabsTrigger key={c} value={c}>
               {c}
             </TabsTrigger>
@@ -491,7 +508,9 @@ export function ChampionshipSimulator({
         </Button>
       </div>
 
-      {RACE_CLASSES.map((c) => (
+      {RACE_CLASSES.filter(
+        (c) => CHAMPIONSHIPS_BY_CLASS[c].length > 0,
+      ).map((c) => (
         <TabsContent key={c} value={c} className="mt-4">
           <ClassPanel
             raceClass={c}

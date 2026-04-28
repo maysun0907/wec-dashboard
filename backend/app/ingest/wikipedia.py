@@ -213,7 +213,8 @@ def parse_driver_links(table: Tag) -> dict[str, str]:
     return out
 
 
-_REF_RE = re.compile(r"\s*\[\s*\d+\s*\]\s*")
+# Match Wikipedia footnote markers: [1], [12], [ a ], [b], etc.
+_REF_RE = re.compile(r"\s*\[\s*[\w\d]+\s*\]\s*")
 
 
 def _clean(text: str) -> str:
@@ -285,9 +286,15 @@ def find_all_tables_by_heading(
     return out
 
 
-def find_entry_tables(soup: BeautifulSoup) -> tuple[Tag | None, Tag | None]:
-    """Identify Hypercar + LMGT3 entry tables by their header row."""
-    hypercar = lmgt3 = None
+def find_entry_tables(soup: BeautifulSoup) -> list[tuple[str, Tag]]:
+    """Return [(canonical_class, table), ...] for every entry-list table on
+    the season page. Class is derived from the table's nearest preceding
+    H2/H3/H4 heading text, then run through _normalize_class so
+    'LMGTE Pro' becomes 'LMGTE_PRO' etc. Tables whose heading we can't
+    map to a class are skipped — that drops e.g. the standings tables
+    which also have Entrant + Drivers in some seasons."""
+    out: list[tuple[str, Tag]] = []
+    seen_classes: set[str] = set()
     for table in soup.select("table.wikitable"):
         first_tr = table.find("tr")
         if first_tr is None:
@@ -295,13 +302,25 @@ def find_entry_tables(soup: BeautifulSoup) -> tuple[Tag | None, Tag | None]:
         headers = [
             _clean(h.get_text(" ", strip=True)) for h in first_tr.find_all(["th", "td"])
         ]
-        if "Entrant" not in headers or "Drivers" not in headers:
+        if "Drivers" not in headers:
             continue
-        if "Hybrid" in headers and hypercar is None:
-            hypercar = table
-        elif "Hybrid" not in headers and lmgt3 is None:
-            lmgt3 = table
-    return hypercar, lmgt3
+        # Older season pages use 'Entrant/Team' as a single combined column.
+        if "Entrant" not in headers and "Entrant/Team" not in headers:
+            continue
+        h = table.find_previous(["h2", "h3", "h4"])
+        if h is None:
+            continue
+        cls = _normalize_class(h.get_text(" ", strip=True))
+        if cls is None:
+            continue
+        # The first table after the heading is the entry list; later
+        # tables under the same class heading (e.g. constructors' table)
+        # would re-trigger and we don't want them.
+        if cls in seen_classes:
+            continue
+        seen_classes.add(cls)
+        out.append((cls, table))
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -324,9 +343,18 @@ def parse_entries(table: Tag, race_class: str) -> list[dict]:
     header = rows[0]
     cols = {h: i for i, h in enumerate(header)}
 
-    required = {"Entrant", "Car", "Engine", "No.", "Drivers"}
-    if not required.issubset(cols.keys()):
-        raise ValueError(f"missing columns: {required - set(cols.keys())}")
+    if "Car" not in cols or "Drivers" not in cols:
+        raise ValueError(
+            f"missing required columns: {{'Car','Drivers'}} - {set(cols.keys())}"
+        )
+    entrant_key = next(
+        (k for k in ("Entrant", "Entrant/Team") if k in cols), None
+    )
+    if entrant_key is None:
+        raise ValueError("missing Entrant/Entrant-Team column")
+    no_key = next((k for k in ("No.", "No") if k in cols), None)
+    if no_key is None:
+        raise ValueError("missing No./No column")
 
     entries: list[dict] = []
     for row in rows[1:]:
@@ -334,10 +362,10 @@ def parse_entries(table: Tag, race_class: str) -> list[dict]:
             continue
         try:
             entry = {
-                "entrant": row[cols["Entrant"]],
+                "entrant": row[cols[entrant_key]],
                 "car": row[cols["Car"]],
-                "engine": row[cols["Engine"]],
-                "number": row[cols["No."]],
+                "engine": row[cols["Engine"]] if "Engine" in cols else "",
+                "number": row[cols[no_key]],
                 "driver": row[cols["Drivers"]],
                 "rounds": row[cols["Rounds"]] if "Rounds" in cols else "",
                 "race_class": race_class,
@@ -376,12 +404,15 @@ def group_by_car(entries: list[dict]) -> list[dict]:
 
 
 _DATE_RANGE_RE = re.compile(
-    r"^\s*(\d{1,2})(?:\s*[–\-]\s*(\d{1,2}))?\s+(\w+)\s*$"
+    r"^\s*(\d{1,2})(?:\s*[–\-]\s*(\d{1,2}))?\s+(\w+)(?:\s+(\d{4}))?\s*$"
 )
 
 
 def parse_date_range(text: str, year: int) -> tuple[date, date] | None:
-    """Parse '19 April' or '13–14 June' into (start, end). Returns None if unparseable."""
+    """Parse '19 April', '13–14 June', or '5 May 2018' into (start, end).
+    Returns None if unparseable. Wikipedia super-season pages append the
+    explicit year because rounds span the calendar boundary; a present
+    year suffix overrides the page-level fallback."""
     m = _DATE_RANGE_RE.match(text)
     if m is None:
         return None
@@ -391,7 +422,8 @@ def parse_date_range(text: str, year: int) -> tuple[date, date] | None:
     if month_name not in MONTHS:
         return None
     month = MONTHS[month_name]
-    return date(year, month, d1), date(year, month, d2)
+    actual_year = int(m.group(4)) if m.group(4) else year
+    return date(actual_year, month, d1), date(actual_year, month, d2)
 
 
 def parse_calendar(table: Tag, year: int) -> list[dict]:
@@ -401,9 +433,14 @@ def parse_calendar(table: Tag, year: int) -> list[dict]:
         return []
     header = rows[0]
     cols = {h: i for i, h in enumerate(header)}
-    required = {"Rnd", "Race", "Circuit", "Location", "Date"}
-    if not required.issubset(cols.keys()):
-        raise ValueError(f"calendar missing columns: {required - set(cols.keys())}")
+    # Different season pages use 'Rnd', 'Round', or 'Rnd.'.
+    rnd_key = next((k for k in ("Rnd", "Rnd.", "Round") if k in cols), None)
+    required = {"Race", "Circuit", "Location", "Date"}
+    if rnd_key is None or not required.issubset(cols.keys()):
+        raise ValueError(
+            f"calendar missing columns; header={header}"
+        )
+    cols["Rnd"] = cols[rnd_key]
 
     out: list[dict] = []
     for row in rows[1:]:
@@ -470,13 +507,22 @@ def parse_race_report_urls(table: Tag) -> dict[int, str]:
 
 
 def _normalize_class(raw: str) -> str | None:
-    s = raw.strip().upper().replace(" ", "")
-    if s in {"H", "HYPERCAR"}:
+    """Map free-form class labels (race-page Class column or page heading)
+    onto our canonical class names. Covers every WEC class since 2012:
+    HYPERCAR (LMH/LMDh), LMP1, LMP2, LMGT3, LMGTE_PRO, LMGTE_AM."""
+    s = raw.strip().upper().replace(".", "").replace(" ", "")
+    if s in {"H", "HYPERCAR", "LMH", "LMDH"}:
         return "HYPERCAR"
     if s in {"GT3", "LMGT3"}:
         return "LMGT3"
+    if s == "LMP1":
+        return "LMP1"
     if s == "LMP2":
         return "LMP2"
+    if s in {"LMGTEPRO", "GTEPRO"}:
+        return "LMGTE_PRO"
+    if s in {"LMGTEAM", "GTEAM"}:
+        return "LMGTE_AM"
     return None
 
 
@@ -577,15 +623,23 @@ def parse_results_summary(table: Tag) -> dict[int, dict]:
     if not rows:
         return {}
     header = rows[0]
-    # Header capitalization changed across season pages
-    # ("Hypercar winners" vs "Hypercar Winners"); match case-insensitively.
+    # Header capitalization + class set vary across season pages (Hypercar
+    # winners / LMP1 winners / LMGTE Pro winners / etc). Discover any
+    # column ending in 'winners' and map it to a canonical class.
     lower_to_idx = {h.lower(): i for i, h in enumerate(header)}
     rnd_key = next(
         (lower_to_idx[k] for k in ("rnd.", "rnd") if k in lower_to_idx), None
     )
-    hyper_key = lower_to_idx.get("hypercar winners")
-    lmgt3_key = lower_to_idx.get("lmgt3 winners")
-    if rnd_key is None or hyper_key is None:
+    if rnd_key is None:
+        return {}
+    class_cols: list[tuple[str, int]] = []
+    for raw, idx in lower_to_idx.items():
+        if not raw.endswith(" winners"):
+            continue
+        cls = _normalize_class(raw[: -len(" winners")])
+        if cls is not None:
+            class_cols.append((cls, idx))
+    if not class_cols:
         return {}
 
     out: dict[int, dict] = {}
@@ -596,26 +650,35 @@ def parse_results_summary(table: Tag) -> dict[int, dict]:
         if not rnd_text.strip().isdigit():
             continue
         rnd_num = int(rnd_text)
-        hyper = row[hyper_key]
-        lmgt3 = row[lmgt3_key] if lmgt3_key is not None else ""
-
         bucket = out.setdefault(rnd_num, {})
-        m_h = _NO_RE.match(hyper.strip())
-        if m_h:
-            bucket["HYPERCAR"] = {
-                "car_number": m_h.group(1),
-                "team_name": m_h.group(2).strip(),
-            }
-        m_l = _NO_RE.match(lmgt3.strip())
-        if m_l:
-            bucket["LMGT3"] = {
-                "car_number": m_l.group(1),
-                "team_name": m_l.group(2).strip(),
-            }
+        for cls, idx in class_cols:
+            cell = row[idx].strip()
+            m = _NO_RE.match(cell)
+            if m:
+                bucket[cls] = {
+                    "car_number": m.group(1),
+                    "team_name": m.group(2).strip(),
+                }
     return out
 
 
 # ---- Standings ----
+
+
+def _resolve_points_col(cols: dict[str, int]) -> int | None:
+    """Older standings tables use 'Total points' or 'Total' instead of
+    'Points'."""
+    for k in ("Points", "Total points", "Total"):
+        if k in cols:
+            return cols[k]
+    return None
+
+
+def _resolve_pos_col(cols: dict[str, int]) -> int | None:
+    for k in ("Pos.", "Pos"):
+        if k in cols:
+            return cols[k]
+    return None
 
 
 def parse_standings_drivers(table: Tag, race_class: str) -> list[dict]:
@@ -625,18 +688,22 @@ def parse_standings_drivers(table: Tag, race_class: str) -> list[dict]:
         return []
     header = rows[0]
     cols = {h: i for i, h in enumerate(header)}
-    if "Driver" not in cols or "Points" not in cols:
+    if "Driver" not in cols:
+        return []
+    pts_idx = _resolve_points_col(cols)
+    pos_idx = _resolve_pos_col(cols)
+    if pts_idx is None or pos_idx is None:
         return []
 
     out: list[dict] = []
     for row in rows[1:]:
         if len(row) < len(header):
             continue
-        pos_raw = row[cols["Pos."]] if "Pos." in cols else ""
+        pos_raw = row[pos_idx]
         if not pos_raw.strip().isdigit():
             continue
         try:
-            pts = float(row[cols["Points"]])
+            pts = float(row[pts_idx].replace(",", ""))
         except (ValueError, IndexError):
             continue
         out.append({
@@ -671,17 +738,21 @@ def parse_standings_manufacturers(table: Tag, race_class: str) -> list[dict]:
         return []
     header = rows[0]
     cols = {h: i for i, h in enumerate(header)}
-    if "Manufacturer" not in cols or "Points" not in cols:
+    if "Manufacturer" not in cols:
+        return []
+    pts_idx = _resolve_points_col(cols)
+    pos_idx = _resolve_pos_col(cols)
+    if pts_idx is None or pos_idx is None:
         return []
     out: list[dict] = []
     for row in rows[1:]:
         if len(row) < len(header):
             continue
-        pos_raw = row[cols["Pos."]] if "Pos." in cols else ""
+        pos_raw = row[pos_idx]
         if not pos_raw.strip().isdigit():
             continue
         try:
-            pts = float(row[cols["Points"]])
+            pts = float(row[pts_idx].replace(",", ""))
         except (ValueError, IndexError):
             continue
         out.append({
@@ -699,17 +770,21 @@ def parse_standings_teams(table: Tag, race_class: str) -> list[dict]:
         return []
     header = rows[0]
     cols = {h: i for i, h in enumerate(header)}
-    if "Team" not in cols or "Points" not in cols:
+    if "Team" not in cols:
+        return []
+    pts_idx = _resolve_points_col(cols)
+    pos_idx = _resolve_pos_col(cols)
+    if pts_idx is None or pos_idx is None:
         return []
     out: list[dict] = []
     for row in rows[1:]:
         if len(row) < len(header):
             continue
-        pos_raw = row[cols["Pos."]] if "Pos." in cols else ""
+        pos_raw = row[pos_idx]
         if not pos_raw.strip().isdigit():
             continue
         try:
-            pts = float(row[cols["Points"]])
+            pts = float(row[pts_idx].replace(",", ""))
         except (ValueError, IndexError):
             continue
         out.append({
@@ -792,7 +867,10 @@ def _upsert_circuit(db: Session, name: str, country: str | None) -> models.Circu
 def _ingest_calendar(
     soup: BeautifulSoup, db: Session, season_id: int, year: int
 ) -> int:
-    table = find_table_by_heading(soup, "Calendar")
+    # Recent seasons use 'Calendar', older ones used 'Schedule'.
+    table = find_table_by_heading(soup, "Calendar") or find_table_by_heading(
+        soup, "Schedule"
+    )
     if table is None:
         return 0
     rounds = parse_calendar(table, year=year)
@@ -816,22 +894,18 @@ def _ingest_calendar(
 def _ingest_entries(
     soup: BeautifulSoup, db: Session, season_id: int, race_class_ids: dict[str, int]
 ) -> tuple[int, int]:
-    hyper_table, lmgt3_table = find_entry_tables(soup)
-    if hyper_table is None or lmgt3_table is None:
-        raise RuntimeError(
-            f"could not find entry tables (hypercar={hyper_table is not None}, "
-            f"lmgt3={lmgt3_table is not None})"
-        )
-    hyper = group_by_car(parse_entries(hyper_table, "HYPERCAR"))
-    lmgt3 = group_by_car(parse_entries(lmgt3_table, "LMGT3"))
-    # Map driver display name → linked Wikipedia article title (when present).
-    # Used to fetch portrait thumbnails for new drivers.
-    driver_titles: dict[str, str] = {
-        **parse_driver_links(hyper_table),
-        **parse_driver_links(lmgt3_table),
-    }
+    tables = find_entry_tables(soup)
+    if not tables:
+        raise RuntimeError("no entry tables found on season page")
+    grouped: list[dict] = []
+    driver_titles: dict[str, str] = {}
+    for cls, table in tables:
+        grouped.extend(group_by_car(parse_entries(table, cls)))
+        # Driver-link map for portrait fetches — merged across all classes.
+        for name, title in parse_driver_links(table).items():
+            driver_titles.setdefault(name, title)
     car_drivers_count = 0
-    for entry in hyper + lmgt3:
+    for entry in grouped:
         manuf = upsert_manufacturer(db, _extract_manufacturer(entry["car"]))
         if not manuf.logo_url:
             logo = fetch_manufacturer_logo(manuf.name)
@@ -865,7 +939,7 @@ def _ingest_entries(
             )
             car_drivers_count += 1
     db.flush()
-    return len(hyper) + len(lmgt3), car_drivers_count
+    return len(grouped), car_drivers_count
 
 
 def _ingest_results_summary(
@@ -1014,19 +1088,77 @@ def _last_completed_event_id(db: Session, season_id: int) -> int | None:
     return ev.id if ev else None
 
 
+_CLASS_HEADING_KEYWORDS: dict[str, list[str]] = {
+    "HYPERCAR": ["hypercar"],
+    "LMP1": ["lmp1"],
+    "LMP2": ["lmp2"],
+    "LMGT3": ["lmgt3"],
+    "LMGTE_PRO": ["lmgte pro", "gte pro"],
+    "LMGTE_AM": ["lmgte am", "gte am"],
+}
+
+
+def _find_standings_tables_for(
+    soup: BeautifulSoup, kind: str, top_class: str | None = None
+) -> dict[str, Tag]:
+    """Discover standings tables on a season page by walking every wikitable
+    and asking 'does its preceding heading mention this class + this kind?'.
+    Past seasons used many trophy names ('Endurance Trophy for LMP2 Drivers',
+    'LMP1 Trophy', 'World Cup for ...') so name-matching needs to be loose.
+
+    `kind` is one of 'drivers', 'manufacturers', 'teams'. `top_class` is the
+    top-tier class for this season (e.g. 'LMP1' pre-2017, 'HYPERCAR' from
+    2021 on) — used as a fallback when a heading is just 'World Endurance
+    Drivers' Championship' with no class keyword."""
+    out: dict[str, Tag] = {}
+    for table in soup.select("table.wikitable"):
+        h = table.find_previous(["h2", "h3", "h4"])
+        if h is None:
+            continue
+        text = h.get_text(" ", strip=True).lower()
+        if kind not in text:
+            continue
+        matched = False
+        for cls, keywords in _CLASS_HEADING_KEYWORDS.items():
+            if cls in out:
+                continue
+            if any(k in text for k in keywords):
+                out[cls] = table
+                matched = True
+                break
+        # 2012–2016 used "World Endurance Drivers' / Manufacturers' Championship"
+        # (or just "Drivers' World Championship" in 2012) with no class keyword
+        # to mean the top class. Recognize either pattern as a fallback to
+        # the season's top class.
+        if (
+            not matched
+            and top_class is not None
+            and top_class not in out
+            and "championship" in text
+            and ("world endurance" in text or "world champion" in text)
+        ):
+            out[top_class] = table
+    return out
+
+
 def _ingest_standings(
-    soup: BeautifulSoup, db: Session, season_id: int, race_class_ids: dict[str, int]
+    soup: BeautifulSoup,
+    db: Session,
+    season_id: int,
+    race_class_ids: dict[str, int],
+    year: int,
 ) -> dict[str, int]:
     after_event_id = _last_completed_event_id(db, season_id)
+    # Top-tier class flipped from LMP1 to Hypercar in 2021.
+    top_class = "HYPERCAR" if year >= 2021 else "LMP1"
 
     counts = {"drivers": 0, "manufacturers": 0, "teams": 0}
 
-    # Hypercar drivers
-    table = find_table_by_heading(
-        soup, "Hypercar World Endurance Drivers' Championship"
-    )
-    if table is not None:
-        for row in parse_standings_drivers(table, "HYPERCAR"):
+    # Drivers — every (class, table) pair we can locate.
+    for cls, table in _find_standings_tables_for(
+        soup, "drivers", top_class
+    ).items():
+        for row in parse_standings_drivers(table, cls):
             driver = (
                 db.query(models.Driver).filter_by(name=row["name"]).first()
             )
@@ -1036,7 +1168,7 @@ def _ingest_standings(
                 models.StandingDriver(
                     season_id=season_id,
                     driver_id=driver.id,
-                    race_class_id=race_class_ids["HYPERCAR"],
+                    race_class_id=race_class_ids[cls],
                     after_event_id=after_event_id,
                     position=row["position"],
                     points=row["points"],
@@ -1044,35 +1176,11 @@ def _ingest_standings(
             )
             counts["drivers"] += 1
 
-    # LMGT3 drivers
-    table = find_table_by_heading(
-        soup, "FIA Endurance Trophy for LMGT3 Drivers"
-    )
-    if table is not None:
-        for row in parse_standings_drivers(table, "LMGT3"):
-            driver = (
-                db.query(models.Driver).filter_by(name=row["name"]).first()
-            )
-            if driver is None:
-                continue
-            db.add(
-                models.StandingDriver(
-                    season_id=season_id,
-                    driver_id=driver.id,
-                    race_class_id=race_class_ids["LMGT3"],
-                    after_event_id=after_event_id,
-                    position=row["position"],
-                    points=row["points"],
-                )
-            )
-            counts["drivers"] += 1
-
-    # Hypercar manufacturers
-    table = find_table_by_heading(
-        soup, "Hypercar World Endurance Manufacturers' Championship"
-    )
-    if table is not None:
-        for row in parse_standings_manufacturers(table, "HYPERCAR"):
+    # Manufacturers
+    for cls, table in _find_standings_tables_for(
+        soup, "manufacturers", top_class
+    ).items():
+        for row in parse_standings_manufacturers(table, cls):
             manuf = (
                 db.query(models.Manufacturer)
                 .filter_by(name=row["name"])
@@ -1084,7 +1192,7 @@ def _ingest_standings(
                 models.StandingManufacturer(
                     season_id=season_id,
                     manufacturer_id=manuf.id,
-                    race_class_id=race_class_ids["HYPERCAR"],
+                    race_class_id=race_class_ids[cls],
                     after_event_id=after_event_id,
                     position=row["position"],
                     points=row["points"],
@@ -1092,10 +1200,11 @@ def _ingest_standings(
             )
             counts["manufacturers"] += 1
 
-    # LMGT3 teams
-    table = find_table_by_heading(soup, "FIA Endurance Trophy for LMGT3 Teams")
-    if table is not None:
-        for row in parse_standings_teams(table, "LMGT3"):
+    # Teams
+    for cls, table in _find_standings_tables_for(
+        soup, "teams", top_class
+    ).items():
+        for row in parse_standings_teams(table, cls):
             team = db.query(models.Team).filter_by(name=row["name"]).first()
             if team is None:
                 continue
@@ -1103,7 +1212,7 @@ def _ingest_standings(
                 models.StandingTeam(
                     season_id=season_id,
                     team_id=team.id,
-                    race_class_id=race_class_ids["LMGT3"],
+                    race_class_id=race_class_ids[cls],
                     after_event_id=after_event_id,
                     position=row["position"],
                     points=row["points"],
@@ -1129,7 +1238,14 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
     db = SessionLocal()
     try:
         season = get_or_create_season(db, year)
-        for name in ("HYPERCAR", "LMP2", "LMGT3"):
+        for name in (
+            "HYPERCAR",
+            "LMP1",
+            "LMP2",
+            "LMGT3",
+            "LMGTE_PRO",
+            "LMGTE_AM",
+        ):
             get_or_create_race_class(db, name)
         race_class_ids = {
             rc.name: rc.id for rc in db.query(models.RaceClass).all()
@@ -1148,7 +1264,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             soup, db, season.id, race_class_ids
         )
         standings_counts = _ingest_standings(
-            soup, db, season.id, race_class_ids
+            soup, db, season.id, race_class_ids, year
         )
 
         db.commit()

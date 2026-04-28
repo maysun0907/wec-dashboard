@@ -7,12 +7,35 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 // --- Types (mirror backend Pydantic schemas, camelCase) ---
 
-// Schema keeps LMP2 as a valid value (it may return as a one-off Le Mans
-// category in some seasons) but the 2026 WEC grid only has Hypercar + LMGT3.
-// Drop LMP2 from RACE_CLASSES so empty tabs don't render.
-export type RaceClass = "HYPERCAR" | "LMP2" | "LMGT3";
+// Covers every WEC class since 2012. Older seasons used LMP1/LMGTE Pro/Am;
+// the modern grid is HYPERCAR + LMGT3 with LMP2 still appearing as a one-off
+// at Le Mans in some seasons.
+export type RaceClass =
+  | "HYPERCAR"
+  | "LMP1"
+  | "LMP2"
+  | "LMGT3"
+  | "LMGTE_PRO"
+  | "LMGTE_AM";
 
-export const RACE_CLASSES: RaceClass[] = ["HYPERCAR", "LMGT3"];
+/** Display order for tabs / pickers. Pages should filter out classes that
+ *  have zero entries for the active season rather than hide entries from
+ *  this list. */
+export const RACE_CLASSES: RaceClass[] = [
+  "HYPERCAR",
+  "LMP1",
+  "LMP2",
+  "LMGTE_PRO",
+  "LMGTE_AM",
+  "LMGT3",
+];
+
+/** Human-readable label for a race class. */
+export function raceClassLabel(c: RaceClass): string {
+  if (c === "LMGTE_PRO") return "LMGTE Pro";
+  if (c === "LMGTE_AM") return "LMGTE Am";
+  return c;
+}
 
 export type Circuit = {
   id: number;

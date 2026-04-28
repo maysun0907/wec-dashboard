@@ -1,10 +1,16 @@
 import { cn } from "@/lib/utils";
-import type { RaceClass } from "@/lib/api";
+import { raceClassLabel, type RaceClass } from "@/lib/api";
 
+// Match each modern class to a brand color CSS variable. Older classes
+// (LMP1, LMGTE Pro/Am) reuse the closest tier's color since the dashboard
+// only adds them for past-season backfill.
 const STYLES: Record<RaceClass, string> = {
   HYPERCAR: "bg-[var(--class-hypercar)]/15 text-[var(--class-hypercar)]",
+  LMP1: "bg-[var(--class-hypercar)]/15 text-[var(--class-hypercar)]",
   LMP2: "bg-[var(--class-lmp2)]/15 text-[var(--class-lmp2)]",
   LMGT3: "bg-[var(--class-lmgt3)]/15 text-[var(--class-lmgt3)]",
+  LMGTE_PRO: "bg-[var(--class-lmgt3)]/15 text-[var(--class-lmgt3)]",
+  LMGTE_AM: "bg-[var(--class-lmgt3)]/15 text-[var(--class-lmgt3)]",
 };
 
 export function ClassBadge({
@@ -22,7 +28,7 @@ export function ClassBadge({
         className,
       )}
     >
-      {raceClass}
+      {raceClassLabel(raceClass)}
     </span>
   );
 }

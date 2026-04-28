@@ -12,7 +12,12 @@ import {
   CommandList,
 } from "@/components/ui/command";
 import { DriverPhoto } from "@/components/driver-photo";
-import { type DriverEntry, type RaceClass } from "@/lib/api";
+import {
+  RACE_CLASSES,
+  raceClassLabel,
+  type DriverEntry,
+  type RaceClass,
+} from "@/lib/api";
 
 const MAX_DRIVERS = 5;
 
@@ -90,7 +95,9 @@ export function DriverComparePicker({ selected, catalog, raceClass }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="mr-2 inline-flex rounded-md border border-border bg-secondary/40 p-0.5 text-xs">
-        {(["HYPERCAR", "LMGT3"] as RaceClass[]).map((c) => (
+        {RACE_CLASSES.filter((c) =>
+          catalog.some((d) => d.raceClass === c),
+        ).map((c) => (
           <button
             key={c}
             type="button"
@@ -102,7 +109,7 @@ export function DriverComparePicker({ selected, catalog, raceClass }: Props) {
                 : "text-muted-foreground hover:text-foreground")
             }
           >
-            {c}
+            {raceClassLabel(c)}
           </button>
         ))}
       </div>
