@@ -17,9 +17,11 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { ClassBadge } from "@/components/class-badge";
+import { DriversPodium, buildPodiumRows } from "@/components/drivers-podium";
 import { RaceCountdown } from "@/components/race-countdown";
 import {
   getDriverStandings,
+  getDrivers,
   getEvent,
   getEvents,
   getLastCompletedEvent,
@@ -30,16 +32,19 @@ import {
   getUpcomingEvents,
   type Event,
   type SessionResult,
-  type StandingDriver,
   type StandingTeam,
 } from "@/lib/api";
 
 export default async function HomePage() {
-  const [events, drivers, teams] = await Promise.all([
+  const [events, driverStandings, teams, driverEntries] = await Promise.all([
     getEvents(),
     getDriverStandings("HYPERCAR"),
     getTeamStandings("HYPERCAR"),
+    getDrivers(),
   ]);
+  // Photos live on driver entries, not standings rows — bridge by id.
+  const photoById = new Map(driverEntries.map((d) => [d.id, d.photoUrl]));
+  const podium = buildPodiumRows(driverStandings, photoById);
 
   const today = new Date();
   const next = getNextEvent(events, today);
@@ -73,14 +78,7 @@ export default async function HomePage() {
       {remaining.length > 0 && <UpcomingCard events={remaining} />}
 
       <section className="grid gap-6 lg:grid-cols-2">
-        <StandingsCard
-          title="Drivers"
-          rows={drivers.slice(0, 5)}
-          rowKey={(r) => `d-${r.driverId}`}
-          rowName={(r) => r.driverName}
-          rowDetail={() => undefined}
-          rounds={completedRounds}
-        />
+        <DriversPodium rows={podium} rounds={completedRounds} />
         <StandingsCard
           title="Teams"
           rows={teams.slice(0, 5)}
