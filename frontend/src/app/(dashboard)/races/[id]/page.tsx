@@ -42,6 +42,14 @@ const SESSION_LABELS: Record<string, string> = {
   RACE: "Race",
 };
 
+const SESSION_LABELS_SHORT: Record<string, string> = {
+  FP1: "FP1",
+  FP2: "FP2",
+  FP3: "FP3",
+  Q: "Q",
+  RACE: "Race",
+};
+
 export async function generateStaticParams(): Promise<Params[]> {
   const events = await getEvents();
   return events.map((e) => ({ id: e.id.toString() }));
@@ -138,10 +146,15 @@ export default async function RaceDetailPage({
         <Tabs
           defaultValue={sessionsWithResults[sessionsWithResults.length - 1].type}
         >
-          <TabsList>
+          <TabsList className="flex w-full max-w-full overflow-x-auto sm:w-fit">
             {sessionsWithResults.map((s) => (
               <TabsTrigger key={s.id} value={s.type}>
-                {SESSION_LABELS[s.type] ?? s.type}
+                <span className="sm:hidden">
+                  {SESSION_LABELS_SHORT[s.type] ?? s.type}
+                </span>
+                <span className="hidden sm:inline">
+                  {SESSION_LABELS[s.type] ?? s.type}
+                </span>
               </TabsTrigger>
             ))}
           </TabsList>

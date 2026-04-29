@@ -104,9 +104,9 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3 space-y-0">
+      <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <CardTitle>Position chart</CardTitle>
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
           <div className="inline-flex rounded-md border border-border bg-secondary/40 p-0.5">
             {(["overall", "class"] as Mode[]).map((m) => (
               <button

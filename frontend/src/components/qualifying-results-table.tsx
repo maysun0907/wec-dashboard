@@ -115,7 +115,7 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
+      <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle>Qualifying results</CardTitle>
         <div className="inline-flex rounded-md border border-border bg-secondary/40 p-0.5 text-xs">
           {SORT_OPTIONS.map((o) => (
