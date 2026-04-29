@@ -37,7 +37,7 @@ CAR_SPECS: dict[str, CarSpec] = {
         "engine": "3.0 L twin-turbo V6 hybrid",
         "year_introduced": 2023,
     },
-    "toyota-gr010-hybrid": {
+    "toyota-tr010-hybrid": {
         "category": "LMH",
         "engine": "3.5 L twin-turbo V6 hybrid",
         "year_introduced": 2021,
@@ -67,7 +67,7 @@ CAR_SPECS: dict[str, CarSpec] = {
         "engine": "2.6 L twin-turbo V6 hybrid",
         "year_introduced": 2022,
     },
-    "aston-martin-valkyrie-amr-lmh": {
+    "aston-martin-valkyrie": {
         "category": "LMH",
         "engine": "6.5 L naturally aspirated V12 (Cosworth)",
         "year_introduced": 2025,
@@ -84,12 +84,12 @@ CAR_SPECS: dict[str, CarSpec] = {
         "year_introduced": 2017,
     },
     # ---- LMGT3 ----
-    "ferrari-296-gt3": {
+    "ferrari-296-gt3-evo": {
         "category": "LMGT3",
         "engine": "3.0 L twin-turbo V6",
         "year_introduced": 2023,
     },
-    "porsche-911-gt3-r": {
+    "porsche-911-gt3-r-992-2": {
         "category": "LMGT3",
         "engine": "4.2 L naturally aspirated flat-6",
         "year_introduced": 2023,
@@ -99,11 +99,11 @@ CAR_SPECS: dict[str, CarSpec] = {
         "engine": "3.0 L twin-turbo inline-6",
         "year_introduced": 2025,
     },
-    "mclaren-720s-gt3-evo": {
+    "mclaren-720s-gt3-evo-2": {
         "category": "LMGT3",
         "engine": "4.0 L twin-turbo V8",
     },
-    "mercedes-amg-gt3": {
+    "mercedes-amg-gt3-evo": {
         "category": "LMGT3",
         "engine": "6.3 L naturally aspirated V8",
     },
@@ -111,21 +111,17 @@ CAR_SPECS: dict[str, CarSpec] = {
         "category": "LMGT3",
         "engine": "5.4 L naturally aspirated V8",
     },
-    "ford-mustang-gt3": {
+    "ford-mustang-gt3-evo": {
         "category": "LMGT3",
         "engine": "5.4 L naturally aspirated V8",
         "year_introduced": 2024,
     },
-    "lamborghini-huracan-gt3-evo2": {
-        "category": "LMGT3",
-        "engine": "5.2 L naturally aspirated V10",
-    },
-    "aston-martin-vantage-gt3": {
+    "aston-martin-vantage-amr-gt3-evo": {
         "category": "LMGT3",
         "engine": "4.0 L twin-turbo V8",
         "year_introduced": 2024,
     },
-    "corvette-z06-gt3-r": {
+    "chevrolet-corvette-z06-gt3-r": {
         "category": "LMGT3",
         "engine": "5.5 L naturally aspirated V8",
         "year_introduced": 2024,
