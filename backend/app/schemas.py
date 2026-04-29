@@ -491,6 +491,15 @@ class CarModelTeamRef(_BaseSchema):
     race_class: str
 
 
+class CarModelStats(_BaseSchema):
+    """Season-scoped tally over every car using this model."""
+
+    races: int = 0
+    wins: int = 0
+    podiums: int = 0
+    poles: int = 0
+
+
 class CarModelDetailOut(_BaseSchema):
     id: int
     slug: str
@@ -504,3 +513,4 @@ class CarModelDetailOut(_BaseSchema):
     weight_kg: int | None = None
     year_introduced: int | None = None
     teams: list[CarModelTeamRef] = []
+    stats: CarModelStats = CarModelStats()

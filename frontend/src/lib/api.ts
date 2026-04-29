@@ -310,6 +310,13 @@ export type CarModelTeamRef = {
   raceClass: RaceClass;
 };
 
+export type CarModelStats = {
+  races: number;
+  wins: number;
+  podiums: number;
+  poles: number;
+};
+
 export type CarModelDetail = {
   id: number;
   slug: string;
@@ -323,6 +330,7 @@ export type CarModelDetail = {
   weightKg: number | null;
   yearIntroduced: number | null;
   teams: CarModelTeamRef[];
+  stats: CarModelStats;
 };
 
 export type StandingDriver = {

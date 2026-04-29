@@ -103,6 +103,23 @@ export default async function CarDetailPage({
 
       <Card>
         <CardHeader>
+          <CardTitle>Season stats</CardTitle>
+          <CardDescription>
+            Aggregated across every car running this model this season
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-4">
+            <Spec label="Wins" value={String(car.stats.wins)} numeric />
+            <Spec label="Podiums" value={String(car.stats.podiums)} numeric />
+            <Spec label="Poles" value={String(car.stats.poles)} numeric />
+            <Spec label="Races" value={String(car.stats.races)} numeric />
+          </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle>Entries · {car.teams.length}</CardTitle>
           <CardDescription>Teams running this model this season</CardDescription>
         </CardHeader>

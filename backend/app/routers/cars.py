@@ -3,9 +3,38 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
+from app.scoring import class_position_for
 from app.season import YearParam, resolve_season
 
 router = APIRouter(prefix="/cars", tags=["cars"])
+
+
+def _model_stats(
+    db: Session, car_model_id: int, season_id: int
+) -> schemas.CarModelStats:
+    rows = (
+        db.query(models.SessionResult, models.Session, models.Car)
+        .join(models.Session, models.SessionResult.session_id == models.Session.id)
+        .join(models.Car, models.SessionResult.car_id == models.Car.id)
+        .filter(models.Car.car_model_id == car_model_id)
+        .filter(models.Car.season_id == season_id)
+        .filter(models.Session.type.in_(["RACE", "Q"]))
+        .all()
+    )
+    races = wins = podiums = poles = 0
+    for sr, sess, car in rows:
+        cp = class_position_for(db, sess.id, car.race_class_id, sr.position)
+        if sess.type == "RACE":
+            races += 1
+            if cp == 1:
+                wins += 1
+            if 1 <= cp <= 3:
+                podiums += 1
+        elif sess.type == "Q" and cp == 1:
+            poles += 1
+    return schemas.CarModelStats(
+        races=races, wins=wins, podiums=podiums, poles=poles
+    )
 
 
 @router.get("", response_model=list[schemas.CarModelOut])
@@ -81,6 +110,7 @@ def get_car_model(
         raise HTTPException(status_code=404, detail="Car model not found")
 
     teams: list[schemas.CarModelTeamRef] = []
+    stats = schemas.CarModelStats()
     season = resolve_season(db, year)
     if season is not None:
         rows = (
@@ -101,6 +131,7 @@ def get_car_model(
             )
             for car, team, rc in rows
         ]
+        stats = _model_stats(db, cm.id, season.id)
 
     return schemas.CarModelDetailOut(
         id=cm.id,
@@ -115,4 +146,5 @@ def get_car_model(
         weight_kg=cm.weight_kg,
         year_introduced=cm.year_introduced,
         teams=teams,
+        stats=stats,
     )
