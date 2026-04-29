@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import path from "node:path";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -12,6 +14,19 @@ import { ClassBadge } from "@/components/class-badge";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { getCarModel, type CarModelDetail, type RaceClass } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
+
+// Drop a transparent PNG at frontend/public/cars/{slug}.png and it shows
+// up here automatically — no DB or code change needed. DB image_url is
+// the secondary source if no local file is present.
+const LOCAL_IMAGE_EXTS = ["png", "webp", "jpg"] as const;
+
+function localImageUrl(slug: string): string | null {
+  for (const ext of LOCAL_IMAGE_EXTS) {
+    const file = path.join(process.cwd(), "public", "cars", `${slug}.${ext}`);
+    if (existsSync(file)) return `/cars/${slug}.${ext}`;
+  }
+  return null;
+}
 
 type Params = { slug: string };
 
@@ -45,6 +60,7 @@ export default async function CarDetailPage({
 
   const primaryClass: RaceClass | null =
     car.teams.length > 0 ? car.teams[0].raceClass : null;
+  const imageUrl = localImageUrl(slug) ?? car.imageUrl;
 
   return (
     <div className="space-y-6">
@@ -57,7 +73,7 @@ export default async function CarDetailPage({
 
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
-          <CarImage src={car.imageUrl} alt={car.name} />
+          <CarImage src={imageUrl} alt={car.name} />
           <div className="min-w-0 flex-1 space-y-1">
             <CardTitle className="text-2xl sm:text-3xl">{car.name}</CardTitle>
             <CardDescription className="flex items-center gap-2">
