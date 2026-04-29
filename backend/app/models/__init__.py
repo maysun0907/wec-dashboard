@@ -101,14 +101,8 @@ class Session(Base):
 
 
 class CarModel(Base):
-    """A car model / chassis spec (e.g. "Ferrari 499P", "Oreca 07").
-
-    Created lazily by the ingester when it encounters an unseen model
-    string. Spec fields (engine/power/weight/year/category/image) start
-    null and are filled in via separate curation — frontend renders "—"
-    for any null spec.
-    """
-
+    # Created lazily by the ingester. Spec fields are nullable — filled
+    # in via app.curate_car_models from app/data/car_specs.py.
     __tablename__ = "car_models"
 
     id: Mapped[int] = mapped_column(primary_key=True)

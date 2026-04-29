@@ -84,15 +84,18 @@ export default async function CarDetailPage({
             <Spec
               label="Year introduced"
               value={car.yearIntroduced ? String(car.yearIntroduced) : null}
+              numeric
             />
             <Spec label="Engine" value={car.engine} />
             <Spec
               label="Power"
               value={car.powerHp ? `${car.powerHp} hp` : null}
+              numeric
             />
             <Spec
               label="Weight"
               value={car.weightKg ? `${car.weightKg} kg` : null}
+              numeric
             />
           </dl>
         </CardContent>
@@ -135,13 +138,27 @@ export default async function CarDetailPage({
   );
 }
 
-function Spec({ label, value }: { label: string; value: string | null }) {
+function Spec({
+  label,
+  value,
+  numeric = false,
+}: {
+  label: string;
+  value: string | null;
+  numeric?: boolean;
+}) {
   return (
     <div className="flex flex-col">
       <dt className="text-xs uppercase tracking-wider text-muted-foreground">
         {label}
       </dt>
-      <dd className="font-mono text-lg font-semibold tabular-nums">
+      <dd
+        className={
+          numeric
+            ? "font-mono text-base font-semibold tabular-nums"
+            : "text-base font-semibold"
+        }
+      >
         {value ?? "—"}
       </dd>
     </div>
