@@ -21,6 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Flag } from "@/components/flag";
 import { ClassBadge } from "@/components/class-badge";
+import { QualifyingResultsTable } from "@/components/qualifying-results-table";
 import {
   eventStatus,
   getEvent,
@@ -162,11 +163,15 @@ export default async function RaceDetailPage({
                 ) : (
                   <>
                     <SessionWinnersCard type={s.type} rows={rows} />
-                    <ResultsCard
-                      label={SESSION_LABELS[s.type] ?? s.type}
-                      type={s.type}
-                      rows={rows}
-                    />
+                    {s.type === "Q" ? (
+                      <QualifyingResultsTable rows={rows} />
+                    ) : (
+                      <ResultsCard
+                        label={SESSION_LABELS[s.type] ?? s.type}
+                        type={s.type}
+                        rows={rows}
+                      />
+                    )}
                   </>
                 )}
               </TabsContent>
@@ -360,7 +365,6 @@ function ResultsCard({
   rows: SessionResult[];
 }) {
   const isPractice = type === "FP1" || type === "FP2" || type === "FP3";
-  const isQuali = type === "Q";
   const isRace = type === "RACE";
 
   return (
@@ -378,9 +382,7 @@ function ResultsCard({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12 pl-4">
-                {isQuali ? "Grid" : "Pos"}
-              </TableHead>
+              <TableHead className="w-12 pl-4">Pos</TableHead>
               {isRace && (
                 <TableHead className="hidden w-14 sm:table-cell">Cls</TableHead>
               )}
@@ -390,16 +392,6 @@ function ResultsCard({
               <TableHead className="w-16">Class</TableHead>
               {isPractice && (
                 <TableHead className="pr-4 text-right">Best lap</TableHead>
-              )}
-              {isQuali && (
-                <>
-                  <TableHead className="hidden w-24 text-right sm:table-cell">
-                    Q lap
-                  </TableHead>
-                  <TableHead className="pr-4 w-24 text-right">
-                    Hyperpole
-                  </TableHead>
-                </>
               )}
               {isRace && (
                 <>
@@ -412,80 +404,50 @@ function ResultsCard({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rows.map((row) => {
-              const isPole = isQuali && row.position === 1;
-              return (
-                <TableRow
-                  key={`${row.position}-${row.carNumber}`}
-                  className={isPole ? "bg-[var(--racing-yellow)]/5" : undefined}
-                >
-                  <TableCell
-                    className={
-                      "pl-4 font-mono tabular-nums " +
-                      (isPole
-                        ? "font-semibold text-[var(--racing-yellow)]"
-                        : "")
-                    }
-                  >
-                    {row.position}
+            {rows.map((row) => (
+              <TableRow key={`${row.position}-${row.carNumber}`}>
+                <TableCell className="pl-4 font-mono tabular-nums">
+                  {row.position}
+                </TableCell>
+                {isRace && (
+                  <TableCell className="hidden font-mono tabular-nums sm:table-cell">
+                    P{row.classPosition}
                   </TableCell>
-                  {isRace && (
-                    <TableCell className="hidden font-mono tabular-nums sm:table-cell">
-                      P{row.classPosition}
+                )}
+                <TableCell className="font-mono tabular-nums">
+                  {row.carNumber}
+                </TableCell>
+                <TableCell className="font-medium">{row.team}</TableCell>
+                <TableCell className="hidden text-muted-foreground md:table-cell">
+                  {row.drivers}
+                </TableCell>
+                <TableCell>
+                  <ClassBadge raceClass={row.raceClass} />
+                </TableCell>
+                {isPractice && (
+                  <TableCell className="pr-4 text-right font-mono tabular-nums">
+                    {row.bestLap ?? "—"}
+                  </TableCell>
+                )}
+                {isRace && (
+                  <>
+                    <TableCell
+                      className={
+                        "hidden text-right font-mono tabular-nums sm:table-cell " +
+                        (row.pointsAwarded > 0
+                          ? "text-foreground"
+                          : "text-muted-foreground")
+                      }
+                    >
+                      {row.pointsAwarded > 0 ? row.pointsAwarded : "—"}
                     </TableCell>
-                  )}
-                  <TableCell className="font-mono tabular-nums">
-                    {row.carNumber}
-                  </TableCell>
-                  <TableCell className="font-medium">{row.team}</TableCell>
-                  <TableCell className="hidden text-muted-foreground md:table-cell">
-                    {row.drivers}
-                  </TableCell>
-                  <TableCell>
-                    <ClassBadge raceClass={row.raceClass} />
-                  </TableCell>
-                  {isPractice && (
                     <TableCell className="pr-4 text-right font-mono tabular-nums">
-                      {row.bestLap ?? "—"}
+                      {row.gap ?? "—"}
                     </TableCell>
-                  )}
-                  {isQuali && (
-                    <>
-                      <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground sm:table-cell">
-                        {row.qualifyingLap ?? "—"}
-                      </TableCell>
-                      <TableCell
-                        className={
-                          "pr-4 text-right font-mono tabular-nums " +
-                          (row.hyperpoleLap
-                            ? "text-foreground"
-                            : "text-muted-foreground/40")
-                        }
-                      >
-                        {row.hyperpoleLap ?? "—"}
-                      </TableCell>
-                    </>
-                  )}
-                  {isRace && (
-                    <>
-                      <TableCell
-                        className={
-                          "hidden text-right font-mono tabular-nums sm:table-cell " +
-                          (row.pointsAwarded > 0
-                            ? "text-foreground"
-                            : "text-muted-foreground")
-                        }
-                      >
-                        {row.pointsAwarded > 0 ? row.pointsAwarded : "—"}
-                      </TableCell>
-                      <TableCell className="pr-4 text-right font-mono tabular-nums">
-                        {row.gap ?? "—"}
-                      </TableCell>
-                    </>
-                  )}
-                </TableRow>
-              );
-            })}
+                  </>
+                )}
+              </TableRow>
+            ))}
           </TableBody>
         </Table>
       </CardContent>
