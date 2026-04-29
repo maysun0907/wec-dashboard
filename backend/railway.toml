@@ -3,8 +3,10 @@ builder = "NIXPACKS"
 
 [deploy]
 # Migrations run on every deploy of services that share this config (API
-# + cron). Idempotent, so the cron's repeated runs are harmless.
-preDeployCommand = "alembic upgrade head"
+# + cron). Idempotent, so the cron's repeated runs are harmless. The
+# car-spec curator runs after migrations to keep car_models specs in
+# sync with app/data/car_specs.py.
+preDeployCommand = "alembic upgrade head && python -m app.curate_car_models"
 # startCommand intentionally omitted so each service can set its own
 # command in the Railway dashboard. The API service falls back to the
 # Procfile (web: uvicorn ...); the cron service overrides with

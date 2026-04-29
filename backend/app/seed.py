@@ -480,6 +480,11 @@ def main() -> None:
     finally:
         db.close()
 
+    # Apply curated specs after seed completes — opens its own session.
+    from app.curate_car_models import main as curate
+
+    curate()
+
 
 if __name__ == "__main__":
     main()
