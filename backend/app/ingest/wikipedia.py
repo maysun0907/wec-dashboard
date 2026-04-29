@@ -1796,6 +1796,19 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
         # start_time we couldn't pull from Wikipedia (typically upcoming
         # rounds whose Wikipedia article is still a stub).
         fiawec_filled = _ingest_fiawec_schedule(db, season.id, year)
+        # Annotate Q sessions with the actual driver per car using Al
+        # Kamel's analysis CSVs. Best-effort: the timing portal can be
+        # slow / partially populated, and we still want the rest of the
+        # ingest to commit if this fails.
+        try:
+            from app.ingest.alkamel import enrich_qualifying_drivers
+
+            alkamel_drivers_n = enrich_qualifying_drivers(
+                db, season.id, year
+            )
+        except Exception as exc:  # pragma: no cover - network
+            print(f"  alkamel enrichment skipped: {exc}")
+            alkamel_drivers_n = 0
 
         db.commit()
         summary = {
@@ -1809,6 +1822,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             "standings_manufacturers": standings_counts["manufacturers"],
             "standings_teams": standings_counts["teams"],
             "fiawec_schedule_filled": fiawec_filled,
+            "alkamel_qualifying_drivers": alkamel_drivers_n,
         }
         print("ingested:")
         for k, v in summary.items():

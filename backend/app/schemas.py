@@ -131,6 +131,8 @@ class SessionResultOut(_BaseSchema):
     best_lap: str | None = None
     qualifying_lap: str | None = None
     hyperpole_lap: str | None = None
+    qualifying_driver: str | None = None
+    hyperpole_driver: str | None = None
 
 
 # --- Standings ---

@@ -155,6 +155,11 @@ class SessionResult(Base):
     # so existing consumers keep working.
     qualifying_lap: Mapped[str | None] = mapped_column(String(20), default=None)
     hyperpole_lap: Mapped[str | None] = mapped_column(String(20), default=None)
+    # Driver who actually set the listed Q / Hyperpole lap. Sourced from
+    # Al Kamel timing CSVs (lap-by-lap with driver attribution); null when
+    # we couldn't match — older seasons predate hyperpole, etc.
+    qualifying_driver: Mapped[str | None] = mapped_column(String(120), default=None)
+    hyperpole_driver: Mapped[str | None] = mapped_column(String(120), default=None)
     status: Mapped[str | None] = mapped_column(String(50), default=None)
     # Slash-joined names of drivers who actually raced this car in this
     # session. Populated from race-page classification when available;

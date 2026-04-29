@@ -79,6 +79,10 @@ export type SessionResult = {
   qualifyingLap: string | null;
   /** Hyperpole lap. Only set when the car advanced to Hyperpole. */
   hyperpoleLap: string | null;
+  /** Driver who actually set the Q / Hyperpole lap on this car. From
+   *  Al Kamel timing CSVs; null when we couldn't match. */
+  qualifyingDriver: string | null;
+  hyperpoleDriver: string | null;
 };
 
 export type DriverEntry = {

@@ -129,6 +129,8 @@ def session_results(
                 best_lap=r.best_lap,
                 qualifying_lap=r.qualifying_lap,
                 hyperpole_lap=r.hyperpole_lap,
+                qualifying_driver=r.qualifying_driver,
+                hyperpole_driver=r.hyperpole_driver,
             )
         )
     return out

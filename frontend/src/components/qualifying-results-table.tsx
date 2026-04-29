@@ -33,6 +33,50 @@ function lapMs(lap: string | null | undefined): number | null {
   return Number(m[1]) * 60_000 + Number(m[2]) * 1_000 + Number(m[3]);
 }
 
+function normalize(s: string): string {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase();
+}
+
+function activeDriver(row: SessionResult, sort: SortMode): string | null {
+  if (sort === "grid") return row.hyperpoleDriver ?? row.qualifyingDriver;
+  if (sort === "q") return row.qualifyingDriver;
+  return row.hyperpoleDriver;
+}
+
+function DriversCell({
+  drivers,
+  active,
+}: {
+  drivers: string;
+  active: string | null;
+}) {
+  const parts = drivers.split(/\s*\/\s*/).filter(Boolean);
+  if (parts.length === 0) return null;
+  const target = active ? normalize(active) : null;
+  return (
+    <span className="text-muted-foreground/60">
+      {parts.map((name, i) => {
+        const isActive = target !== null && normalize(name) === target;
+        return (
+          <span key={`${name}-${i}`}>
+            {i > 0 && " / "}
+            <span
+              className={
+                isActive ? "font-semibold text-foreground" : undefined
+              }
+            >
+              {name}
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
   const [sort, setSort] = useState<SortMode>("grid");
 
@@ -143,8 +187,11 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
                     {row.carNumber}
                   </TableCell>
                   <TableCell className="font-medium">{row.team}</TableCell>
-                  <TableCell className="hidden text-muted-foreground md:table-cell">
-                    {row.drivers}
+                  <TableCell className="hidden md:table-cell">
+                    <DriversCell
+                      drivers={row.drivers}
+                      active={activeDriver(row, sort)}
+                    />
                   </TableCell>
                   <TableCell>
                     <ClassBadge raceClass={row.raceClass} />

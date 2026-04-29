@@ -1,0 +1,370 @@
+"""Scrape per-session driver attribution from Al Kamel timing CSVs.
+
+fiawec.alkamelsystems.com hosts the official lap-by-lap data behind the
+WEC results portal. The Wikipedia qualifying tables only carry the lap
+*time*; Al Kamel's Analysis CSVs include DRIVER_NAME for every recorded
+lap, which lets us identify who actually drove Q1 vs the Hyperpole
+shootout for each car.
+
+Pipeline:
+
+    season form  →  event slug  →  session folder URL
+        →  Classification CSV (best lap per car)
+        →  Analysis CSV (lap-by-lap with driver)
+        →  pick the lap matching the official best time
+        →  that row's DRIVER_NAME is the session driver
+
+The Q sessions in our DB are stored as a single row per car with both
+qualifying_lap and hyperpole_lap populated. Al Kamel publishes Q1 and
+Hyperpole as separate sessions, so we update the same row from two
+different CSV pairs.
+"""
+from __future__ import annotations
+
+import csv
+import io
+import re
+from typing import Iterable
+
+import httpx
+from bs4 import BeautifulSoup
+from sqlalchemy.orm import Session, joinedload
+
+from app import models
+
+USER_AGENT = "wec-dashboard/0.1 (https://github.com/maysun0907/wec-dashboard)"
+BASE = "https://fiawec.alkamelsystems.com"
+
+
+def _fetch(url: str) -> str:
+    r = httpx.get(
+        url,
+        headers={"User-Agent": USER_AGENT, "Accept-Language": "en"},
+        follow_redirects=True,
+        timeout=20.0,
+    )
+    r.raise_for_status()
+    return r.text
+
+
+# ---------------------------------------------------------------------------
+# Discovery — season + event params
+# ---------------------------------------------------------------------------
+
+
+def _season_param_for_year(year: int) -> str | None:
+    """Pull the season selector from the home page and find the option
+    whose label matches `year` (or whose label contains it for the
+    2018-2019 / 2019-2020 split-calendar seasons)."""
+    try:
+        html = _fetch(f"{BASE}/")
+    except httpx.HTTPError:
+        return None
+    soup = BeautifulSoup(html, "lxml")
+    sel = soup.find("select", {"name": "season"})
+    if sel is None:
+        return None
+    needle = str(year)
+    best: str | None = None
+    for opt in sel.find_all("option"):
+        label = opt.get_text(strip=True)
+        value = opt.get("value") or opt.get("Value") or ""
+        if label == needle:
+            return value
+        if needle in label and best is None:
+            best = value
+    return best
+
+
+def _event_options_for_season(season_param: str) -> list[tuple[int, str]]:
+    """Return [(round_num, evvent_param)] for the given season. Round
+    is parsed from the leading 'NN_' prefix on each option value."""
+    try:
+        html = _fetch(f"{BASE}/?season={season_param}")
+    except httpx.HTTPError:
+        return []
+    soup = BeautifulSoup(html, "lxml")
+    sel = soup.find("select", {"name": "evvent"})
+    if sel is None:
+        return []
+    out: list[tuple[int, str]] = []
+    for opt in sel.find_all("option"):
+        value = opt.get("value") or opt.get("Value") or ""
+        m = re.match(r"^(\d{1,2})_", value)
+        if m:
+            out.append((int(m.group(1)), value))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# Per-event CSV discovery
+# ---------------------------------------------------------------------------
+
+# Match qualifying / hyperpole session folders, capture the class suffix
+# (HYPERCAR / LMGT3 / LMP2 / blank for combined Q-only seasons).
+_SESSION_FOLDER_RE = re.compile(
+    r"Results/[^/]+/[^/]+/[^/]+/(\d{12})_(Qualifying|Hyperpole)(?:%20([A-Za-z0-9]+))?/",
+    re.IGNORECASE,
+)
+
+
+def _list_session_csvs(
+    season_param: str, evvent_param: str
+) -> list[tuple[str, str, str, str]]:
+    """For one event, return [(kind, class_name, classification_url,
+    analysis_url)] where kind is 'Q' or 'HP'. We match folders that hold
+    a Classification CSV and (where present) a 23_Analysis CSV."""
+    try:
+        html = _fetch(
+            f"{BASE}/?season={season_param}&evvent={evvent_param}"
+        )
+    except httpx.HTTPError:
+        return []
+    folders: dict[str, tuple[str, str]] = {}  # folder_path -> (kind, class_name)
+    classifications: dict[str, str] = {}  # folder -> Classification CSV URL
+    analyses: dict[str, str] = {}  # folder -> Analysis CSV URL
+    for href in re.findall(r'href="(Results/[^"]+\.CSV)"', html):
+        # Extract folder + filename
+        decoded = href.replace("%20", " ")
+        slash = decoded.rfind("/")
+        if slash < 0:
+            continue
+        folder = decoded[:slash]
+        fname = decoded[slash + 1 :]
+        m = _SESSION_FOLDER_RE.search(href + "/")
+        if m is None:
+            continue
+        kind_raw = m.group(2).lower()
+        kind = "HP" if kind_raw == "hyperpole" else "Q"
+        cls_name = (m.group(3) or "").upper()
+        folders.setdefault(folder, (kind, cls_name))
+        # Classification: filenames "03_Classification_*" or "90_Classification_*"
+        if re.match(r"^(03|90)_Classification_", fname, re.IGNORECASE):
+            classifications.setdefault(folder, f"{BASE}/{href}")
+        elif re.match(r"^23_Analysis_", fname, re.IGNORECASE):
+            analyses.setdefault(folder, f"{BASE}/{href}")
+    out: list[tuple[str, str, str, str]] = []
+    for folder, (kind, cls_name) in folders.items():
+        cl = classifications.get(folder)
+        if cl is None:
+            continue
+        an = analyses.get(folder, "")
+        out.append((kind, cls_name, cl, an))
+    return out
+
+
+# ---------------------------------------------------------------------------
+# CSV parsers
+# ---------------------------------------------------------------------------
+
+
+def _parse_csv(text: str) -> list[dict[str, str]]:
+    """Al Kamel CSVs are semicolon-separated with a UTF-8 BOM. Whitespace
+    around field names is inconsistent (some headers have a leading
+    space), so we strip header keys."""
+    text = text.lstrip("﻿")
+    reader = csv.reader(io.StringIO(text), delimiter=";")
+    rows = list(reader)
+    if not rows:
+        return []
+    header = [h.strip() for h in rows[0]]
+    out: list[dict[str, str]] = []
+    for row in rows[1:]:
+        if not any(c.strip() for c in row):
+            continue
+        record: dict[str, str] = {}
+        for i, key in enumerate(header):
+            record[key] = row[i].strip() if i < len(row) else ""
+        out.append(record)
+    return out
+
+
+def _parse_classification(text: str) -> dict[str, str]:
+    """Map car number → official best lap time (e.g. '1:30.127')."""
+    out: dict[str, str] = {}
+    for r in _parse_csv(text):
+        num = r.get("NUMBER") or r.get(" NUMBER")
+        time = r.get("TIME") or r.get(" TIME")
+        if num and time and time != "":
+            out[num.strip()] = time.strip()
+    return out
+
+
+def _parse_analysis_drivers(text: str) -> dict[str, list[tuple[str, str]]]:
+    """Map car number → ordered list of (lap_time, driver_name) tuples.
+
+    Multiple drivers may appear if the team rotated runners; we keep
+    every lap so a later .get() can pick the one matching the official
+    best time."""
+    out: dict[str, list[tuple[str, str]]] = {}
+    for r in _parse_csv(text):
+        num = r.get("NUMBER") or r.get(" NUMBER")
+        if not num:
+            continue
+        lap = r.get("LAP_TIME") or r.get(" LAP_TIME")
+        driver = r.get("DRIVER_NAME") or r.get(" DRIVER_NAME")
+        if not lap or not driver:
+            continue
+        out.setdefault(num.strip(), []).append((lap.strip(), driver.strip()))
+    return out
+
+
+def _format_driver_name(raw: str) -> str:
+    """Al Kamel stores names as 'First LASTNAME' — the surname is upper
+    case and separated by a space. Title-case the surname so display
+    matches our other sources ('Sébastien BUEMI' → 'Sébastien Buemi')."""
+    parts = raw.split()
+    if not parts:
+        return raw
+    fixed = []
+    for p in parts:
+        if p.isupper() and len(p) > 1:
+            # Preserve hyphenated all-caps surnames ("PIER GUIDI" stays;
+            # last token still title-cased).
+            fixed.append(p.title())
+        else:
+            fixed.append(p)
+    return " ".join(fixed)
+
+
+# ---------------------------------------------------------------------------
+# Driver-per-car resolver
+# ---------------------------------------------------------------------------
+
+
+def _drivers_for_session(
+    classification: dict[str, str],
+    analysis: dict[str, list[tuple[str, str]]],
+) -> dict[str, str]:
+    """For each classified car, find the driver who set the official
+    best lap. If the analysis CSV is missing, fall back to nothing."""
+    out: dict[str, str] = {}
+    for car_no, best in classification.items():
+        laps = analysis.get(car_no)
+        if not laps:
+            continue
+        # Direct hit on the formatted lap time.
+        match = next((d for (t, d) in laps if t == best), None)
+        if match is None:
+            # Some sessions store the best lap in classification with
+            # extra zero padding ('1:30.127' vs '01:30.127'); normalize.
+            norm_best = best.lstrip("0")
+            match = next(
+                (d for (t, d) in laps if t.lstrip("0") == norm_best),
+                None,
+            )
+        if match is None:
+            # Last resort: who set the fastest lap of any kind in this
+            # session. Works for hyperpole sessions where only one
+            # driver runs, even if our time string can't be matched
+            # due to formatting glitches.
+            best_pair = min(
+                ((t, d) for (t, d) in laps if t),
+                key=lambda kv: _lap_to_ms(kv[0]) or 10**9,
+                default=None,
+            )
+            match = best_pair[1] if best_pair else None
+        if match:
+            out[car_no] = _format_driver_name(match)
+    return out
+
+
+def _lap_to_ms(lap: str) -> int | None:
+    m = re.match(r"^(\d+):(\d{2})\.(\d+)$", lap)
+    if not m:
+        return None
+    return int(m.group(1)) * 60_000 + int(m.group(2)) * 1_000 + int(m.group(3))
+
+
+# ---------------------------------------------------------------------------
+# Enrichment entry-point
+# ---------------------------------------------------------------------------
+
+
+def enrich_qualifying_drivers(
+    db: Session, season_id: int, year: int
+) -> int:
+    """For every Q SessionResult in the given season, look up the Al
+    Kamel timing folder and write qualifying_driver / hyperpole_driver
+    where we can match. Returns the number of rows updated."""
+    season_param = _season_param_for_year(year)
+    if season_param is None:
+        return 0
+    events = _event_options_for_season(season_param)
+    if not events:
+        return 0
+    by_round: dict[int, str] = {r: ev for r, ev in events}
+
+    # Load events + their Q sessions + results in one shot.
+    db_events = (
+        db.query(models.Event)
+        .filter(models.Event.season_id == season_id)
+        .all()
+    )
+    updated = 0
+    for ev in db_events:
+        evvent_param = by_round.get(ev.round)
+        if evvent_param is None:
+            continue
+        q_session = (
+            db.query(models.Session)
+            .filter(
+                models.Session.event_id == ev.id,
+                models.Session.type == "Q",
+            )
+            .first()
+        )
+        if q_session is None:
+            continue
+        results = (
+            db.query(models.SessionResult)
+            .options(joinedload(models.SessionResult.car))
+            .filter(models.SessionResult.session_id == q_session.id)
+            .all()
+        )
+        if not results:
+            continue
+        by_car_number = {r.car.number: r for r in results}
+
+        for kind, _cls, classification_url, analysis_url in _list_session_csvs(
+            season_param, evvent_param
+        ):
+            try:
+                cl_csv = _fetch(classification_url)
+            except httpx.HTTPError:
+                continue
+            classification = _parse_classification(cl_csv)
+            if not classification:
+                continue
+            analysis: dict[str, list[tuple[str, str]]] = {}
+            if analysis_url:
+                try:
+                    analysis = _parse_analysis_drivers(_fetch(analysis_url))
+                except httpx.HTTPError:
+                    analysis = {}
+            drivers = _drivers_for_session(classification, analysis)
+            field = "hyperpole_driver" if kind == "HP" else "qualifying_driver"
+            for car_no, name in drivers.items():
+                row = by_car_number.get(car_no)
+                if row is None:
+                    continue
+                if getattr(row, field) != name:
+                    setattr(row, field, name)
+                    updated += 1
+    if updated:
+        db.commit()
+    return updated
+
+
+def enrich_seasons(db: Session, years: Iterable[int]) -> dict[int, int]:
+    """Run enrich_qualifying_drivers for several years; returns
+    {year: rows_updated}. Skips years with no matching season row."""
+    out: dict[int, int] = {}
+    for y in years:
+        season = (
+            db.query(models.Season).filter(models.Season.year == y).first()
+        )
+        if season is None:
+            continue
+        out[y] = enrich_qualifying_drivers(db, season.id, y)
+    return out
