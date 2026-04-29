@@ -1762,7 +1762,12 @@ def _ingest_standings(
 
 
 def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
-    print(f"fetching {url}")
+    import structlog
+    from app.logging import configure_logging
+
+    configure_logging()
+    log = structlog.get_logger(__name__)
+    log.info("ingest_started", year=year, url=url)
     html = fetch_html(url)
     soup = BeautifulSoup(html, "lxml")
 
@@ -1841,9 +1846,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             "alkamel_practice_rows": alkamel_practice_n,
             "alkamel_race_rows": alkamel_race_n,
         }
-        print("ingested:")
-        for k, v in summary.items():
-            print(f"  {k}={v}")
+        log.info("ingest_completed", **summary)
         return summary
     except Exception:
         db.rollback()

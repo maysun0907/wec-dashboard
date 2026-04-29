@@ -88,9 +88,22 @@ export default async function HomePage() {
     }
   }
 
+  // Use the real RACE session startTime when available; the hero card
+  // falls back to dateStart + 13:00 UTC if ingestion hasn't filled it.
+  let nextRaceStart: string | null = null;
+  if (next) {
+    try {
+      const detail = await getEvent(next.id);
+      const raceSession = getSessionByType(detail.sessions, "RACE");
+      nextRaceStart = raceSession?.startTime ?? null;
+    } catch {
+      // ignore — fallback applies
+    }
+  }
+
   return (
     <div className="space-y-8">
-      {next && <NextRaceHero event={next} />}
+      {next && <NextRaceHero event={next} startIso={nextRaceStart} />}
       {isPastSeason && (
         <SeasonRecapHero
           year={seasonYear}
@@ -123,8 +136,17 @@ export default async function HomePage() {
   );
 }
 
-function NextRaceHero({ event }: { event: Event }) {
-  const startIso = `${event.dateStart}T13:00:00Z`;
+function NextRaceHero({
+  event,
+  startIso: raceStartIso,
+}: {
+  event: Event;
+  startIso: string | null;
+}) {
+  // Real session startTime when ingestion has it, else assume 13:00 UTC
+  // on the event start date — close enough for the countdown until the
+  // FIA publishes the schedule.
+  const startIso = raceStartIso ?? `${event.dateStart}T13:00:00Z`;
 
   return (
     <Card className="relative overflow-hidden">

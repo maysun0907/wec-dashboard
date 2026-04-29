@@ -15,6 +15,12 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
         className={cn("w-full caption-bottom text-sm", className)}
         {...props}
       />
+      {/* Right-edge fade hints horizontal scrollability on narrow screens.
+          Hidden once viewport is wide enough that overflow is unlikely. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-card to-transparent sm:hidden"
+      />
     </div>
   )
 }

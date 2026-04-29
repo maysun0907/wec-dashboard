@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.logging import configure_logging
 from app.routers import (
     cars,
     circuits,
@@ -15,6 +16,7 @@ from app.routers import (
     teams,
 )
 
+configure_logging()
 app = FastAPI(title="WEC Dashboard API", version="0.1.0")
 
 app.add_middleware(
