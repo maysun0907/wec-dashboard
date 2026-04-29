@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -20,6 +21,7 @@ import { getSelectedSeason } from "@/lib/season";
 export const metadata = { title: "Cars" };
 
 type CarModelEntry = {
+  slug: string | null;
   model: string;
   manufacturer: string | null;
   manufacturerLogoUrl: string | null;
@@ -32,10 +34,11 @@ function groupByModel(teams: TeamEntry[]): CarModelEntry[] {
   const map = new Map<string, CarModelEntry>();
   for (const t of teams) {
     const modelLabel = t.model ?? t.manufacturer ?? t.name;
-    const key = `${t.raceClass}::${modelLabel}`;
+    const key = `${t.raceClass}::${t.carModelSlug ?? modelLabel}`;
     let entry = map.get(key);
     if (!entry) {
       entry = {
+        slug: t.carModelSlug,
         model: modelLabel,
         manufacturer: t.manufacturer,
         manufacturerLogoUrl: t.manufacturerLogoUrl,
@@ -92,9 +95,20 @@ export default async function CarsPage() {
                 </p>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {models.map((m) => (
-                    <ModelCard key={`${m.raceClass}-${m.model}`} entry={m} />
-                  ))}
+                  {models.map((m) => {
+                    const card = <ModelCard entry={m} />;
+                    return m.slug ? (
+                      <Link
+                        key={`${m.raceClass}-${m.slug}`}
+                        href={`/cars/${m.slug}`}
+                        className="block transition-colors hover:[&_[data-slot=card]]:ring-foreground/30"
+                      >
+                        {card}
+                      </Link>
+                    ) : (
+                      <div key={`${m.raceClass}-${m.model}`}>{card}</div>
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>

@@ -100,6 +100,35 @@ class Session(Base):
     event: Mapped["Event"] = relationship()
 
 
+class CarModel(Base):
+    """A car model / chassis spec (e.g. "Ferrari 499P", "Oreca 07").
+
+    Created lazily by the ingester when it encounters an unseen model
+    string. Spec fields (engine/power/weight/year/category/image) start
+    null and are filled in via separate curation — frontend renders "—"
+    for any null spec.
+    """
+
+    __tablename__ = "car_models"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    slug: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    manufacturer_id: Mapped[int | None] = mapped_column(
+        ForeignKey("manufacturers.id"), default=None
+    )
+    image_url: Mapped[str | None] = mapped_column(default=None)
+    # Category in the modern sense — "LMH" / "LMDh" / "LMP2" / "LMGT3".
+    # Differs from race_class because LMH and LMDh both compete in HYPERCAR.
+    category: Mapped[str | None] = mapped_column(String(20), default=None)
+    engine: Mapped[str | None] = mapped_column(String(120), default=None)
+    power_hp: Mapped[int | None] = mapped_column(default=None)
+    weight_kg: Mapped[int | None] = mapped_column(default=None)
+    year_introduced: Mapped[int | None] = mapped_column(default=None)
+
+    manufacturer: Mapped["Manufacturer | None"] = relationship()
+
+
 class Car(Base):
     __tablename__ = "cars"
 
@@ -109,11 +138,17 @@ class Car(Base):
     race_class_id: Mapped[int] = mapped_column(ForeignKey("race_classes.id"))
     # String — cars like Aston Martin Valkyrie use "007"/"009" as their actual number.
     number: Mapped[str] = mapped_column(String(10))
+    # Free-text model name kept for back-compat / when CarModel row is
+    # missing. car_model_id is the canonical link once populated.
     model: Mapped[str | None] = mapped_column(String(100), default=None)
+    car_model_id: Mapped[int | None] = mapped_column(
+        ForeignKey("car_models.id"), default=None, index=True
+    )
 
     season: Mapped["Season"] = relationship()
     team: Mapped["Team"] = relationship()
     race_class: Mapped["RaceClass"] = relationship()
+    car_model: Mapped["CarModel | None"] = relationship()
 
 
 class CarDriver(Base):

@@ -25,6 +25,7 @@ from app.db import SessionLocal
 from app.ingest._common import (
     get_or_create_race_class,
     get_or_create_season,
+    upsert_car_model,
     upsert_driver,
     upsert_manufacturer,
     upsert_team,
@@ -1220,12 +1221,16 @@ def _ingest_entries(
             if logo:
                 manuf.logo_url = logo
         team = upsert_team(db, entry["entrant"], manufacturer_id=manuf.id)
+        car_model = upsert_car_model(
+            db, entry["car"], manufacturer_id=manuf.id
+        )
         car = models.Car(
             season_id=season_id,
             team_id=team.id,
             race_class_id=race_class_ids[entry["race_class"]],
             number=entry["number"],
             model=entry["car"],
+            car_model_id=car_model.id,
         )
         db.add(car)
         db.flush()

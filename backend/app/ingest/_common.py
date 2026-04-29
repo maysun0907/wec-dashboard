@@ -3,9 +3,17 @@
 Idempotent upsert pattern: look up by natural key (usually `name`), update
 fields if changed, otherwise insert. Returns the persisted instance.
 """
+import re
+
 from sqlalchemy.orm import Session
 
 from app import models
+
+
+def slugify(name: str) -> str:
+    s = name.lower()
+    s = re.sub(r"[^a-z0-9]+", "-", s)
+    return s.strip("-")
 
 
 def upsert_manufacturer(
@@ -44,6 +52,31 @@ def upsert_driver(
         db.flush()
     elif nationality and obj.nationality != nationality:
         obj.nationality = nationality
+    return obj
+
+
+def upsert_car_model(
+    db: Session, name: str, manufacturer_id: int | None = None
+) -> models.CarModel:
+    """Look up by (name, manufacturer_id); insert if missing. Slug is
+    derived from name with a numeric suffix on collision.
+    """
+    obj = (
+        db.query(models.CarModel)
+        .filter_by(name=name, manufacturer_id=manufacturer_id)
+        .first()
+    )
+    if obj is not None:
+        return obj
+    base = slugify(name) or "model"
+    slug = base
+    i = 2
+    while db.query(models.CarModel).filter_by(slug=slug).first() is not None:
+        slug = f"{base}-{i}"
+        i += 1
+    obj = models.CarModel(slug=slug, name=name, manufacturer_id=manufacturer_id)
+    db.add(obj)
+    db.flush()
     return obj
 
 

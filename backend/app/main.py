@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routers import (
+    cars,
     circuits,
     drivers,
     events,
@@ -34,6 +35,7 @@ app.include_router(events.router, prefix=API_V1_PREFIX)
 app.include_router(standings.router, prefix=API_V1_PREFIX)
 app.include_router(drivers.router, prefix=API_V1_PREFIX)
 app.include_router(teams.router, prefix=API_V1_PREFIX)
+app.include_router(cars.router, prefix=API_V1_PREFIX)
 app.include_router(manufacturers.router, prefix=API_V1_PREFIX)
 app.include_router(circuits.router, prefix=API_V1_PREFIX)
 app.include_router(stats.router, prefix=API_V1_PREFIX)

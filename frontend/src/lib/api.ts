@@ -287,8 +287,42 @@ export type TeamEntry = {
   carNumber: string;
   raceClass: RaceClass;
   model: string | null;
+  carModelSlug: string | null;
   manufacturer: string | null;
   manufacturerLogoUrl: string | null;
+};
+
+export type CarModelSummary = {
+  id: number;
+  slug: string;
+  name: string;
+  raceClass: RaceClass;
+  manufacturer: string | null;
+  manufacturerLogoUrl: string | null;
+  imageUrl: string | null;
+  entries: number;
+};
+
+export type CarModelTeamRef = {
+  teamId: number;
+  teamName: string;
+  carNumber: string;
+  raceClass: RaceClass;
+};
+
+export type CarModelDetail = {
+  id: number;
+  slug: string;
+  name: string;
+  manufacturer: string | null;
+  manufacturerLogoUrl: string | null;
+  imageUrl: string | null;
+  category: string | null;
+  engine: string | null;
+  powerHp: number | null;
+  weightKg: number | null;
+  yearIntroduced: number | null;
+  teams: CarModelTeamRef[];
 };
 
 export type StandingDriver = {
@@ -462,6 +496,14 @@ export const getTeam = (id: number, year?: number | null) =>
 
 export const getManufacturer = (id: number, year?: number | null) =>
   api<ManufacturerDetail>(withYear(`/api/v1/manufacturers/${id}`, year), {
+    revalidate: 600,
+  });
+
+export const getCarModels = (year?: number | null) =>
+  api<CarModelSummary[]>(withYear("/api/v1/cars", year), { revalidate: 3600 });
+
+export const getCarModel = (slug: string, year?: number | null) =>
+  api<CarModelDetail>(withYear(`/api/v1/cars/${slug}`, year), {
     revalidate: 600,
   });
 

@@ -244,6 +244,7 @@ def _clear(db) -> None:
         models.CarDriver,
         models.Session,
         models.Car,
+        models.CarModel,
         models.Event,
         models.Driver,
         models.Team,
@@ -327,16 +328,26 @@ def _seed_events(db, season_ids, circuit_ids):
     return event_ids
 
 
-def _seed_cars(db, season_ids, team_ids, class_ids):
+def _seed_cars(db, season_ids, team_ids, class_ids, manufacturer_ids):
     """One car per team, slug-keyed by team slug (which encodes #number)."""
+    from app.ingest._common import upsert_car_model
+
     car_ids: dict[str, int] = {}
     for t in TEAMS:
+        model_name = CAR_MODELS.get(t["slug"])
+        car_model_id = None
+        if model_name:
+            cm = upsert_car_model(
+                db, model_name, manufacturer_id=manufacturer_ids[t["manufacturer"]]
+            )
+            car_model_id = cm.id
         obj = models.Car(
             season_id=season_ids["s2026"],
             team_id=team_ids[t["slug"]],
             race_class_id=class_ids[t["race_class"]],
             number=t["car_number"],
-            model=CAR_MODELS.get(t["slug"]),
+            model=model_name,
+            car_model_id=car_model_id,
         )
         db.add(obj)
         db.flush()
@@ -433,7 +444,9 @@ def main() -> None:
         season_ids, class_ids, circuit_ids, manufacturer_ids = _seed_reference(db)
         team_ids, driver_ids = _seed_orgs(db, manufacturer_ids)
         event_ids = _seed_events(db, season_ids, circuit_ids)
-        car_ids = _seed_cars(db, season_ids, team_ids, class_ids)
+        car_ids = _seed_cars(
+            db, season_ids, team_ids, class_ids, manufacturer_ids
+        )
         _seed_car_drivers(db, season_ids, car_ids, driver_ids)
         _seed_sessions_and_results(db, event_ids, car_ids)
         _seed_standings(

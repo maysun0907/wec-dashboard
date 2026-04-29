@@ -23,6 +23,7 @@ def list_teams(
         .options(
             joinedload(models.Car.team).joinedload(models.Team.manufacturer),
             joinedload(models.Car.race_class),
+            joinedload(models.Car.car_model),
         )
         .filter(models.Car.season_id == season.id)
         .all()
@@ -36,6 +37,7 @@ def list_teams(
             car_number=c.number,
             race_class=c.race_class.name,
             model=c.model,
+            car_model_slug=c.car_model.slug if c.car_model is not None else None,
             manufacturer=(
                 c.team.manufacturer.name if c.team.manufacturer is not None else None
             ),

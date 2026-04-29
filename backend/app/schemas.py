@@ -82,6 +82,7 @@ class TeamEntryOut(_BaseSchema):
     car_number: str
     race_class: str
     model: str | None = None
+    car_model_slug: str | None = None
     manufacturer: str | None = None
     manufacturer_logo_url: str | None = None
 
@@ -464,3 +465,42 @@ class AllTimeStatsOut(_BaseSchema):
     driver_wins: list[DriverStatOut] = []
     driver_podiums: list[DriverPodiumStatOut] = []
     le_mans_winners: list[LeMansWinnerOut] = []
+
+
+# --- Car models ---
+
+
+class CarModelOut(_BaseSchema):
+    """Row for the /cars page — one entry per (model, race_class) running in
+    the selected season."""
+
+    id: int
+    slug: str
+    name: str
+    race_class: str
+    manufacturer: str | None = None
+    manufacturer_logo_url: str | None = None
+    image_url: str | None = None
+    entries: int  # number of cars running this model in the season
+
+
+class CarModelTeamRef(_BaseSchema):
+    team_id: int
+    team_name: str
+    car_number: str
+    race_class: str
+
+
+class CarModelDetailOut(_BaseSchema):
+    id: int
+    slug: str
+    name: str
+    manufacturer: str | None = None
+    manufacturer_logo_url: str | None = None
+    image_url: str | None = None
+    category: str | None = None
+    engine: str | None = None
+    power_hp: int | None = None
+    weight_kg: int | None = None
+    year_introduced: int | None = None
+    teams: list[CarModelTeamRef] = []
