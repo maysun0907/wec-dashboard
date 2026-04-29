@@ -100,20 +100,41 @@ def _event_options_for_season(season_param: str) -> list[tuple[int, str]]:
 # Per-event CSV discovery
 # ---------------------------------------------------------------------------
 
-# Match qualifying / hyperpole session folders, capture the class suffix
-# (HYPERCAR / LMGT3 / LMP2 / blank for combined Q-only seasons).
+# Match Q / Hyperpole / Free-Practice session folders that live under
+# the main race-weekend event (`*_FIA WEC`, NOT `_FIA WEC Prologue`
+# or support series like `_Legends of Le Mans`). Group 1 is the event
+# folder name, 2 is the timestamp, 3 is the session-name body, 4 is the
+# optional class qualifier.
 _SESSION_FOLDER_RE = re.compile(
-    r"Results/[^/]+/[^/]+/[^/]+/(\d{12})_(Qualifying|Hyperpole)(?:%20([A-Za-z0-9]+))?/",
+    r"Results/[^/]+/[^/]+/(\d+_FIA%20WEC)/(\d{12})_"
+    r"(Qualifying|Hyperpole|Free%20Practice%20[123]|Final%20Practice)"
+    r"(?:%20([A-Za-z0-9]+))?/",
     re.IGNORECASE,
 )
+
+
+def _name_to_kind(raw: str) -> str | None:
+    n = raw.lower()
+    if n.startswith("hyperpole"):
+        return "HP"
+    if n.startswith("qualifying"):
+        return "Q"
+    if n.startswith("free practice 1"):
+        return "FP1"
+    if n.startswith("free practice 2"):
+        return "FP2"
+    if n.startswith("free practice 3") or n.startswith("final practice"):
+        return "FP3"
+    return None
 
 
 def _list_session_csvs(
     season_param: str, evvent_param: str
 ) -> list[tuple[str, str, str, str]]:
     """For one event, return [(kind, class_name, classification_url,
-    analysis_url)] where kind is 'Q' or 'HP'. We match folders that hold
-    a Classification CSV and (where present) a 23_Analysis CSV."""
+    analysis_url)] where kind is 'Q', 'HP', 'FP1', 'FP2', or 'FP3'. We
+    match folders that hold a Classification CSV and (where present) a
+    23_Analysis CSV."""
     try:
         html = _fetch(
             f"{BASE}/?season={season_param}&evvent={evvent_param}"
@@ -134,9 +155,10 @@ def _list_session_csvs(
         m = _SESSION_FOLDER_RE.search(href + "/")
         if m is None:
             continue
-        kind_raw = m.group(2).lower()
-        kind = "HP" if kind_raw == "hyperpole" else "Q"
-        cls_name = (m.group(3) or "").upper()
+        kind = _name_to_kind(m.group(3).replace("%20", " "))
+        if kind is None:
+            continue
+        cls_name = (m.group(4) or "").upper()
         folders.setdefault(folder, (kind, cls_name))
         # Classification: filenames "03_Classification_*" or "90_Classification_*"
         if re.match(r"^(03|90)_Classification_", fname, re.IGNORECASE):
@@ -188,6 +210,50 @@ def _parse_classification(text: str) -> dict[str, str]:
         if num and time and time != "":
             out[num.strip()] = time.strip()
     return out
+
+
+def _parse_classification_full(text: str) -> list[dict[str, str]]:
+    """Full-field classification parse for practice. Returns ordered
+    rows with position, car number, class, team, time, gap, laps,
+    kph."""
+    out: list[dict[str, str]] = []
+    for r in _parse_csv(text):
+        num = (r.get("NUMBER") or r.get(" NUMBER") or "").strip()
+        if not num:
+            continue
+        out.append(
+            {
+                "position": (r.get("POS") or "").strip(),
+                "number": num,
+                "class": (r.get("CLASS") or "").strip(),
+                "team": (r.get("TEAM") or "").strip(),
+                "time": (r.get("TIME") or r.get(" TIME") or "").strip(),
+                "gap": (
+                    r.get("GAP_FIRST") or r.get(" GAP_FIRST") or ""
+                ).strip(),
+                "laps": (r.get(" LAPS") or r.get("LAPS") or "").strip(),
+                "kph": (r.get("KPH") or r.get(" KPH") or "").strip(),
+            }
+        )
+    return out
+
+
+def _normalize_class(raw: str) -> str | None:
+    """Map Al Kamel's CLASS column to our canonical class keys."""
+    s = raw.strip().upper().replace(".", "").replace(" ", "").replace("-", "")
+    if s in {"HYPERCAR", "LMH", "LMDH"}:
+        return "HYPERCAR"
+    if s in {"GT3", "LMGT3"}:
+        return "LMGT3"
+    if s in {"LMP1", "LMP1H", "LMP1L"}:
+        return "LMP1"
+    if s == "LMP2":
+        return "LMP2"
+    if s in {"LMGTEPRO", "GTEPRO"}:
+        return "LMGTE_PRO"
+    if s in {"LMGTEAM", "GTEAM"}:
+        return "LMGTE_AM"
+    return None
 
 
 def _parse_analysis_drivers(text: str) -> dict[str, list[tuple[str, str]]]:
@@ -329,6 +395,8 @@ def enrich_qualifying_drivers(
         for kind, _cls, classification_url, analysis_url in _list_session_csvs(
             season_param, evvent_param
         ):
+            if kind not in ("Q", "HP"):
+                continue
             try:
                 cl_csv = _fetch(classification_url)
             except httpx.HTTPError:
@@ -356,6 +424,127 @@ def enrich_qualifying_drivers(
     return updated
 
 
+def ingest_practice_results(
+    db: Session, season_id: int, year: int
+) -> int:
+    """Replace each Free Practice session's SessionResult rows with the
+    full Al Kamel classification (vs. the class-fastest-only set we get
+    from Wikipedia). Returns total rows inserted across all sessions."""
+    from sqlalchemy import delete  # local import keeps module import cheap
+
+    season_param = _season_param_for_year(year)
+    if season_param is None:
+        return 0
+    events = _event_options_for_season(season_param)
+    if not events:
+        return 0
+    by_round: dict[int, str] = {r: ev for r, ev in events}
+
+    inserted_total = 0
+    for ev in (
+        db.query(models.Event)
+        .filter(models.Event.season_id == season_id)
+        .all()
+    ):
+        evvent_param = by_round.get(ev.round)
+        if evvent_param is None:
+            continue
+        sessions_by_kind: dict[str, models.Session] = {
+            s.type: s
+            for s in db.query(models.Session)
+            .filter(
+                models.Session.event_id == ev.id,
+                models.Session.type.in_(["FP1", "FP2", "FP3"]),
+            )
+            .all()
+        }
+        if not sessions_by_kind:
+            continue
+        # Cars by (number, race_class_id) so we can resolve correctly
+        # in the (rare) case where the same number is used in multiple
+        # classes within a season.
+        cars = (
+            db.query(models.Car)
+            .filter(models.Car.season_id == season_id)
+            .all()
+        )
+        cars_by_key = {(c.number, c.race_class_id): c for c in cars}
+        cars_by_number: dict[str, models.Car] = {}
+        for c in cars:
+            # Only set if no collision; otherwise we'll fall back to the
+            # CSV's CLASS column to disambiguate.
+            cars_by_number.setdefault(c.number, c)
+            if c.number in cars_by_number and cars_by_number[c.number] is not c:
+                cars_by_number[c.number] = c  # last wins; key lookup preferred
+
+        race_class_ids: dict[str, int] = {
+            rc.name: rc.id for rc in db.query(models.RaceClass).all()
+        }
+
+        csvs = _list_session_csvs(season_param, evvent_param)
+        for kind, _cls, classification_url, analysis_url in csvs:
+            if kind not in ("FP1", "FP2", "FP3"):
+                continue
+            session = sessions_by_kind.get(kind)
+            if session is None:
+                continue
+            try:
+                rows = _parse_classification_full(_fetch(classification_url))
+            except httpx.HTTPError:
+                continue
+            if not rows:
+                continue
+            analysis: dict[str, list[tuple[str, str]]] = {}
+            if analysis_url:
+                try:
+                    analysis = _parse_analysis_drivers(_fetch(analysis_url))
+                except httpx.HTTPError:
+                    analysis = {}
+            classification = {r["number"]: r["time"] for r in rows if r["time"]}
+            best_lap_drivers = _drivers_for_session(classification, analysis)
+
+            db.execute(
+                delete(models.SessionResult).where(
+                    models.SessionResult.session_id == session.id
+                )
+            )
+            for i, r in enumerate(rows):
+                cls_key = _normalize_class(r["class"])
+                car: models.Car | None = None
+                if cls_key and cls_key in race_class_ids:
+                    car = cars_by_key.get(
+                        (r["number"], race_class_ids[cls_key])
+                    )
+                if car is None:
+                    car = cars_by_number.get(r["number"])
+                if car is None:
+                    continue
+                pos: int
+                try:
+                    pos = int(r["position"])
+                except ValueError:
+                    pos = i + 1
+                laps_int: int | None
+                try:
+                    laps_int = int(r["laps"]) if r["laps"] else None
+                except ValueError:
+                    laps_int = None
+                db.add(
+                    models.SessionResult(
+                        session_id=session.id,
+                        car_id=car.id,
+                        position=pos,
+                        best_lap=r["time"] or None,
+                        gap=r["gap"] or None,
+                        laps=laps_int,
+                        drivers=best_lap_drivers.get(r["number"]) or None,
+                    )
+                )
+                inserted_total += 1
+            db.commit()
+    return inserted_total
+
+
 def enrich_seasons(db: Session, years: Iterable[int]) -> dict[int, int]:
     """Run enrich_qualifying_drivers for several years; returns
     {year: rows_updated}. Skips years with no matching season row."""
@@ -367,4 +556,19 @@ def enrich_seasons(db: Session, years: Iterable[int]) -> dict[int, int]:
         if season is None:
             continue
         out[y] = enrich_qualifying_drivers(db, season.id, y)
+    return out
+
+
+def ingest_practice_seasons(
+    db: Session, years: Iterable[int]
+) -> dict[int, int]:
+    """Bulk practice ingest helper — {year: rows_inserted}."""
+    out: dict[int, int] = {}
+    for y in years:
+        season = (
+            db.query(models.Season).filter(models.Season.year == y).first()
+        )
+        if season is None:
+            continue
+        out[y] = ingest_practice_results(db, season.id, y)
     return out

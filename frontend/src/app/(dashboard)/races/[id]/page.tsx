@@ -155,24 +155,31 @@ export default async function RaceDetailPage({
                 value={s.type}
                 className="mt-4 space-y-4"
               >
-                {isPractice ? (
+                {s.type === "Q" ? (
+                  <>
+                    <SessionWinnersCard type={s.type} rows={rows} />
+                    <QualifyingResultsTable rows={rows} />
+                  </>
+                ) : s.type === "RACE" ? (
+                  <>
+                    <SessionWinnersCard type={s.type} rows={rows} />
+                    <ResultsCard
+                      label={SESSION_LABELS[s.type] ?? s.type}
+                      type={s.type}
+                      rows={rows}
+                    />
+                  </>
+                ) : isPractice && rows.length <= 3 ? (
                   <PracticeFastestCard
                     label={SESSION_LABELS[s.type] ?? s.type}
                     rows={rows}
                   />
                 ) : (
-                  <>
-                    <SessionWinnersCard type={s.type} rows={rows} />
-                    {s.type === "Q" ? (
-                      <QualifyingResultsTable rows={rows} />
-                    ) : (
-                      <ResultsCard
-                        label={SESSION_LABELS[s.type] ?? s.type}
-                        type={s.type}
-                        rows={rows}
-                      />
-                    )}
-                  </>
+                  <ResultsCard
+                    label={SESSION_LABELS[s.type] ?? s.type}
+                    type={s.type}
+                    rows={rows}
+                  />
                 )}
               </TabsContent>
             );
@@ -371,12 +378,6 @@ function ResultsCard({
     <Card>
       <CardHeader>
         <CardTitle>{label} results</CardTitle>
-        {isPractice && (
-          <p className="text-xs text-muted-foreground">
-            Wikipedia lists only the class-fastest lap for free practice;
-            the table reflects that.
-          </p>
-        )}
       </CardHeader>
       <CardContent className="px-0">
         <Table>
@@ -391,7 +392,12 @@ function ResultsCard({
               <TableHead className="hidden md:table-cell">Drivers</TableHead>
               <TableHead className="w-16">Class</TableHead>
               {isPractice && (
-                <TableHead className="pr-4 text-right">Best lap</TableHead>
+                <>
+                  <TableHead className="hidden w-24 text-right sm:table-cell">
+                    Best lap
+                  </TableHead>
+                  <TableHead className="pr-4 w-20 text-right">Gap</TableHead>
+                </>
               )}
               {isRace && (
                 <>
@@ -425,9 +431,19 @@ function ResultsCard({
                   <ClassBadge raceClass={row.raceClass} />
                 </TableCell>
                 {isPractice && (
-                  <TableCell className="pr-4 text-right font-mono tabular-nums">
-                    {row.bestLap ?? "—"}
-                  </TableCell>
+                  <>
+                    <TableCell className="hidden text-right font-mono tabular-nums sm:table-cell">
+                      {row.bestLap ?? "—"}
+                    </TableCell>
+                    <TableCell
+                      className={
+                        "pr-4 text-right font-mono tabular-nums " +
+                        (row.gap ? "text-muted-foreground" : "text-muted-foreground/40")
+                      }
+                    >
+                      {row.gap ?? "—"}
+                    </TableCell>
+                  </>
                 )}
                 {isRace && (
                   <>

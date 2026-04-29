@@ -1801,14 +1801,21 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
         # slow / partially populated, and we still want the rest of the
         # ingest to commit if this fails.
         try:
-            from app.ingest.alkamel import enrich_qualifying_drivers
+            from app.ingest.alkamel import (
+                enrich_qualifying_drivers,
+                ingest_practice_results,
+            )
 
             alkamel_drivers_n = enrich_qualifying_drivers(
+                db, season.id, year
+            )
+            alkamel_practice_n = ingest_practice_results(
                 db, season.id, year
             )
         except Exception as exc:  # pragma: no cover - network
             print(f"  alkamel enrichment skipped: {exc}")
             alkamel_drivers_n = 0
+            alkamel_practice_n = 0
 
         db.commit()
         summary = {
@@ -1823,6 +1830,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             "standings_teams": standings_counts["teams"],
             "fiawec_schedule_filled": fiawec_filled,
             "alkamel_qualifying_drivers": alkamel_drivers_n,
+            "alkamel_practice_rows": alkamel_practice_n,
         }
         print("ingested:")
         for k, v in summary.items():
