@@ -5,9 +5,9 @@ Slug-keyed dict, applied to ``car_models`` rows by
 overwrites the fields you list here.
 
 Conservative defaults: category + engine config + year of introduction
-are public and stable. ``power_hp`` and ``weight_kg`` are BoP-dependent
-in Hypercar/GT3 — leave them ``None`` unless you've verified the exact
-homologated figure for the season this dashboard tracks.
+are public and stable. Hypercar power/weight are set to the BoP-equalized
+target (~680 hp combined, 1030 kg minimum) shared across the field.
+GT3 BoP varies more between cars — left null until verified.
 
 ``image_url`` should point to a transparent-background PNG hosted under
 ``frontend/public/cars/`` (e.g. ``/cars/ferrari-499p.png``). Drop the
@@ -30,58 +30,59 @@ class CarSpec(TypedDict, total=False):
     image_url: str
 
 
+# Hypercar entries are BoP-equalized to ~680 hp combined and 1030 kg
+# minimum weight, so those values are repeated across the field.
+_HYPERCAR_BOP = {"power_hp": 680, "weight_kg": 1030}
+
 CAR_SPECS: dict[str, CarSpec] = {
     # ---- HYPERCAR (LMH + LMDh) ----
     "ferrari-499p": {
         "category": "LMH",
         "engine": "3.0 L twin-turbo V6 hybrid",
         "year_introduced": 2023,
+        **_HYPERCAR_BOP,
     },
     "toyota-tr010-hybrid": {
         "category": "LMH",
         "engine": "3.5 L twin-turbo V6 hybrid",
         "year_introduced": 2021,
-    },
-    "porsche-963": {
-        "category": "LMDh",
-        "engine": "4.6 L twin-turbo V8 hybrid",
-        "year_introduced": 2023,
+        **_HYPERCAR_BOP,
     },
     "cadillac-v-series-r": {
         "category": "LMDh",
         "engine": "5.5 L naturally aspirated V8 hybrid",
         "year_introduced": 2023,
+        **_HYPERCAR_BOP,
     },
     "bmw-m-hybrid-v8": {
         "category": "LMDh",
         "engine": "4.0 L twin-turbo V8 hybrid",
         "year_introduced": 2024,
+        **_HYPERCAR_BOP,
     },
     "alpine-a424": {
         "category": "LMDh",
         "engine": "3.4 L twin-turbo V6 hybrid",
         "year_introduced": 2024,
+        **_HYPERCAR_BOP,
     },
     "peugeot-9x8": {
         "category": "LMH",
         "engine": "2.6 L twin-turbo V6 hybrid",
         "year_introduced": 2022,
+        **_HYPERCAR_BOP,
     },
     "aston-martin-valkyrie": {
         "category": "LMH",
         "engine": "6.5 L naturally aspirated V12 (Cosworth)",
         "year_introduced": 2025,
+        **_HYPERCAR_BOP,
     },
     # Genesis GMR-001 — 2026 debut, public spec details still scarce.
     "genesis-gmr-001": {
         "category": "LMDh",
         "year_introduced": 2026,
-    },
-    # ---- LMP2 ----
-    "oreca-07": {
-        "category": "LMP2",
-        "engine": "4.2 L naturally aspirated V8 (Gibson GK428)",
-        "year_introduced": 2017,
+        **_HYPERCAR_BOP,
     },
     # ---- LMGT3 ----
     "ferrari-296-gt3-evo": {
