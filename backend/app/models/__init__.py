@@ -245,6 +245,33 @@ class StandingTeam(Base):
     race_class: Mapped["RaceClass"] = relationship()
 
 
+class BopAdjustment(Base):
+    """Balance of Performance values for a (event, car_model) pair.
+
+    All numeric fields nullable — FIA may publish only weight + energy
+    for one round, only power for another, etc. Curated via
+    `app.curate_bop` from `app/data/bop.py`.
+    """
+
+    __tablename__ = "bop_adjustments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), index=True)
+    car_model_id: Mapped[int] = mapped_column(
+        ForeignKey("car_models.id"), index=True
+    )
+    min_weight_kg: Mapped[int | None] = mapped_column(default=None)
+    max_power_kw: Mapped[int | None] = mapped_column(default=None)
+    # Energy ration per stint (LMH/LMDh allotment). FIA publishes this
+    # to balance hybrid drivetrains' fuel economy advantage.
+    max_energy_per_stint_mj: Mapped[float | None] = mapped_column(default=None)
+    # 2026+ "success handicap" added on top of base weight.
+    success_handicap_kg: Mapped[int | None] = mapped_column(default=None)
+
+    event: Mapped["Event"] = relationship()
+    car_model: Mapped["CarModel"] = relationship()
+
+
 class StandingManufacturer(Base):
     __tablename__ = "standings_manufacturers"
 

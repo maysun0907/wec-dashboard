@@ -515,6 +515,27 @@ export const getCarModel = (slug: string, year?: number | null) =>
     revalidate: 600,
   });
 
+export type BopRow = {
+  carModelId: number;
+  carModelSlug: string;
+  carModelName: string;
+  manufacturerLogoUrl: string | null;
+  minWeightKg: number | null;
+  maxPowerKw: number | null;
+  maxEnergyPerStintMj: number | null;
+  successHandicapKg: number | null;
+};
+
+export type BopEvent = {
+  eventId: number;
+  round: number;
+  eventName: string;
+  rows: BopRow[];
+};
+
+export const getBop = (year?: number | null) =>
+  api<BopEvent[]>(withYear("/api/v1/bop", year), { revalidate: 3600 });
+
 // Events change occasionally (status transitions) — 10 minutes.
 export const getEvents = (year?: number | null) =>
   api<Event[]>(withYear("/api/v1/events", year), { revalidate: 600 });

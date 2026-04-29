@@ -514,3 +514,24 @@ class CarModelDetailOut(_BaseSchema):
     year_introduced: int | None = None
     teams: list[CarModelTeamRef] = []
     stats: CarModelStats = CarModelStats()
+
+
+# --- Balance of Performance ---
+
+
+class BopRowOut(_BaseSchema):
+    car_model_id: int
+    car_model_slug: str
+    car_model_name: str
+    manufacturer_logo_url: str | None = None
+    min_weight_kg: int | None = None
+    max_power_kw: int | None = None
+    max_energy_per_stint_mj: float | None = None
+    success_handicap_kg: int | None = None
+
+
+class BopEventOut(_BaseSchema):
+    event_id: int
+    round: int
+    event_name: str
+    rows: list[BopRowOut] = []
