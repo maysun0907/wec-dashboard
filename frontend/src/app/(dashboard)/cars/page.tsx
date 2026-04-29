@@ -16,7 +16,6 @@ import {
   type RaceClass,
   type TeamEntry,
 } from "@/lib/api";
-import { localCarImage } from "@/lib/car-image";
 import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Cars" };
@@ -26,7 +25,6 @@ type CarModelEntry = {
   model: string;
   manufacturer: string | null;
   manufacturerLogoUrl: string | null;
-  imageUrl: string | null;
   raceClass: RaceClass;
   cars: { teamName: string; teamId: number; carNumber: string }[];
 };
@@ -44,7 +42,6 @@ function groupByModel(teams: TeamEntry[]): CarModelEntry[] {
         model: modelLabel,
         manufacturer: t.manufacturer,
         manufacturerLogoUrl: t.manufacturerLogoUrl,
-        imageUrl: t.carModelSlug ? localCarImage(t.carModelSlug) : null,
         raceClass: t.raceClass,
         cars: [],
       };
@@ -126,17 +123,7 @@ export default async function CarsPage() {
 
 function ModelCard({ entry }: { entry: CarModelEntry }) {
   return (
-    <Card className="overflow-hidden">
-      {entry.imageUrl && (
-        <div className="flex h-32 items-center justify-center bg-secondary/20 px-4">
-          <img
-            src={entry.imageUrl}
-            alt={entry.model}
-            className="max-h-full max-w-full object-contain"
-            loading="lazy"
-          />
-        </div>
-      )}
+    <Card>
       <CardHeader className="flex flex-row items-center gap-3 space-y-0">
         <ManufacturerLogo
           src={entry.manufacturerLogoUrl}
