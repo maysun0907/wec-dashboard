@@ -89,7 +89,13 @@ export default async function TeamsPage() {
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {inClass.map((t) => (
-                    <TeamCard key={`${t.raceClass}-${t.id}`} entry={t} />
+                    <Link
+                      key={`${t.raceClass}-${t.id}`}
+                      href={`/teams/${t.id}`}
+                      className="block transition-colors hover:[&_[data-slot=card]]:ring-foreground/30"
+                    >
+                      <TeamCard entry={t} />
+                    </Link>
                   ))}
                 </div>
               )}
@@ -111,14 +117,7 @@ function TeamCard({ entry }: { entry: TeamCardEntry }) {
           size="md"
         />
         <div className="min-w-0 flex-1 space-y-1">
-          <CardTitle className="truncate">
-            <Link
-              href={`/teams/${entry.id}`}
-              className="hover:text-[var(--racing-red)]"
-            >
-              {entry.name}
-            </Link>
-          </CardTitle>
+          <CardTitle className="truncate">{entry.name}</CardTitle>
           <CardDescription>
             {entry.manufacturer ?? "Independent"}
           </CardDescription>
