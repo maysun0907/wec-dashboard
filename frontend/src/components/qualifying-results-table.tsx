@@ -36,8 +36,15 @@ function lapMs(lap: string | null | undefined): number | null {
 export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
   const [sort, setSort] = useState<SortMode>("grid");
 
-  const sorted = useMemo(() => {
-    const copy = [...rows];
+  const visible = useMemo(() => {
+    // Hyperpole tab hides cars that didn't advance. Wikipedia data only
+    // records hyperpoleLap when a lap was posted, so cars that advanced
+    // but failed to set a time will currently be filtered out too.
+    const filtered =
+      sort === "hyperpole"
+        ? rows.filter((r) => r.hyperpoleLap !== null)
+        : rows;
+    const copy = [...filtered];
     if (sort === "grid") {
       copy.sort((a, b) => a.position - b.position);
     } else {
@@ -45,8 +52,6 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
       copy.sort((a, b) => {
         const am = lapMs(a[key]);
         const bm = lapMs(b[key]);
-        // Cars without a lap in this session sink to the bottom but
-        // keep their grid order among themselves.
         if (am === null && bm === null) return a.position - b.position;
         if (am === null) return 1;
         if (bm === null) return -1;
@@ -56,15 +61,13 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
     return copy;
   }, [rows, sort]);
 
-  // Class-aware ranking — count rows of the same class above the current
-  // one in the sorted list to derive an in-class ordinal.
   const classRanks = useMemo(() => {
     const counts: Record<string, number> = {};
-    return sorted.map((r) => {
+    return visible.map((r) => {
       counts[r.raceClass] = (counts[r.raceClass] ?? 0) + 1;
       return counts[r.raceClass]!;
     });
-  }, [sorted]);
+  }, [visible]);
 
   return (
     <Card>
@@ -99,14 +102,18 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
               <TableHead>Team</TableHead>
               <TableHead className="hidden md:table-cell">Drivers</TableHead>
               <TableHead className="w-16">Class</TableHead>
-              <TableHead className="hidden w-24 text-right sm:table-cell">
-                Q lap
-              </TableHead>
-              <TableHead className="pr-4 w-24 text-right">Hyperpole</TableHead>
+              {sort === "q" && (
+                <TableHead className="pr-4 w-24 text-right">Q lap</TableHead>
+              )}
+              {sort === "hyperpole" && (
+                <TableHead className="pr-4 w-24 text-right">
+                  Hyperpole
+                </TableHead>
+              )}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sorted.map((row, i) => {
+            {visible.map((row, i) => {
               const isPole = sort === "grid" ? row.position === 1 : i === 0;
               const classRank = classRanks[i] ?? 0;
               return (
@@ -139,28 +146,23 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
                   <TableCell>
                     <ClassBadge raceClass={row.raceClass} />
                   </TableCell>
-                  <TableCell
-                    className={
-                      "hidden text-right font-mono tabular-nums sm:table-cell " +
-                      (sort === "q"
-                        ? "text-foreground"
-                        : "text-muted-foreground")
-                    }
-                  >
-                    {row.qualifyingLap ?? "—"}
-                  </TableCell>
-                  <TableCell
-                    className={
-                      "pr-4 text-right font-mono tabular-nums " +
-                      (row.hyperpoleLap
-                        ? sort === "hyperpole"
+                  {sort === "q" && (
+                    <TableCell className="pr-4 text-right font-mono tabular-nums">
+                      {row.qualifyingLap ?? "—"}
+                    </TableCell>
+                  )}
+                  {sort === "hyperpole" && (
+                    <TableCell
+                      className={
+                        "pr-4 text-right font-mono tabular-nums " +
+                        (row.hyperpoleLap
                           ? "text-foreground"
-                          : "text-muted-foreground"
-                        : "text-muted-foreground/40")
-                    }
-                  >
-                    {row.hyperpoleLap ?? "—"}
-                  </TableCell>
+                          : "text-muted-foreground/40")
+                      }
+                    >
+                      {row.hyperpoleLap ?? "—"}
+                    </TableCell>
+                  )}
                 </TableRow>
               );
             })}
