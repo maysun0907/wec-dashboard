@@ -9,6 +9,11 @@ from app.season import YearParam, resolve_season
 
 router = APIRouter(tags=["events"])
 
+# Tiny in-process cache for race lap charts. The Al Kamel CSVs run
+# 200KB-2MB and the position computation is cheap, but we render the
+# same response for every page hit, so the network fetch dominates.
+_LAP_CHART_CACHE: dict[int, "schemas.LapChart"] = {}
+
 _SESSION_ORDER = {"FP1": 1, "FP2": 2, "FP3": 3, "Q": 4, "RACE": 5}
 
 
@@ -135,3 +140,136 @@ def session_results(
             )
         )
     return out
+
+
+@router.get(
+    "/sessions/{session_id}/lap-chart",
+    response_model=schemas.LapChart,
+)
+def session_lap_chart(
+    session_id: int, db: Session = Depends(get_db)
+) -> schemas.LapChart:
+    """Per-lap position trajectories for a race session, derived from
+    Al Kamel's lap-by-lap analysis CSV (cumulative ELAPSED time)."""
+    cached = _LAP_CHART_CACHE.get(session_id)
+    if cached is not None:
+        return cached
+
+    session = db.get(models.Session, session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if session.type != "RACE":
+        raise HTTPException(
+            status_code=400, detail="Lap chart is only available for races"
+        )
+    event = db.get(models.Event, session.event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="Event not found")
+    season = db.get(models.Season, event.season_id)
+    if season is None:
+        raise HTTPException(status_code=404, detail="Season not found")
+
+    # Resolve the Al Kamel slugs for this season + round.
+    from app.ingest import alkamel
+
+    season_param = alkamel._season_param_for_year(season.year)
+    if season_param is None:
+        raise HTTPException(status_code=404, detail="No timing data available")
+    events = alkamel._event_options_for_season(season_param)
+    evvent_param = next(
+        (ev for r, ev in events if r == event.round), None
+    )
+    if evvent_param is None:
+        raise HTTPException(status_code=404, detail="No timing data available")
+
+    laps = alkamel.fetch_race_lap_data(season_param, evvent_param)
+    if not laps:
+        raise HTTPException(status_code=404, detail="No timing data available")
+
+    # Look up per-car metadata from our DB so the chart picks up the
+    # team / class names the rest of the app uses.
+    results = (
+        db.query(models.SessionResult)
+        .options(
+            joinedload(models.SessionResult.car).joinedload(models.Car.team),
+            joinedload(models.SessionResult.car).joinedload(
+                models.Car.race_class
+            ),
+        )
+        .filter(models.SessionResult.session_id == session_id)
+        .all()
+    )
+    by_number = {
+        r.car.number: {
+            "team": r.car.team.name,
+            "race_class": r.car.race_class.name,
+            "drivers": r.drivers or "",
+        }
+        for r in results
+    }
+
+    # Group laps by car. Compute cumulative elapsed in milliseconds so we
+    # can sort cars at each lap by who reached it first.
+    by_car: dict[str, list[tuple[int, int]]] = {}  # number -> [(lap, elapsed_ms)]
+    for r in laps:
+        try:
+            lap_n = int(r["lap"])
+        except ValueError:
+            continue
+        elapsed = alkamel._hms_to_ms(r["elapsed"])
+        if elapsed is None:
+            continue
+        by_car.setdefault(r["number"], []).append((lap_n, elapsed))
+
+    if not by_car:
+        raise HTTPException(status_code=404, detail="No timing data available")
+
+    total_laps = max(max(l for l, _ in laps_) for laps_ in by_car.values())
+
+    # For each lap N, rank cars by their elapsed time at that lap (or
+    # the most recent earlier lap for cars that have already retired).
+    overall_pos: dict[str, list[tuple[int, int]]] = {n: [] for n in by_car}
+    class_pos: dict[str, list[tuple[int, int]]] = {n: [] for n in by_car}
+    car_class = {n: by_number.get(n, {}).get("race_class", "") for n in by_car}
+
+    for lap_n in range(1, total_laps + 1):
+        ranked: list[tuple[int, str]] = []  # (elapsed_ms, number)
+        for car_n, points in by_car.items():
+            here = next((e for l, e in points if l == lap_n), None)
+            if here is None:
+                continue
+            ranked.append((here, car_n))
+        if not ranked:
+            continue
+        ranked.sort()
+        # Overall positions.
+        for i, (_, num) in enumerate(ranked):
+            overall_pos[num].append((lap_n, i + 1))
+        # Class-internal positions.
+        per_class_seen: dict[str, int] = {}
+        for _, num in ranked:
+            cls = car_class.get(num) or "?"
+            per_class_seen[cls] = per_class_seen.get(cls, 0) + 1
+            class_pos[num].append((lap_n, per_class_seen[cls]))
+
+    cars_out: list[schemas.LapChartCar] = []
+    for num in sorted(
+        by_car, key=lambda n: overall_pos[n][-1][1] if overall_pos[n] else 99
+    ):
+        meta = by_number.get(num, {"team": "", "race_class": "?", "drivers": ""})
+        ov = overall_pos[num]
+        cl = class_pos[num]
+        cars_out.append(
+            schemas.LapChartCar(
+                car_number=num,
+                team=meta["team"],
+                race_class=meta["race_class"],
+                drivers=meta["drivers"],
+                lap_numbers=[l for l, _ in ov],
+                positions=[p for _, p in ov],
+                class_positions=[p for _, p in cl],
+            )
+        )
+    chart = schemas.LapChart(cars=cars_out, total_laps=total_laps)
+    _LAP_CHART_CACHE[session_id] = chart
+    return chart

@@ -307,6 +307,79 @@ def _parse_classification_full(text: str) -> list[dict[str, str]]:
     return out
 
 
+def _hms_to_ms(raw: str) -> int | None:
+    """Parse `[H:]M:SS.xxx` cumulative time strings to milliseconds."""
+    if not raw:
+        return None
+    parts = raw.split(":")
+    try:
+        if len(parts) == 3:
+            h = int(parts[0])
+            m = int(parts[1])
+            s = float(parts[2])
+        elif len(parts) == 2:
+            h = 0
+            m = int(parts[0])
+            s = float(parts[1])
+        else:
+            return None
+    except ValueError:
+        return None
+    return int(round(((h * 60 + m) * 60 + s) * 1000))
+
+
+def _parse_lap_analysis(text: str) -> list[dict[str, str]]:
+    """Lightweight parse of the race analysis CSV — one dict per lap
+    with the fields we care about (NUMBER, LAP_NUMBER, LAP_TIME,
+    ELAPSED, CLASS, TEAM, DRIVER_NAME, KPH, CROSSING_FINISH_LINE_IN_PIT,
+    PIT_TIME)."""
+    out: list[dict[str, str]] = []
+    for r in _parse_csv(text):
+        num = (r.get("NUMBER") or r.get(" NUMBER") or "").strip()
+        lap = (r.get("LAP_NUMBER") or r.get(" LAP_NUMBER") or "").strip()
+        if not num or not lap:
+            continue
+        out.append(
+            {
+                "number": num,
+                "lap": lap,
+                "lap_time": _normalize_lap_time(
+                    (r.get("LAP_TIME") or r.get(" LAP_TIME") or "").strip()
+                ),
+                "elapsed": (r.get("ELAPSED") or r.get(" ELAPSED") or "").strip(),
+                "class": (r.get("CLASS") or "").strip(),
+                "team": (r.get("TEAM") or "").strip(),
+                "driver": (r.get("DRIVER_NAME") or r.get(" DRIVER_NAME") or "").strip(),
+                "kph": (r.get("KPH") or r.get(" KPH") or "").strip(),
+                "in_pit": (
+                    r.get("CROSSING_FINISH_LINE_IN_PIT")
+                    or r.get(" CROSSING_FINISH_LINE_IN_PIT")
+                    or ""
+                ).strip(),
+                "pit_time": (r.get("PIT_TIME") or r.get(" PIT_TIME") or "").strip(),
+            }
+        )
+    return out
+
+
+def fetch_race_lap_data(
+    season_param: str, evvent_param: str
+) -> list[dict[str, str]]:
+    """Convenience wrapper for the API layer: discover the race analysis
+    CSV for an event and return parsed lap rows. Empty list when the
+    race hasn't been published yet."""
+    csvs = _list_race_csvs(season_param, evvent_param)
+    if csvs is None:
+        return []
+    _ts, _cl, analysis_url = csvs
+    if not analysis_url:
+        return []
+    try:
+        return _parse_lap_analysis(_fetch(analysis_url))
+    except httpx.HTTPError:
+        return []
+
+
 def _normalize_lap_time(raw: str) -> str:
     """Race CSVs format laps like `1'32.625` (single-quote separator);
     timed sessions use `1:32.625`. Normalize to the colon form so the

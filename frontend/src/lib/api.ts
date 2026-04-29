@@ -478,6 +478,28 @@ export const getSessionResults = (sessionId: number) =>
     revalidate: 300,
   });
 
+export type LapChartCar = {
+  carNumber: string;
+  team: string;
+  raceClass: RaceClass;
+  drivers: string;
+  lapNumbers: number[];
+  positions: number[];
+  classPositions: number[];
+};
+
+export type LapChart = {
+  cars: LapChartCar[];
+  totalLaps: number;
+};
+
+// Race lap charts are immutable once a race ends and expensive to
+// compute, so cache for an hour.
+export const getLapChart = (sessionId: number) =>
+  api<LapChart>(`/api/v1/sessions/${sessionId}/lap-chart`, {
+    revalidate: 3600,
+  });
+
 export const getDriverStandings = (
   raceClass?: RaceClass,
   year?: number | null,

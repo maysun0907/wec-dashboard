@@ -136,6 +136,27 @@ class SessionResultOut(_BaseSchema):
     pit_stops: int | None = None
 
 
+class LapChartCar(_BaseSchema):
+    """One car's per-lap trajectory, used by the race position chart."""
+
+    car_number: str
+    team: str
+    race_class: str
+    drivers: str
+    # Aligned arrays — points[i] is the (lap, position) reached when
+    # this car completed lap_numbers[i].
+    lap_numbers: list[int]
+    positions: list[int]
+    # Class-internal position at each lap (so LMGT3 P1, P2, ... show on
+    # the chart even though they're behind hypercars overall).
+    class_positions: list[int]
+
+
+class LapChart(_BaseSchema):
+    cars: list[LapChartCar]
+    total_laps: int
+
+
 # --- Standings ---
 
 
