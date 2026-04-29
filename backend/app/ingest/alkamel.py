@@ -24,13 +24,31 @@ from __future__ import annotations
 import csv
 import io
 import re
+from datetime import datetime
 from typing import Iterable
+from zoneinfo import ZoneInfo
 
 import httpx
 from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session, joinedload
 
 from app import models
+from app.circuit_tz import tz_for_circuit
+
+
+def _timestamp_to_utc(stamp: str, circuit_tz: str | None) -> datetime | None:
+    """Parse Al Kamel's `YYYYMMDDHHMM` folder prefix as circuit-local
+    time and return a naive UTC datetime."""
+    try:
+        local = datetime.strptime(stamp, "%Y%m%d%H%M")
+    except ValueError:
+        return None
+    tz = ZoneInfo(circuit_tz) if circuit_tz else ZoneInfo("UTC")
+    return (
+        local.replace(tzinfo=tz)
+        .astimezone(ZoneInfo("UTC"))
+        .replace(tzinfo=None)
+    )
 
 USER_AGENT = "wec-dashboard/0.1 (https://github.com/maysun0907/wec-dashboard)"
 BASE = "https://fiawec.alkamelsystems.com"
@@ -130,22 +148,21 @@ def _name_to_kind(raw: str) -> str | None:
 
 def _list_session_csvs(
     season_param: str, evvent_param: str
-) -> list[tuple[str, str, str, str]]:
+) -> list[tuple[str, str, str, str, str]]:
     """For one event, return [(kind, class_name, classification_url,
-    analysis_url)] where kind is 'Q', 'HP', 'FP1', 'FP2', or 'FP3'. We
-    match folders that hold a Classification CSV and (where present) a
-    23_Analysis CSV."""
+    analysis_url, timestamp)] where kind is 'Q', 'HP', 'FP1', 'FP2', or
+    'FP3' and timestamp is the 12-char YYYYMMDDHHMM stamp from the
+    folder name (circuit-local; convert with the event's tz)."""
     try:
         html = _fetch(
             f"{BASE}/?season={season_param}&evvent={evvent_param}"
         )
     except httpx.HTTPError:
         return []
-    folders: dict[str, tuple[str, str]] = {}  # folder_path -> (kind, class_name)
-    classifications: dict[str, str] = {}  # folder -> Classification CSV URL
-    analyses: dict[str, str] = {}  # folder -> Analysis CSV URL
+    folders: dict[str, tuple[str, str, str]] = {}
+    classifications: dict[str, str] = {}
+    analyses: dict[str, str] = {}
     for href in re.findall(r'href="(Results/[^"]+\.CSV)"', html):
-        # Extract folder + filename
         decoded = href.replace("%20", " ")
         slash = decoded.rfind("/")
         if slash < 0:
@@ -159,19 +176,19 @@ def _list_session_csvs(
         if kind is None:
             continue
         cls_name = (m.group(4) or "").upper()
-        folders.setdefault(folder, (kind, cls_name))
-        # Classification: filenames "03_Classification_*" or "90_Classification_*"
+        timestamp = m.group(2)
+        folders.setdefault(folder, (kind, cls_name, timestamp))
         if re.match(r"^(03|90)_Classification_", fname, re.IGNORECASE):
             classifications.setdefault(folder, f"{BASE}/{href}")
         elif re.match(r"^23_Analysis_", fname, re.IGNORECASE):
             analyses.setdefault(folder, f"{BASE}/{href}")
-    out: list[tuple[str, str, str, str]] = []
-    for folder, (kind, cls_name) in folders.items():
+    out: list[tuple[str, str, str, str, str]] = []
+    for folder, (kind, cls_name, timestamp) in folders.items():
         cl = classifications.get(folder)
         if cl is None:
             continue
         an = analyses.get(folder, "")
-        out.append((kind, cls_name, cl, an))
+        out.append((kind, cls_name, cl, an, timestamp))
     return out
 
 
@@ -392,7 +409,7 @@ def enrich_qualifying_drivers(
             continue
         by_car_number = {r.car.number: r for r in results}
 
-        for kind, _cls, classification_url, analysis_url in _list_session_csvs(
+        for kind, _cls, classification_url, analysis_url, _ts in _list_session_csvs(
             season_param, evvent_param
         ):
             if kind not in ("Q", "HP"):
@@ -443,6 +460,7 @@ def ingest_practice_results(
     inserted_total = 0
     for ev in (
         db.query(models.Event)
+        .options(joinedload(models.Event.circuit))
         .filter(models.Event.season_id == season_id)
         .all()
     ):
@@ -458,36 +476,44 @@ def ingest_practice_results(
             )
             .all()
         }
-        if not sessions_by_kind:
-            continue
-        # Cars by (number, race_class_id) so we can resolve correctly
-        # in the (rare) case where the same number is used in multiple
-        # classes within a season.
         cars = (
             db.query(models.Car)
             .filter(models.Car.season_id == season_id)
             .all()
         )
+        if not cars:
+            # No entry list for this season — practice rows would have
+            # nothing to attach to.
+            continue
         cars_by_key = {(c.number, c.race_class_id): c for c in cars}
         cars_by_number: dict[str, models.Car] = {}
         for c in cars:
-            # Only set if no collision; otherwise we'll fall back to the
-            # CSV's CLASS column to disambiguate.
             cars_by_number.setdefault(c.number, c)
-            if c.number in cars_by_number and cars_by_number[c.number] is not c:
-                cars_by_number[c.number] = c  # last wins; key lookup preferred
 
         race_class_ids: dict[str, int] = {
             rc.name: rc.id for rc in db.query(models.RaceClass).all()
         }
+        circuit_tz = (
+            tz_for_circuit(ev.circuit.name) if ev.circuit else None
+        )
 
         csvs = _list_session_csvs(season_param, evvent_param)
-        for kind, _cls, classification_url, analysis_url in csvs:
+        for kind, _cls, classification_url, analysis_url, timestamp in csvs:
             if kind not in ("FP1", "FP2", "FP3"):
                 continue
             session = sessions_by_kind.get(kind)
             if session is None:
-                continue
+                # Older Wikipedia pages didn't have practice tables, so
+                # we never created the session. Spin it up now from the
+                # Al Kamel folder timestamp.
+                session = models.Session(
+                    event_id=ev.id,
+                    type=kind,
+                    start_time=_timestamp_to_utc(timestamp, circuit_tz),
+                )
+                db.add(session)
+                db.flush()
+                sessions_by_kind[kind] = session
             try:
                 rows = _parse_classification_full(_fetch(classification_url))
             except httpx.HTTPError:
