@@ -102,6 +102,9 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
               <TableHead>Team</TableHead>
               <TableHead className="hidden md:table-cell">Drivers</TableHead>
               <TableHead className="w-16">Class</TableHead>
+              {sort === "grid" && (
+                <TableHead className="pr-4 w-24 text-right">Time</TableHead>
+              )}
               {sort === "q" && (
                 <TableHead className="pr-4 w-24 text-right">Q lap</TableHead>
               )}
@@ -146,6 +149,11 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
                   <TableCell>
                     <ClassBadge raceClass={row.raceClass} />
                   </TableCell>
+                  {sort === "grid" && (
+                    <TableCell className="pr-4 text-right font-mono tabular-nums">
+                      {row.hyperpoleLap ?? row.qualifyingLap ?? "—"}
+                    </TableCell>
+                  )}
                   {sort === "q" && (
                     <TableCell className="pr-4 text-right font-mono tabular-nums">
                       {row.qualifyingLap ?? "—"}
