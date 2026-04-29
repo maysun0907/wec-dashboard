@@ -83,6 +83,9 @@ export type SessionResult = {
    *  Al Kamel timing CSVs; null when we couldn't match. */
   qualifyingDriver: string | null;
   hyperpoleDriver: string | null;
+  /** Pit stop count from Al Kamel race analysis. Null for non-race or
+   *  un-enriched seasons. */
+  pitStops: number | null;
 };
 
 export type DriverEntry = {

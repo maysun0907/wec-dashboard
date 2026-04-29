@@ -131,6 +131,7 @@ def session_results(
                 hyperpole_lap=r.hyperpole_lap,
                 qualifying_driver=r.qualifying_driver,
                 hyperpole_driver=r.hyperpole_driver,
+                pit_stops=r.pit_stops,
             )
         )
     return out

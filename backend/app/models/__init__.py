@@ -160,6 +160,9 @@ class SessionResult(Base):
     # we couldn't match — older seasons predate hyperpole, etc.
     qualifying_driver: Mapped[str | None] = mapped_column(String(120), default=None)
     hyperpole_driver: Mapped[str | None] = mapped_column(String(120), default=None)
+    # Pit stop count per car for race sessions, derived from Al Kamel
+    # lap analysis (laps with a non-empty PIT_TIME).
+    pit_stops: Mapped[int | None] = mapped_column(default=None)
     status: Mapped[str | None] = mapped_column(String(50), default=None)
     # Slash-joined names of drivers who actually raced this car in this
     # session. Populated from race-page classification when available;

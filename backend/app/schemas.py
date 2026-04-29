@@ -133,6 +133,7 @@ class SessionResultOut(_BaseSchema):
     hyperpole_lap: str | None = None
     qualifying_driver: str | None = None
     hyperpole_driver: str | None = None
+    pit_stops: int | None = None
 
 
 # --- Standings ---

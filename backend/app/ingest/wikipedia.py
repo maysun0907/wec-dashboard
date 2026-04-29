@@ -1803,6 +1803,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
         try:
             from app.ingest.alkamel import (
                 enrich_qualifying_drivers,
+                enrich_race_results,
                 ingest_practice_results,
             )
 
@@ -1812,10 +1813,12 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             alkamel_practice_n = ingest_practice_results(
                 db, season.id, year
             )
+            alkamel_race_n = enrich_race_results(db, season.id, year)
         except Exception as exc:  # pragma: no cover - network
             print(f"  alkamel enrichment skipped: {exc}")
             alkamel_drivers_n = 0
             alkamel_practice_n = 0
+            alkamel_race_n = 0
 
         db.commit()
         summary = {
@@ -1831,6 +1834,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             "fiawec_schedule_filled": fiawec_filled,
             "alkamel_qualifying_drivers": alkamel_drivers_n,
             "alkamel_practice_rows": alkamel_practice_n,
+            "alkamel_race_rows": alkamel_race_n,
         }
         print("ingested:")
         for k, v in summary.items():

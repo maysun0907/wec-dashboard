@@ -401,6 +401,15 @@ function ResultsCard({
               )}
               {isRace && (
                 <>
+                  <TableHead className="hidden w-14 text-right lg:table-cell">
+                    Laps
+                  </TableHead>
+                  <TableHead className="hidden w-24 text-right lg:table-cell">
+                    Best lap
+                  </TableHead>
+                  <TableHead className="hidden w-12 text-right md:table-cell">
+                    Pit
+                  </TableHead>
                   <TableHead className="hidden w-12 text-right sm:table-cell">
                     Pts
                   </TableHead>
@@ -447,6 +456,22 @@ function ResultsCard({
                 )}
                 {isRace && (
                   <>
+                    <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground lg:table-cell">
+                      {row.laps ?? "—"}
+                    </TableCell>
+                    <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground lg:table-cell">
+                      {row.bestLap ?? "—"}
+                    </TableCell>
+                    <TableCell
+                      className={
+                        "hidden text-right font-mono tabular-nums md:table-cell " +
+                        (row.pitStops !== null
+                          ? "text-muted-foreground"
+                          : "text-muted-foreground/40")
+                      }
+                    >
+                      {row.pitStops ?? "—"}
+                    </TableCell>
                     <TableCell
                       className={
                         "hidden text-right font-mono tabular-nums sm:table-cell " +
@@ -458,7 +483,7 @@ function ResultsCard({
                       {row.pointsAwarded > 0 ? row.pointsAwarded : "—"}
                     </TableCell>
                     <TableCell className="pr-4 text-right font-mono tabular-nums">
-                      {row.gap ?? "—"}
+                      {row.position === 1 ? "—" : row.gap ?? "—"}
                     </TableCell>
                   </>
                 )}

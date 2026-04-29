@@ -192,6 +192,58 @@ def _list_session_csvs(
     return out
 
 
+# Race folders look like `{event}_FIA WEC/{ts}_Race/{NN}_Hour {N}/`. The
+# final-hour classification CSV is the official result; the analysis CSV
+# next to it covers the whole race.
+_RACE_HOUR_RE = re.compile(
+    r"Results/[^/]+/[^/]+/(\d+_FIA%20WEC)/(\d{12})_Race/"
+    r"(\d{2})_Hour%20(\d+)/",
+    re.IGNORECASE,
+)
+
+
+def _list_race_csvs(
+    season_param: str, evvent_param: str
+) -> tuple[str, str, str] | None:
+    """Find the final-hour Classification + Analysis CSVs for the race
+    weekend's main race. Returns (timestamp, classification_url,
+    analysis_url) or None when no race data has been published."""
+    try:
+        html = _fetch(
+            f"{BASE}/?season={season_param}&evvent={evvent_param}"
+        )
+    except httpx.HTTPError:
+        return None
+    by_hour: dict[int, tuple[str, str, str]] = {}
+    classifications: dict[int, str] = {}
+    analyses: dict[int, str] = {}
+    for href in re.findall(r'href="(Results/[^"]+\.CSV)"', html):
+        decoded = href.replace("%20", " ")
+        slash = decoded.rfind("/")
+        if slash < 0:
+            continue
+        fname = decoded[slash + 1 :]
+        m = _RACE_HOUR_RE.search(href + "/")
+        if m is None:
+            continue
+        hour = int(m.group(4))
+        timestamp = m.group(2)
+        by_hour.setdefault(hour, (timestamp, "", ""))
+        if re.match(r"^(03|90)_Classification_Race", fname, re.IGNORECASE):
+            classifications[hour] = f"{BASE}/{href}"
+        elif re.match(r"^23_Analysis_Race", fname, re.IGNORECASE):
+            analyses[hour] = f"{BASE}/{href}"
+    if not by_hour:
+        return None
+    last_hour = max(by_hour)
+    cl = classifications.get(last_hour)
+    if cl is None:
+        return None
+    an = analyses.get(last_hour, "")
+    timestamp = by_hour[last_hour][0]
+    return timestamp, cl, an
+
+
 # ---------------------------------------------------------------------------
 # CSV parsers
 # ---------------------------------------------------------------------------
@@ -253,6 +305,55 @@ def _parse_classification_full(text: str) -> list[dict[str, str]]:
             }
         )
     return out
+
+
+def _normalize_lap_time(raw: str) -> str:
+    """Race CSVs format laps like `1'32.625` (single-quote separator);
+    timed sessions use `1:32.625`. Normalize to the colon form so the
+    rest of the system stays uniform."""
+    return raw.replace("'", ":")
+
+
+def _parse_race_classification(text: str) -> list[dict[str, str]]:
+    """Race classifications use a different schema than the timed
+    sessions: POSITION/NUMBER/STATUS/LAPS/GAP_FIRST/FL_TIME etc."""
+    out: list[dict[str, str]] = []
+    for r in _parse_csv(text):
+        num = (r.get("NUMBER") or r.get(" NUMBER") or "").strip()
+        if not num:
+            continue
+        out.append(
+            {
+                "position": (r.get("POSITION") or "").strip(),
+                "number": num,
+                "class": (r.get("CLASS") or "").strip(),
+                "team": (r.get("TEAM") or "").strip(),
+                "status": (r.get("STATUS") or "").strip(),
+                "laps": (r.get("LAPS") or r.get(" LAPS") or "").strip(),
+                "gap": (
+                    r.get("GAP_FIRST") or r.get(" GAP_FIRST") or ""
+                ).strip(),
+                "best_lap": _normalize_lap_time(
+                    (r.get("FL_TIME") or r.get(" FL_TIME") or "").strip()
+                ),
+            }
+        )
+    return out
+
+
+def _parse_pit_counts(text: str) -> dict[str, int]:
+    """Count laps where PIT_TIME is set per car. PIT_TIME is the time
+    elapsed in pit lane on that lap; race lap 1 (rolling start) leaves
+    it blank, so each non-empty value corresponds to a real stop."""
+    counts: dict[str, int] = {}
+    for r in _parse_csv(text):
+        num = (r.get("NUMBER") or r.get(" NUMBER") or "").strip()
+        if not num:
+            continue
+        pit = (r.get("PIT_TIME") or r.get(" PIT_TIME") or "").strip()
+        if pit:
+            counts[num] = counts.get(num, 0) + 1
+    return counts
 
 
 def _normalize_class(raw: str) -> str | None:
@@ -597,4 +698,113 @@ def ingest_practice_seasons(
         if season is None:
             continue
         out[y] = ingest_practice_results(db, season.id, y)
+    return out
+
+
+def enrich_race_results(
+    db: Session, season_id: int, year: int
+) -> int:
+    """Pull each race's final-hour Classification + Analysis CSVs from
+    Al Kamel and stamp the matching SessionResult rows with FL_TIME
+    (best_lap), pit_stops, and lap count if Wikipedia missed it.
+    Returns the count of rows touched."""
+    season_param = _season_param_for_year(year)
+    if season_param is None:
+        return 0
+    events = _event_options_for_season(season_param)
+    if not events:
+        return 0
+    by_round = {r: ev for r, ev in events}
+
+    updated = 0
+    for ev in (
+        db.query(models.Event)
+        .filter(models.Event.season_id == season_id)
+        .all()
+    ):
+        evvent_param = by_round.get(ev.round)
+        if evvent_param is None:
+            continue
+        race_session = (
+            db.query(models.Session)
+            .filter(
+                models.Session.event_id == ev.id,
+                models.Session.type == "RACE",
+            )
+            .first()
+        )
+        if race_session is None:
+            continue
+        results = (
+            db.query(models.SessionResult)
+            .options(joinedload(models.SessionResult.car))
+            .filter(models.SessionResult.session_id == race_session.id)
+            .all()
+        )
+        if not results:
+            continue
+        by_car_number = {r.car.number: r for r in results}
+
+        race_csvs = _list_race_csvs(season_param, evvent_param)
+        if race_csvs is None:
+            continue
+        _ts, classification_url, analysis_url = race_csvs
+        try:
+            classification_rows = _parse_race_classification(
+                _fetch(classification_url)
+            )
+        except httpx.HTTPError:
+            continue
+        if not classification_rows:
+            continue
+
+        pit_counts: dict[str, int] = {}
+        if analysis_url:
+            try:
+                pit_counts = _parse_pit_counts(_fetch(analysis_url))
+            except httpx.HTTPError:
+                pit_counts = {}
+
+        for r in classification_rows:
+            row = by_car_number.get(r["number"])
+            if row is None:
+                continue
+            changed = False
+            if r["best_lap"] and row.best_lap != r["best_lap"]:
+                row.best_lap = r["best_lap"]
+                changed = True
+            if r["status"] and row.status != r["status"]:
+                row.status = r["status"]
+                changed = True
+            if r["laps"]:
+                try:
+                    laps_int = int(r["laps"])
+                    if row.laps != laps_int:
+                        row.laps = laps_int
+                        changed = True
+                except ValueError:
+                    pass
+            stops = pit_counts.get(r["number"])
+            if stops is not None and row.pit_stops != stops:
+                row.pit_stops = stops
+                changed = True
+            if changed:
+                updated += 1
+    if updated:
+        db.commit()
+    return updated
+
+
+def enrich_race_seasons(
+    db: Session, years: Iterable[int]
+) -> dict[int, int]:
+    """Bulk race-enrichment helper — {year: rows_updated}."""
+    out: dict[int, int] = {}
+    for y in years:
+        season = (
+            db.query(models.Season).filter(models.Season.year == y).first()
+        )
+        if season is None:
+            continue
+        out[y] = enrich_race_results(db, season.id, y)
     return out
