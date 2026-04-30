@@ -69,6 +69,7 @@ export type SessionResult = {
   pointsAwarded: number;
   carNumber: string;
   team: string;
+  teamId: number | null;
   drivers: string;
   raceClass: RaceClass;
   laps: number | null;
@@ -167,6 +168,7 @@ export type TeamCar = {
   number: string;
   raceClass: RaceClass;
   model: string | null;
+  carModelSlug: string | null;
   drivers: DriverRef[];
 };
 
@@ -574,6 +576,7 @@ export const getLapChart = (sessionId: number) =>
 export type PitStop = {
   carNumber: string;
   team: string;
+  teamId: number | null;
   raceClass: RaceClass;
   lap: number;
   durationMs: number | null;

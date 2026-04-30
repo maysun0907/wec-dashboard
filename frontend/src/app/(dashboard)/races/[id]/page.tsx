@@ -24,6 +24,7 @@ import { ClassBadge } from "@/components/class-badge";
 import { QualifyingResultsTable } from "@/components/qualifying-results-table";
 import { PitStopsCard } from "@/components/pit-stops-card";
 import { RaceLapChart } from "@/components/race-lap-chart";
+import { TeamLink } from "@/components/entity-link";
 import {
   eventStatus,
   getEvent,
@@ -274,7 +275,9 @@ function SessionWinnersCard({
                   #{r.carNumber}
                 </span>
               </div>
-              <div className="font-semibold">{r.team}</div>
+              <TeamLink id={r.teamId} className="block font-semibold">
+                {r.team}
+              </TeamLink>
               {r.drivers && (
                 <div className="text-sm text-muted-foreground">
                   {r.drivers}
@@ -359,7 +362,9 @@ function PracticeFastestCard({
                     #{r.carNumber}
                   </span>
                 </div>
-                <div className="font-semibold">{r.team}</div>
+                <TeamLink id={r.teamId} className="block font-semibold">
+                  {r.team}
+                </TeamLink>
                 {r.drivers && (
                   <div className="text-sm text-muted-foreground">
                     {r.drivers}
@@ -449,7 +454,9 @@ function ResultsCard({
                 <TableCell className="font-mono tabular-nums">
                   {row.carNumber}
                 </TableCell>
-                <TableCell className="font-medium">{row.team}</TableCell>
+                <TableCell className="font-medium">
+                  <TeamLink id={row.teamId}>{row.team}</TeamLink>
+                </TableCell>
                 <TableCell className="hidden text-muted-foreground md:table-cell">
                   {row.drivers}
                 </TableCell>

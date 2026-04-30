@@ -127,6 +127,7 @@ def session_results(
                 points_awarded=pts,
                 car_number=r.car.number,
                 team=r.car.team.name,
+                team_id=r.car.team_id,
                 drivers=r.drivers or " / ".join(drivers_by_car.get(r.car_id, [])),
                 race_class=r.car.race_class.name,
                 laps=r.laps,
@@ -310,6 +311,7 @@ def session_pit_stops(
         schemas.PitStopOut(
             car_number=car.number,
             team=team.name,
+            team_id=team.id,
             race_class=rc.name,
             lap=ps.lap_number,
             duration_ms=ps.duration_ms,

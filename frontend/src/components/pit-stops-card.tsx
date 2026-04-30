@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClassBadge } from "@/components/class-badge";
+import { TeamLink } from "@/components/entity-link";
 import { getPitStops, type PitStop } from "@/lib/api";
 
 function formatDuration(ms: number | null): string {
@@ -61,7 +62,9 @@ export async function PitStopsCard({ sessionId }: { sessionId: number }) {
                 <TableCell className="font-mono tabular-nums">
                   {s.carNumber}
                 </TableCell>
-                <TableCell className="truncate">{s.team}</TableCell>
+                <TableCell className="truncate">
+                  <TeamLink id={s.teamId}>{s.team}</TeamLink>
+                </TableCell>
                 <TableCell>
                   <ClassBadge raceClass={s.raceClass} />
                 </TableCell>

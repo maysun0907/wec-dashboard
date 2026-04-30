@@ -125,6 +125,7 @@ class SessionResultOut(_BaseSchema):
     points_awarded: float = 0.0
     car_number: str
     team: str
+    team_id: int | None = None  # for /teams/{id} links from result tables
     drivers: str  # "Robert Kubica / Yifei Ye / Phil Hanson"
     race_class: str
     laps: int | None = None
@@ -227,6 +228,7 @@ class TeamCarOut(_BaseSchema):
     number: str
     race_class: str
     model: str | None = None
+    car_model_slug: str | None = None  # for /cars/{slug} links
     drivers: list[DriverRef] = []
 
 
@@ -545,6 +547,7 @@ class PitStopOut(_BaseSchema):
 
     car_number: str
     team: str
+    team_id: int | None = None
     race_class: str
     lap: int
     duration_ms: int | None = None

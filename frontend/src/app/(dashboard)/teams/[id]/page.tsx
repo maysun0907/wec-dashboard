@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/table";
 import { ChampionBadge } from "@/components/champion-badge";
 import { ClassBadge } from "@/components/class-badge";
+import { CarModelLink } from "@/components/entity-link";
 import { DriverPhoto } from "@/components/driver-photo";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import {
@@ -111,9 +112,12 @@ export default async function TeamDetailPage({
                   <div>
                     <CardTitle>
                       <span className="font-mono">#{c.number}</span>{" "}
-                      <span className="text-muted-foreground">
+                      <CarModelLink
+                        slug={c.carModelSlug}
+                        className="text-muted-foreground"
+                      >
                         {c.model ?? ""}
-                      </span>
+                      </CarModelLink>
                     </CardTitle>
                     <CardDescription>
                       {c.drivers.length} drivers

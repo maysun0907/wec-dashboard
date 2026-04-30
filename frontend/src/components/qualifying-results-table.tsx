@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClassBadge } from "@/components/class-badge";
+import { TeamLink } from "@/components/entity-link";
 import { type SessionResult } from "@/lib/api";
 
 type SortMode = "grid" | "q" | "hyperpole";
@@ -186,7 +187,9 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
                   <TableCell className="font-mono tabular-nums">
                     {row.carNumber}
                   </TableCell>
-                  <TableCell className="font-medium">{row.team}</TableCell>
+                  <TableCell className="font-medium">
+                    <TeamLink id={row.teamId}>{row.team}</TeamLink>
+                  </TableCell>
                   <TableCell className="hidden md:table-cell">
                     <DriversCell
                       drivers={row.drivers}

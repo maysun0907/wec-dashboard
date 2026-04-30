@@ -12,6 +12,7 @@ import { ClassBadge } from "@/components/class-badge";
 import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { PageHeader } from "@/components/page-header";
+import { TeamLink } from "@/components/entity-link";
 import { RaceCountdown } from "@/components/race-countdown";
 import { ScheduleRowTime } from "@/components/schedule-row-time";
 import { SessionTime } from "@/components/session-time";
@@ -499,9 +500,12 @@ function SessionRecap({
                   <span className="w-10 font-mono tabular-nums text-muted-foreground">
                     #{r.carNumber}
                   </span>
-                  <span className="min-w-0 flex-1 truncate font-medium">
+                  <TeamLink
+                    id={r.teamId}
+                    className="min-w-0 flex-1 truncate font-medium"
+                  >
                     {r.team}
-                  </span>
+                  </TeamLink>
                   {r.bestLap && (
                     <span className="font-mono tabular-nums">
                       {r.bestLap}
@@ -528,7 +532,12 @@ function SessionRecap({
               #{r.carNumber}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block font-medium">{r.team}</span>
+              <TeamLink
+                id={r.teamId}
+                className="block font-medium"
+              >
+                {r.team}
+              </TeamLink>
               <span className="block text-xs text-muted-foreground">
                 {r.drivers}
               </span>
@@ -562,9 +571,12 @@ function SessionRecap({
                 <span className="w-10 font-mono tabular-nums text-muted-foreground">
                   #{r.carNumber}
                 </span>
-                <span className="min-w-0 flex-1 truncate font-medium">
+                <TeamLink
+                  id={r.teamId}
+                  className="min-w-0 flex-1 truncate font-medium"
+                >
                   {r.team}
-                </span>
+                </TeamLink>
                 <span className="font-mono tabular-nums text-muted-foreground">
                   {r.gap ?? "—"}
                 </span>

@@ -153,7 +153,10 @@ def get_team(
     # All cars this team operates this season
     cars = (
         db.query(models.Car)
-        .options(joinedload(models.Car.race_class))
+        .options(
+            joinedload(models.Car.race_class),
+            joinedload(models.Car.car_model),
+        )
         .filter(models.Car.team_id == team_id)
         .filter(models.Car.season_id == season.id)
         .all()
@@ -204,6 +207,7 @@ def get_team(
                 number=c.number,
                 race_class=c.race_class.name,
                 model=c.model,
+                car_model_slug=c.car_model.slug if c.car_model else None,
                 drivers=[
                     schemas.DriverRef(
                         id=d.id,

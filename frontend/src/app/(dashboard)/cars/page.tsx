@@ -95,20 +95,12 @@ export default async function CarsPage() {
                 </p>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {models.map((m) => {
-                    const card = <ModelCard entry={m} />;
-                    return m.slug ? (
-                      <Link
-                        key={`${m.raceClass}-${m.slug}`}
-                        href={`/cars/${m.slug}`}
-                        className="block transition-colors hover:[&_[data-slot=card]]:ring-foreground/30"
-                      >
-                        {card}
-                      </Link>
-                    ) : (
-                      <div key={`${m.raceClass}-${m.model}`}>{card}</div>
-                    );
-                  })}
+                  {models.map((m) => (
+                    <ModelCard
+                      key={`${m.raceClass}-${m.slug ?? m.model}`}
+                      entry={m}
+                    />
+                  ))}
                 </div>
               )}
             </TabsContent>
@@ -131,7 +123,18 @@ function ModelCard({ entry }: { entry: CarModelEntry }) {
           size="md"
         />
         <div className="min-w-0 flex-1 space-y-1">
-          <CardTitle className="truncate">{entry.model}</CardTitle>
+          <CardTitle className="truncate">
+            {entry.slug ? (
+              <Link
+                href={`/cars/${entry.slug}`}
+                className="hover:text-[var(--racing-red)]"
+              >
+                {entry.model}
+              </Link>
+            ) : (
+              entry.model
+            )}
+          </CardTitle>
           <CardDescription>
             {entry.manufacturer ?? "Independent"}
           </CardDescription>
@@ -154,7 +157,12 @@ function ModelCard({ entry }: { entry: CarModelEntry }) {
                 <span className="w-10 shrink-0 font-mono text-muted-foreground tabular-nums">
                   #{c.carNumber}
                 </span>
-                <span className="truncate">{c.teamName}</span>
+                <Link
+                  href={`/teams/${c.teamId}`}
+                  className="truncate hover:text-[var(--racing-red)]"
+                >
+                  {c.teamName}
+                </Link>
               </li>
             ))}
         </ul>
