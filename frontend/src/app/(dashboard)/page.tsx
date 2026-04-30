@@ -336,20 +336,21 @@ function StandingsCard<T extends { position: number; points: number }>({
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col justify-center">
+      <CardContent className="flex flex-1 flex-col">
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No standings yet for this season.
           </p>
         ) : (
-          <ul className="space-y-2.5">
+          <ul className="flex flex-1 flex-col justify-between gap-2">
             {rows.map((row) => {
               const detail = rowDetail(row);
               const logo = rowLogo?.(row);
               const pct = Math.max(8, Math.round((row.points / leader) * 100));
               const isLeader = row.position === 1;
+              const gap = leader - row.points;
               return (
-                <li key={rowKey(row)} className="relative">
+                <li key={rowKey(row)} className="relative flex-1">
                   {/* Horizontal point-bar fill — scaled to leader. */}
                   <div className="absolute inset-y-0 left-0 right-0 overflow-hidden rounded-md">
                     <div
@@ -357,12 +358,12 @@ function StandingsCard<T extends { position: number; points: number }>({
                       style={{
                         width: `${pct}%`,
                         background: isLeader
-                          ? "linear-gradient(90deg, color-mix(in oklab, var(--racing-red) 26%, transparent), color-mix(in oklab, var(--racing-red) 6%, transparent))"
-                          : "linear-gradient(90deg, color-mix(in oklab, var(--foreground) 9%, transparent), transparent)",
+                          ? "linear-gradient(90deg, color-mix(in oklab, var(--racing-red) 28%, transparent), color-mix(in oklab, var(--racing-red) 6%, transparent))"
+                          : "linear-gradient(90deg, color-mix(in oklab, var(--foreground) 10%, transparent), transparent)",
                       }}
                     />
                   </div>
-                  <div className="relative flex items-center gap-3 rounded-md px-3 py-2.5">
+                  <div className="relative flex h-full items-center gap-3 rounded-md px-3 py-2">
                     <span
                       className={
                         "font-heading w-6 shrink-0 text-center text-lg font-bold tabular-nums " +
@@ -382,10 +383,16 @@ function StandingsCard<T extends { position: number; points: number }>({
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="truncate font-medium">{rowName(row)}</div>
-                      {detail && (
+                      {detail ? (
                         <div className="truncate text-xs text-muted-foreground">
                           {detail}
                         </div>
+                      ) : (
+                        !isLeader && (
+                          <div className="truncate text-xs text-muted-foreground">
+                            −{gap} from leader
+                          </div>
+                        )
                       )}
                     </div>
                     <span className="font-heading shrink-0 text-2xl font-extrabold tabular-nums">
@@ -398,7 +405,7 @@ function StandingsCard<T extends { position: number; points: number }>({
           </ul>
         )}
       </CardContent>
-      <div className="mt-auto px-4 pt-2 pb-1 text-right text-xs">
+      <div className="mt-2 px-4 pt-2 pb-1 text-right text-xs">
         <Link
           href="/standings"
           className="text-muted-foreground hover:text-foreground"
