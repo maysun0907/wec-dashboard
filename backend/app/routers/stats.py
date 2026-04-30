@@ -229,16 +229,36 @@ def _le_mans_winners(db: Session) -> list[dict[str, Any]]:
             continue
         seen_years.add(race_year)
         sr, car, team, manuf = winner
+        # Look up driver IDs by name for the winning car (so the front
+        # end can /drivers/{id}-link each name in the slash-joined list).
+        car_driver_rows = (
+            db.query(models.CarDriver, models.Driver)
+            .join(models.Driver, models.CarDriver.driver_id == models.Driver.id)
+            .filter(
+                models.CarDriver.car_id == car.id,
+                models.CarDriver.season_id == ev.season_id,
+            )
+            .all()
+        )
+        name_to_id = {d.name: d.id for _cd, d in car_driver_rows}
+        refs: list[dict[str, Any]] = []
+        if sr.drivers:
+            for nm in (n.strip() for n in sr.drivers.split("/") if n.strip()):
+                drv_id = name_to_id.get(nm)
+                if drv_id is not None:
+                    refs.append({"id": drv_id, "name": nm})
         out.append(
             {
                 "year": race_year,
                 "event_id": ev.id,
                 "manufacturer": manuf.name if manuf else None,
+                "manufacturer_id": manuf.id if manuf else None,
                 "manufacturer_logo_url": manuf.logo_url if manuf else None,
                 "team": team.name,
                 "team_id": team.id,
                 "car_number": car.number,
                 "drivers": sr.drivers or "",
+                "driver_refs": refs,
             }
         )
     return out

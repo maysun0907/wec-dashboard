@@ -468,11 +468,13 @@ class LeMansWinnerOut(_BaseSchema):
     year: int
     event_id: int
     manufacturer: str | None = None
+    manufacturer_id: int | None = None
     manufacturer_logo_url: str | None = None
     team: str
     team_id: int
     car_number: str
     drivers: str
+    driver_refs: list[SessionResultDriverRef] = []
 
 
 class AllTimeStatsOut(_BaseSchema):

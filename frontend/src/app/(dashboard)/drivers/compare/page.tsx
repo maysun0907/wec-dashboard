@@ -224,7 +224,14 @@ function StatsTable({ drivers }: { drivers: DriverDetail[] }) {
               : null;
             return (
               <tr key={d.id} className="border-b border-border/50 last:border-0">
-                <td className="px-4 py-2 font-medium">{d.name}</td>
+                <td className="px-4 py-2 font-medium">
+                  <Link
+                    href={`/drivers/${d.id}`}
+                    className="hover:text-[var(--racing-red)]"
+                  >
+                    {d.name}
+                  </Link>
+                </td>
                 <td className="px-2 py-2 text-right font-mono tabular-nums">
                   {d.standing ? `P${d.standing.position}` : "—"}
                 </td>
@@ -394,7 +401,14 @@ function HeadToHeadMatrix({ drivers }: { drivers: DriverDetail[] }) {
             const total = wins[i]!.reduce((s, n) => s + n, 0);
             return (
               <tr key={d.id} className="border-b border-border/50 last:border-0">
-                <td className="px-4 py-2 font-medium">{d.name}</td>
+                <td className="px-4 py-2 font-medium">
+                  <Link
+                    href={`/drivers/${d.id}`}
+                    className="hover:text-[var(--racing-red)]"
+                  >
+                    {d.name}
+                  </Link>
+                </td>
                 {drivers.map((_, j) => (
                   <td
                     key={j}

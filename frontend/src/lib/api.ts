@@ -443,11 +443,13 @@ export type LeMansWinner = {
   year: number;
   eventId: number;
   manufacturer: string | null;
+  manufacturerId: number | null;
   manufacturerLogoUrl: string | null;
   team: string;
   teamId: number;
   carNumber: string;
   drivers: string;
+  driverRefs: SessionResultDriverRef[];
 };
 
 export type AllTimeStats = {

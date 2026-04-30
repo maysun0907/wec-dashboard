@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DriverPhoto } from "@/components/driver-photo";
+import { DriverList } from "@/components/entity-link";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { PageHeader } from "@/components/page-header";
 import {
@@ -221,7 +222,7 @@ function LeMansTable({ rows }: { rows: LeMansWinner[] }) {
               </Link>
             </TableCell>
             <TableCell className="text-muted-foreground">
-              {r.drivers}
+              <DriverList refs={r.driverRefs} text={r.drivers} />
             </TableCell>
             <TableCell className="hidden pr-4 sm:table-cell">
               <span className="inline-flex items-center gap-2">
