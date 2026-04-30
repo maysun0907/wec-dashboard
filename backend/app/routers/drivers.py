@@ -114,6 +114,7 @@ def _driver_career(
             schemas.DriverSeasonOut(
                 year=season.year,
                 team=team.name,
+                team_id=team.id,
                 manufacturer=manuf.name if manuf else None,
                 manufacturer_logo_url=manuf.logo_url if manuf else None,
                 race_class=rc.name,
@@ -159,6 +160,7 @@ def get_driver(
             models.Manufacturer, models.Team.manufacturer_id == models.Manufacturer.id
         )
         .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
+        .options(joinedload(models.Car.car_model))
         .filter(models.CarDriver.driver_id == driver_id)
         .filter(models.CarDriver.season_id == season.id)
         .first()
@@ -216,11 +218,13 @@ def get_driver(
         nationality=driver.nationality,
         car_number=car.number,
         team=team.name,
+        team_id=team.id,
         manufacturer=manuf.name if manuf else None,
         manufacturer_logo_url=manuf.logo_url if manuf else None,
         photo_url=driver.photo_url,
         race_class=rc.name,
         car_model=car.model,
+        car_model_slug=car.car_model.slug if car.car_model else None,
         co_drivers=[
             schemas.DriverRef(
                 id=d.id, name=d.name, rounds=cd.rounds, photo_url=d.photo_url

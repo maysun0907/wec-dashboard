@@ -19,6 +19,7 @@ import {
 import { ChampionBadge } from "@/components/champion-badge";
 import { ClassBadge } from "@/components/class-badge";
 import { DriverPhoto } from "@/components/driver-photo";
+import { CarModelLink, TeamLink } from "@/components/entity-link";
 import { Flag } from "@/components/flag";
 import { FormChart } from "@/components/form-chart";
 import {
@@ -94,7 +95,12 @@ export default async function DriverDetailPage({
                 </span>
               )}
               {driver.team && (
-                <span className="text-muted-foreground">{driver.team}</span>
+                <TeamLink
+                  id={driver.teamId}
+                  className="text-muted-foreground"
+                >
+                  {driver.team}
+                </TeamLink>
               )}
             </div>
             <CardTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl sm:text-3xl">
@@ -110,9 +116,14 @@ export default async function DriverDetailPage({
               />
             </CardTitle>
             <CardDescription>
-              {[driver.manufacturer, driver.carModel]
-                .filter(Boolean)
-                .join(" · ") || "—"}
+              {driver.manufacturer && <span>{driver.manufacturer}</span>}
+              {driver.manufacturer && driver.carModel && <span> · </span>}
+              {driver.carModel && (
+                <CarModelLink slug={driver.carModelSlug}>
+                  {driver.carModel}
+                </CarModelLink>
+              )}
+              {!driver.manufacturer && !driver.carModel && "—"}
             </CardDescription>
           </div>
         </CardHeader>
@@ -346,7 +357,9 @@ function CareerTable({ rows }: { rows: DriverSeason[] }) {
                     src={s.manufacturerLogoUrl}
                     name={s.manufacturer ?? s.team}
                   />
-                  <span className="truncate">{s.team}</span>
+                  <TeamLink id={s.teamId} className="truncate">
+                    {s.team}
+                  </TeamLink>
                 </span>
               </TableCell>
               <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground sm:table-cell">

@@ -191,6 +191,7 @@ class DriverSeasonOut(_BaseSchema):
 
     year: int
     team: str
+    team_id: int | None = None
     manufacturer: str | None = None
     manufacturer_logo_url: str | None = None
     race_class: str
@@ -212,11 +213,13 @@ class DriverDetailOut(_BaseSchema):
     nationality: str | None = None
     car_number: str | None = None
     team: str | None = None
+    team_id: int | None = None
     manufacturer: str | None = None
     manufacturer_logo_url: str | None = None
     photo_url: str | None = None
     race_class: str | None = None
     car_model: str | None = None
+    car_model_slug: str | None = None
     co_drivers: list[DriverRef] = []
     results: list[DriverResultOut] = []
     standing: DriverStandingRef | None = None
