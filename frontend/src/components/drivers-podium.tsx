@@ -62,91 +62,47 @@ type Driver = {
   photoUrl: string | null;
 };
 
-export function DriversPodium({
-  rows,
-  rounds,
-  label = "Drivers",
-}: {
+type ClassPodium = {
+  label: string;
   rows: Driver[];
+};
+
+export function DriversPodium({
+  classes,
+  rounds,
+}: {
+  /** One entry per class (Hypercar, LMGT3, …) — renders stacked in
+   *  the same card. Empty `rows` arrays are skipped. */
+  classes: ClassPodium[];
   rounds: number;
-  /** Title prefix — e.g. "Hypercar Drivers" / "LMGT3 Drivers". */
-  label?: string;
 }) {
-  if (rows.length === 0) return null;
+  const visible = classes.filter((c) => c.rows.length > 0);
+  if (visible.length === 0) return null;
 
   return (
     <Card className="flex h-full flex-col">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>{label} · Top 3</CardTitle>
+          <CardTitle>Drivers · Top 3</CardTitle>
           <Badge variant="outline" className="text-[10px]">
             After R{rounds}
           </Badge>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-3 items-end gap-3 sm:gap-6">
-          {rows.map((r) => {
-            const step = stepFor(r.position);
-            return (
-              <div
-                key={r.id}
-                className="flex flex-col items-center text-center"
-              >
-                <div
-                  className={
-                    "relative size-20 rounded-full ring-2 ring-offset-2 ring-offset-card transition-transform hover:scale-105 sm:size-24 " +
-                    step.ring
-                  }
-                >
-                  <Link href={`/drivers/${r.id}`}>
-                    <DriverPhoto
-                      src={r.photoUrl}
-                      name={r.name}
-                      size="xl"
-                      className="size-full"
-                    />
-                  </Link>
-                  <Trophy
-                    className={
-                      "absolute -top-2 -right-1 size-7 drop-shadow-lg " +
-                      step.accent
-                    }
-                    fill="currentColor"
-                  />
-                </div>
-                <Link
-                  href={`/drivers/${r.id}`}
-                  className="mt-3 block truncate font-medium hover:text-[var(--racing-red)]"
-                  title={r.name}
-                >
-                  {r.name}
-                </Link>
-                {r.team && (
-                  <span className="block truncate text-xs text-muted-foreground">
-                    {r.team}
-                  </span>
-                )}
-                <div
-                  className={
-                    "mt-3 flex w-full flex-col items-center rounded-md border border-border/60 px-2 " +
-                    step.bar
-                  }
-                  style={{ background: step.barGradient }}
-                >
-                  <span className="font-heading text-4xl font-extrabold leading-none tabular-nums sm:text-5xl">
-                    {r.points}
-                  </span>
-                  <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-                    pts · P{r.position}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      <CardContent className="space-y-6">
+        {visible.map((cls) => (
+          <div key={cls.label} className="space-y-3">
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+                {cls.label}
+              </span>
+              <span className="h-px flex-1 bg-border/60" />
+            </div>
+            <PodiumRow rows={cls.rows} />
+          </div>
+        ))}
       </CardContent>
-      <div className="px-4 pb-3 text-right text-xs">
+      <div className="mt-auto px-4 pb-3 text-right text-xs">
         <Link
           href="/standings"
           className="text-muted-foreground hover:text-foreground"
@@ -155,6 +111,68 @@ export function DriversPodium({
         </Link>
       </div>
     </Card>
+  );
+}
+
+function PodiumRow({ rows }: { rows: Driver[] }) {
+  return (
+    <div className="grid grid-cols-3 items-end gap-3 sm:gap-6">
+      {rows.map((r) => {
+        const step = stepFor(r.position);
+        return (
+          <div key={r.id} className="flex flex-col items-center text-center">
+            <div
+              className={
+                "relative size-16 rounded-full ring-2 ring-offset-2 ring-offset-card transition-transform hover:scale-105 sm:size-20 " +
+                step.ring
+              }
+            >
+              <Link href={`/drivers/${r.id}`}>
+                <DriverPhoto
+                  src={r.photoUrl}
+                  name={r.name}
+                  size="xl"
+                  className="size-full"
+                />
+              </Link>
+              <Trophy
+                className={
+                  "absolute -top-2 -right-1 size-6 drop-shadow-lg " +
+                  step.accent
+                }
+                fill="currentColor"
+              />
+            </div>
+            <Link
+              href={`/drivers/${r.id}`}
+              className="mt-2 block w-full truncate text-sm font-medium hover:text-[var(--racing-red)]"
+              title={r.name}
+            >
+              {r.name}
+            </Link>
+            {r.team && (
+              <span className="block w-full truncate text-[11px] text-muted-foreground">
+                {r.team}
+              </span>
+            )}
+            <div
+              className={
+                "mt-2 flex w-full flex-col items-center rounded-md border border-border/60 px-2 " +
+                step.bar
+              }
+              style={{ background: step.barGradient }}
+            >
+              <span className="font-heading text-3xl font-extrabold leading-none tabular-nums sm:text-4xl">
+                {r.points}
+              </span>
+              <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                pts · P{r.position}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 

@@ -80,7 +80,7 @@ export default async function HomePage() {
     mfrStandings.find((m) => m.position === 1) ?? null;
 
   // Pull race results for the last completed event in a second hop.
-  let lastResult: SessionResult[] = [];
+  let lastResultByClass: { label: string; rows: SessionResult[] }[] = [];
   let lastEventName = "";
   if (last) {
     lastEventName = last.name;
@@ -88,7 +88,18 @@ export default async function HomePage() {
       const detail = await getEvent(last.id);
       const raceSession = getSessionByType(detail.sessions, "RACE");
       if (raceSession) {
-        lastResult = (await getSessionResults(raceSession.id)).slice(0, 5);
+        const all = await getSessionResults(raceSession.id);
+        // Top 5 per class, ordered by class_position. Renders Hypercar
+        // above LMGT3 even when an LMGT3 car beat a hypercar overall.
+        const topPerClass = (cls: string) =>
+          all
+            .filter((r) => r.raceClass === cls)
+            .sort((a, b) => a.classPosition - b.classPosition)
+            .slice(0, 5);
+        lastResultByClass = [
+          { label: "Hypercar", rows: topPerClass("HYPERCAR") },
+          { label: "LMGT3", rows: topPerClass("LMGT3") },
+        ].filter((c) => c.rows.length > 0);
       }
     } catch {
       // best-effort — leave empty if endpoint fails
@@ -125,33 +136,28 @@ export default async function HomePage() {
 
       <section className="grid items-stretch gap-6 lg:grid-cols-2">
         <DriversPodium
-          label="Hypercar Drivers"
-          rows={hypercarPodium}
+          classes={[
+            { label: "Hypercar", rows: hypercarPodium },
+            { label: "LMGT3", rows: lmgt3Podium },
+          ]}
           rounds={completedRounds}
         />
-        <DriversPodium
-          label="LMGT3 Drivers"
-          rows={lmgt3Podium}
+        <StandingsCard
+          title="Manufacturers"
+          rows={mfrStandings.slice(0, 5)}
+          rowKey={(r) => `m-${r.manufacturerId}`}
+          rowName={(r) => r.manufacturerName}
+          rowDetail={() => undefined}
+          rowLogo={(r) => r.manufacturerLogoUrl}
           rounds={completedRounds}
         />
       </section>
 
-      {mfrStandings.length > 0 && (
-        <section className="lg:max-w-[calc(50%-0.75rem)]">
-          <StandingsCard
-            title="Hypercar Manufacturers"
-            rows={mfrStandings.slice(0, 5)}
-            rowKey={(r) => `m-${r.manufacturerId}`}
-            rowName={(r) => r.manufacturerName}
-            rowDetail={() => undefined}
-            rowLogo={(r) => r.manufacturerLogoUrl}
-            rounds={completedRounds}
-          />
-        </section>
-      )}
-
-      {lastEventName && (
-        <LastResultCard eventName={lastEventName} rows={lastResult} />
+      {lastEventName && lastResultByClass.length > 0 && (
+        <LastResultCard
+          eventName={lastEventName}
+          classes={lastResultByClass}
+        />
       )}
     </div>
   );
@@ -406,10 +412,10 @@ function StandingsCard<T extends { position: number; points: number }>({
 
 function LastResultCard({
   eventName,
-  rows,
+  classes,
 }: {
   eventName: string;
-  rows: SessionResult[];
+  classes: { label: string; rows: SessionResult[] }[];
 }) {
   return (
     <Card>
@@ -422,47 +428,49 @@ function LastResultCard({
           <Badge variant="secondary">Top 5</Badge>
         </div>
       </CardHeader>
-      <CardContent className="px-0">
-        {rows.length === 0 ? (
-          <p className="px-4 pb-4 text-sm text-muted-foreground">
-            No results published.
-          </p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12 pl-4">Pos</TableHead>
-                <TableHead className="w-12">#</TableHead>
-                <TableHead>Team</TableHead>
-                <TableHead className="hidden md:table-cell">Drivers</TableHead>
-                <TableHead className="w-16">Class</TableHead>
-                <TableHead className="pr-4 text-right">Gap</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={`${row.position}-${row.carNumber}`}>
-                  <TableCell className="pl-4 font-mono tabular-nums">
-                    {row.position}
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {row.carNumber}
-                  </TableCell>
-                  <TableCell className="font-medium">{row.team}</TableCell>
-                  <TableCell className="hidden text-muted-foreground md:table-cell">
-                    {row.drivers}
-                  </TableCell>
-                  <TableCell>
-                    <ClassBadge raceClass={row.raceClass} />
-                  </TableCell>
-                  <TableCell className="pr-4 text-right font-mono tabular-nums">
-                    {row.gap ?? "—"}
-                  </TableCell>
+      <CardContent className="space-y-6 px-0">
+        {classes.map((cls) => (
+          <div key={cls.label}>
+            <div className="flex items-center gap-3 px-4 pb-2">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">
+                {cls.label}
+              </span>
+              <span className="h-px flex-1 bg-border/60" />
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12 pl-4">Pos</TableHead>
+                  <TableHead className="w-12">#</TableHead>
+                  <TableHead>Team</TableHead>
+                  <TableHead className="hidden md:table-cell">
+                    Drivers
+                  </TableHead>
+                  <TableHead className="pr-4 text-right">Gap</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
+              </TableHeader>
+              <TableBody>
+                {cls.rows.map((row) => (
+                  <TableRow key={`${row.position}-${row.carNumber}`}>
+                    <TableCell className="pl-4 font-mono tabular-nums">
+                      {row.classPosition}
+                    </TableCell>
+                    <TableCell className="font-mono tabular-nums">
+                      {row.carNumber}
+                    </TableCell>
+                    <TableCell className="font-medium">{row.team}</TableCell>
+                    <TableCell className="hidden text-muted-foreground md:table-cell">
+                      {row.drivers}
+                    </TableCell>
+                    <TableCell className="pr-4 text-right font-mono tabular-nums">
+                      {row.gap ?? "—"}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        ))}
       </CardContent>
     </Card>
   );
