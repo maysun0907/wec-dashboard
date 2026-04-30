@@ -27,24 +27,24 @@ type StepStyle = {
 // display slot.
 const STEPS: Record<number, StepStyle> = {
   1: {
-    bar: "h-32",
+    bar: "py-3",
     accent: "text-yellow-400",
     barGradient:
-      "linear-gradient(180deg, rgba(250,204,21,0.18) 0%, rgba(250,204,21,0.04) 100%)",
+      "linear-gradient(180deg, rgba(250,204,21,0.20) 0%, rgba(250,204,21,0.04) 100%)",
     ring: "ring-yellow-400/60",
   },
   2: {
-    bar: "h-24",
+    bar: "py-3",
     accent: "text-gray-300",
     barGradient:
-      "linear-gradient(180deg, rgba(229,231,235,0.14) 0%, rgba(229,231,235,0.03) 100%)",
+      "linear-gradient(180deg, rgba(229,231,235,0.16) 0%, rgba(229,231,235,0.03) 100%)",
     ring: "ring-gray-300/50",
   },
   3: {
-    bar: "h-20",
+    bar: "py-3",
     accent: "text-amber-600",
     barGradient:
-      "linear-gradient(180deg, rgba(217,119,6,0.18) 0%, rgba(217,119,6,0.03) 100%)",
+      "linear-gradient(180deg, rgba(217,119,6,0.20) 0%, rgba(217,119,6,0.03) 100%)",
     ring: "ring-amber-600/50",
   },
 };
@@ -126,7 +126,7 @@ export function DriversPodium({
                 )}
                 <div
                   className={
-                    "mt-3 flex w-full flex-col items-center justify-end rounded-t border-t border-border/60 px-2 pb-2 " +
+                    "mt-3 flex w-full flex-col items-center rounded-md border border-border/60 px-2 " +
                     step.bar
                   }
                   style={{ background: step.barGradient }}

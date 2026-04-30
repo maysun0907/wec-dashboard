@@ -33,7 +33,7 @@ export function RaceCountdown({ targetIso }: { targetIso: string }) {
 
   return (
     <div className="flex flex-wrap items-stretch gap-2 sm:gap-3">
-      <Unit value={display.days} label="Days" />
+      <Unit value={pad(display.days)} label="Days" />
       <Sep />
       <Unit value={pad(display.hours)} label="Hours" />
       <Sep />
@@ -46,7 +46,7 @@ export function RaceCountdown({ targetIso }: { targetIso: string }) {
 
 function Unit({ value, label }: { value: number | string; label: string }) {
   return (
-    <div className="flex min-w-[68px] flex-col items-start rounded-md border border-border/60 bg-background/40 px-3 py-2 backdrop-blur-sm sm:min-w-[96px] sm:px-4 sm:py-3">
+    <div className="flex min-w-[68px] flex-col items-center justify-center rounded-md border border-border/60 bg-background/40 px-3 py-2 backdrop-blur-sm sm:min-w-[96px] sm:px-4 sm:py-3">
       <span className="font-heading text-4xl font-extrabold leading-none tabular-nums tracking-tight sm:text-6xl">
         {value}
       </span>

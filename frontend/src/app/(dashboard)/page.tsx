@@ -116,7 +116,7 @@ export default async function HomePage() {
 
       {remaining.length > 0 && <UpcomingCard events={remaining} />}
 
-      <section className="grid gap-6 lg:grid-cols-2">
+      <section className="grid items-stretch gap-6 lg:grid-cols-2">
         <DriversPodium rows={podium} rounds={completedRounds} />
         <StandingsCard
           title="Manufacturers"
@@ -298,8 +298,9 @@ function StandingsCard<T extends { position: number; points: number }>({
   rowLogo?: (r: T) => string | null;
   rounds: number;
 }) {
+  const leader = rows[0]?.points ?? 1;
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>{title} · Top 5</CardTitle>
@@ -308,46 +309,69 @@ function StandingsCard<T extends { position: number; points: number }>({
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="px-0">
+      <CardContent className="flex flex-1 flex-col justify-center">
         {rows.length === 0 ? (
-          <p className="px-4 pb-4 text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             No standings yet for this season.
           </p>
         ) : (
-        <Table>
-          <TableBody>
+          <ul className="space-y-2.5">
             {rows.map((row) => {
               const detail = rowDetail(row);
               const logo = rowLogo?.(row);
+              const pct = Math.max(8, Math.round((row.points / leader) * 100));
+              const isLeader = row.position === 1;
               return (
-                <TableRow key={rowKey(row)}>
-                  <TableCell className="w-10 pl-4 text-muted-foreground tabular-nums">
-                    {row.position}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 font-medium">
-                      {logo !== undefined && (
-                        <ManufacturerLogo src={logo} name={rowName(row)} />
-                      )}
-                      <span>{rowName(row)}</span>
-                    </div>
-                    {detail && (
-                      <div className="text-xs text-muted-foreground">
-                        {detail}
-                      </div>
+                <li key={rowKey(row)} className="relative">
+                  {/* Horizontal point-bar fill — scaled to leader. */}
+                  <div className="absolute inset-y-0 left-0 right-0 overflow-hidden rounded-md">
+                    <div
+                      className="h-full"
+                      style={{
+                        width: `${pct}%`,
+                        background: isLeader
+                          ? "linear-gradient(90deg, color-mix(in oklab, var(--racing-red) 26%, transparent), color-mix(in oklab, var(--racing-red) 6%, transparent))"
+                          : "linear-gradient(90deg, color-mix(in oklab, var(--foreground) 9%, transparent), transparent)",
+                      }}
+                    />
+                  </div>
+                  <div className="relative flex items-center gap-3 rounded-md px-3 py-2.5">
+                    <span
+                      className={
+                        "font-heading w-6 shrink-0 text-center text-lg font-bold tabular-nums " +
+                        (isLeader
+                          ? "text-[var(--racing-red)]"
+                          : "text-muted-foreground")
+                      }
+                    >
+                      {row.position}
+                    </span>
+                    {logo !== undefined && (
+                      <ManufacturerLogo
+                        src={logo}
+                        name={rowName(row)}
+                        size="md"
+                      />
                     )}
-                  </TableCell>
-                  <TableCell className="text-right pr-4 font-mono tabular-nums">
-                    {row.points}
-                  </TableCell>
-                </TableRow>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{rowName(row)}</div>
+                      {detail && (
+                        <div className="truncate text-xs text-muted-foreground">
+                          {detail}
+                        </div>
+                      )}
+                    </div>
+                    <span className="font-heading shrink-0 text-2xl font-extrabold tabular-nums">
+                      {row.points}
+                    </span>
+                  </div>
+                </li>
               );
             })}
-          </TableBody>
-        </Table>
+          </ul>
         )}
       </CardContent>
-      <div className="px-4 pt-2 text-right text-xs">
+      <div className="mt-auto px-4 pt-2 pb-1 text-right text-xs">
         <Link
           href="/standings"
           className="text-muted-foreground hover:text-foreground"
