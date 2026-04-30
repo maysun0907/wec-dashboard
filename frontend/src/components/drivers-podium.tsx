@@ -120,21 +120,24 @@ function PodiumRow({ rows }: { rows: Driver[] }) {
       {rows.map((r) => {
         const step = stepFor(r.position);
         return (
-          <div key={r.id} className="flex flex-col items-center text-center">
+          <Link
+            key={r.id}
+            href={`/drivers/${r.id}`}
+            className="group flex flex-col items-center text-center"
+            title={r.name}
+          >
             <div
               className={
-                "relative size-16 rounded-full ring-2 ring-offset-2 ring-offset-card transition-transform hover:scale-105 sm:size-20 " +
+                "relative size-16 rounded-full ring-2 ring-offset-2 ring-offset-card transition-transform group-hover:scale-105 sm:size-20 " +
                 step.ring
               }
             >
-              <Link href={`/drivers/${r.id}`}>
-                <DriverPhoto
-                  src={r.photoUrl}
-                  name={r.name}
-                  size="xl"
-                  className="size-full"
-                />
-              </Link>
+              <DriverPhoto
+                src={r.photoUrl}
+                name={r.name}
+                size="xl"
+                className="size-full"
+              />
               <Trophy
                 className={
                   "absolute -top-2 -right-1 size-6 drop-shadow-lg " +
@@ -143,13 +146,9 @@ function PodiumRow({ rows }: { rows: Driver[] }) {
                 fill="currentColor"
               />
             </div>
-            <Link
-              href={`/drivers/${r.id}`}
-              className="mt-2 block w-full truncate text-sm font-medium hover:text-[var(--racing-red)]"
-              title={r.name}
-            >
+            <span className="mt-2 block w-full truncate text-sm font-medium transition-colors group-hover:text-[var(--racing-red)]">
               {r.name}
-            </Link>
+            </span>
             {r.team && (
               <span className="block w-full truncate text-[11px] text-muted-foreground">
                 {r.team}
@@ -169,7 +168,7 @@ function PodiumRow({ rows }: { rows: Driver[] }) {
                 pts · P{r.position}
               </span>
             </div>
-          </div>
+          </Link>
         );
       })}
     </div>

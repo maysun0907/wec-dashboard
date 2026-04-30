@@ -386,6 +386,7 @@ class StandingDriverOut(_BaseSchema):
     driver_id: int
     driver_name: str
     team: str | None = None
+    team_id: int | None = None
     manufacturer_logo_url: str | None = None
     race_class: str
     points: float
@@ -397,6 +398,7 @@ class StandingTeamOut(_BaseSchema):
     team_name: str
     car_number: str | None = None
     manufacturer: str | None = None
+    manufacturer_id: int | None = None
     manufacturer_logo_url: str | None = None
     race_class: str
     points: float

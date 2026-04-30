@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { DriverPhoto } from "@/components/driver-photo";
+import { TeamLink } from "@/components/entity-link";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import {
   type DriverEntry,
@@ -81,9 +82,12 @@ export function SeasonRecapHero({
                       {c.driverName}
                     </Link>
                     {c.team && (
-                      <span className="block truncate text-xs text-muted-foreground">
+                      <TeamLink
+                        id={c.teamId}
+                        className="block truncate text-xs text-muted-foreground"
+                      >
                         {c.team}
-                      </span>
+                      </TeamLink>
                     )}
                   </div>
                   <span className="font-mono text-sm tabular-nums">

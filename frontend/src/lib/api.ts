@@ -343,6 +343,7 @@ export type StandingDriver = {
   driverId: number;
   driverName: string;
   team: string | null;
+  teamId: number | null;
   manufacturerLogoUrl: string | null;
   raceClass: RaceClass;
   points: number;
@@ -395,6 +396,7 @@ export type StandingTeam = {
   teamName: string;
   carNumber: string | null;
   manufacturer: string | null;
+  manufacturerId: number | null;
   manufacturerLogoUrl: string | null;
   raceClass: RaceClass;
   points: number;

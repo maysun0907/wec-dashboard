@@ -150,6 +150,7 @@ export default async function HomePage() {
           rowName={(r) => r.manufacturerName}
           rowDetail={() => undefined}
           rowLogo={(r) => r.manufacturerLogoUrl}
+          rowHref={(r) => `/manufacturers/${r.manufacturerId}`}
           rounds={completedRounds}
         />
       </section>
@@ -316,6 +317,7 @@ function StandingsCard<T extends { position: number; points: number }>({
   rowName,
   rowDetail,
   rowLogo,
+  rowHref,
   rounds,
 }: {
   title: string;
@@ -324,6 +326,8 @@ function StandingsCard<T extends { position: number; points: number }>({
   rowName: (r: T) => string;
   rowDetail: (r: T) => string | undefined;
   rowLogo?: (r: T) => string | null;
+  /** When provided, the entire row becomes a Link to this URL. */
+  rowHref?: (r: T) => string;
   rounds: number;
 }) {
   const leader = rows[0]?.points ?? 1;
@@ -350,8 +354,9 @@ function StandingsCard<T extends { position: number; points: number }>({
               const pct = Math.max(8, Math.round((row.points / leader) * 100));
               const isLeader = row.position === 1;
               const gap = leader - row.points;
-              return (
-                <li key={rowKey(row)} className="relative flex-1">
+              const href = rowHref?.(row);
+              const inner = (
+                <>
                   {/* Horizontal point-bar fill — scaled to leader. */}
                   <div className="absolute inset-y-0 left-0 right-0 overflow-hidden rounded-md">
                     <div
@@ -383,7 +388,10 @@ function StandingsCard<T extends { position: number; points: number }>({
                       />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-lg font-semibold">
+                      <div
+                        data-slot="row-name"
+                        className="truncate text-lg font-semibold transition-colors"
+                      >
                         {rowName(row)}
                       </div>
                       {detail ? (
@@ -402,6 +410,20 @@ function StandingsCard<T extends { position: number; points: number }>({
                       {row.points}
                     </span>
                   </div>
+                </>
+              );
+              return (
+                <li key={rowKey(row)} className="relative flex-1">
+                  {href ? (
+                    <Link
+                      href={href}
+                      className="block h-full transition-colors hover:[&_[data-slot=row-name]]:text-[var(--racing-red)]"
+                    >
+                      {inner}
+                    </Link>
+                  ) : (
+                    inner
+                  )}
                 </li>
               );
             })}

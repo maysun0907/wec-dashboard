@@ -71,6 +71,7 @@ def driver_standings(
                 driver_id=sd.driver_id,
                 driver_name=d.name,
                 team=t.name if t else None,
+                team_id=t.id if t else None,
                 manufacturer_logo_url=m.logo_url if m else None,
                 race_class=sd.race_class.name,
                 points=sd.points,
@@ -106,6 +107,9 @@ def team_standings(
             car_number=r.car_number,
             manufacturer=(
                 r.team.manufacturer.name if r.team.manufacturer is not None else None
+            ),
+            manufacturer_id=(
+                r.team.manufacturer.id if r.team.manufacturer is not None else None
             ),
             manufacturer_logo_url=(
                 r.team.manufacturer.logo_url
