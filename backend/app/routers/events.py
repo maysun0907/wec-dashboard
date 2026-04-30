@@ -93,6 +93,11 @@ def session_results(
     # otherwise we reconstruct from car_drivers, filtered by event round so
     # TBC / Le-Mans-only drivers don't bleed into other rounds.
     drivers_by_car: dict[int, list[str]] = {}
+    # Parallel id-bearing list keyed the same way as drivers_by_car. Used
+    # to populate `driver_refs` so the frontend can /drivers/{id}-link
+    # each name; the join already has Driver rows, so this is free.
+    driver_refs_by_car: dict[int, list[tuple[int, str]]] = {}
+    name_to_id: dict[str, int] = {}
     if results and season_id is not None:
         car_ids = [r.car_id for r in results]
         rows = (
@@ -108,6 +113,8 @@ def session_results(
             if round_num is not None and not driver_in_round(cd.rounds, round_num):
                 continue
             drivers_by_car.setdefault(cd.car_id, []).append(d.name)
+            driver_refs_by_car.setdefault(cd.car_id, []).append((d.id, d.name))
+            name_to_id[d.name] = d.id
 
     out: list[schemas.SessionResultOut] = []
     for r in results:
@@ -120,6 +127,20 @@ def session_results(
             if (event is not None and session.type == "RACE")
             else 0.0
         )
+        # Pick refs — prefer al kamel's `r.drivers` order when set so the
+        # display text matches the listed lineup, falling back to the
+        # car_drivers join. Names without a Driver match drop from refs
+        # but stay in the display string.
+        refs: list[schemas.SessionResultDriverRef] = []
+        if r.drivers:
+            for nm in (n.strip() for n in r.drivers.split("/") if n.strip()):
+                drv_id = name_to_id.get(nm)
+                if drv_id is not None:
+                    refs.append(schemas.SessionResultDriverRef(id=drv_id, name=nm))
+        else:
+            for did, nm in driver_refs_by_car.get(r.car_id, []):
+                refs.append(schemas.SessionResultDriverRef(id=did, name=nm))
+
         out.append(
             schemas.SessionResultOut(
                 position=r.position,
@@ -129,6 +150,7 @@ def session_results(
                 team=r.car.team.name,
                 team_id=r.car.team_id,
                 drivers=r.drivers or " / ".join(drivers_by_car.get(r.car_id, [])),
+                driver_refs=refs,
                 race_class=r.car.race_class.name,
                 laps=r.laps,
                 gap=r.gap,

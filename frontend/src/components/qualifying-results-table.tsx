@@ -15,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import Link from "next/link";
 import { ClassBadge } from "@/components/class-badge";
 import { TeamLink } from "@/components/entity-link";
 import { type SessionResult } from "@/lib/api";
@@ -49,28 +50,46 @@ function activeDriver(row: SessionResult, sort: SortMode): string | null {
 
 function DriversCell({
   drivers,
+  refs,
   active,
 }: {
   drivers: string;
+  refs: { id: number; name: string }[];
   active: string | null;
 }) {
   const parts = drivers.split(/\s*\/\s*/).filter(Boolean);
   if (parts.length === 0) return null;
   const target = active ? normalize(active) : null;
+  const refByNorm = new Map<string, number>(
+    refs.map((r) => [normalize(r.name), r.id]),
+  );
   return (
     <span className="text-muted-foreground/60">
       {parts.map((name, i) => {
         const isActive = target !== null && normalize(name) === target;
+        const id = refByNorm.get(normalize(name));
+        const inner = (
+          <span
+            className={
+              isActive ? "font-semibold text-foreground" : undefined
+            }
+          >
+            {name}
+          </span>
+        );
         return (
           <span key={`${name}-${i}`}>
             {i > 0 && " / "}
-            <span
-              className={
-                isActive ? "font-semibold text-foreground" : undefined
-              }
-            >
-              {name}
-            </span>
+            {id !== undefined ? (
+              <Link
+                href={`/drivers/${id}`}
+                className="hover:text-[var(--racing-red)]"
+              >
+                {inner}
+              </Link>
+            ) : (
+              inner
+            )}
           </span>
         );
       })}
@@ -193,6 +212,7 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
                   <TableCell className="hidden md:table-cell">
                     <DriversCell
                       drivers={row.drivers}
+                      refs={row.driverRefs}
                       active={activeDriver(row, sort)}
                     />
                   </TableCell>

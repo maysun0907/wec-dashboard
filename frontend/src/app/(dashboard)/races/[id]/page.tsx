@@ -24,7 +24,7 @@ import { ClassBadge } from "@/components/class-badge";
 import { QualifyingResultsTable } from "@/components/qualifying-results-table";
 import { PitStopsCard } from "@/components/pit-stops-card";
 import { RaceLapChart } from "@/components/race-lap-chart";
-import { TeamLink } from "@/components/entity-link";
+import { DriverList, TeamLink } from "@/components/entity-link";
 import {
   eventStatus,
   getEvent,
@@ -279,9 +279,11 @@ function SessionWinnersCard({
                 {r.team}
               </TeamLink>
               {r.drivers && (
-                <div className="text-sm text-muted-foreground">
-                  {r.drivers}
-                </div>
+                <DriverList
+                  refs={r.driverRefs}
+                  text={r.drivers}
+                  className="block text-sm text-muted-foreground"
+                />
               )}
               {isQuali && (r.hyperpoleLap || r.qualifyingLap) && (
                 <div className="mt-3 space-y-0.5">
@@ -366,9 +368,11 @@ function PracticeFastestCard({
                   {r.team}
                 </TeamLink>
                 {r.drivers && (
-                  <div className="text-sm text-muted-foreground">
-                    {r.drivers}
-                  </div>
+                  <DriverList
+                    refs={r.driverRefs}
+                    text={r.drivers}
+                    className="block text-sm text-muted-foreground"
+                  />
                 )}
                 {r.bestLap && (
                   <div className="mt-3 font-mono text-2xl font-bold tabular-nums">
@@ -458,7 +462,7 @@ function ResultsCard({
                   <TeamLink id={row.teamId}>{row.team}</TeamLink>
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground md:table-cell">
-                  {row.drivers}
+                  <DriverList refs={row.driverRefs} text={row.drivers} />
                 </TableCell>
                 <TableCell>
                   <ClassBadge raceClass={row.raceClass} />

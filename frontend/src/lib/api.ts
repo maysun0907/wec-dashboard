@@ -63,6 +63,11 @@ export type Session = {
 
 export type EventDetail = Event & { sessions: Session[] };
 
+export type SessionResultDriverRef = {
+  id: number;
+  name: string;
+};
+
 export type SessionResult = {
   position: number; // overall
   classPosition: number;
@@ -71,6 +76,7 @@ export type SessionResult = {
   team: string;
   teamId: number | null;
   drivers: string;
+  driverRefs: SessionResultDriverRef[];
   raceClass: RaceClass;
   laps: number | null;
   gap: string | null;

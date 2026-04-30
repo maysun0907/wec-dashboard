@@ -117,6 +117,11 @@ class EventDetailOut(_BaseSchema):
     sessions: list[SessionOut]
 
 
+class SessionResultDriverRef(_BaseSchema):
+    id: int
+    name: str
+
+
 class SessionResultOut(_BaseSchema):
     """Flattened result row matching the frontend mock shape."""
 
@@ -126,7 +131,12 @@ class SessionResultOut(_BaseSchema):
     car_number: str
     team: str
     team_id: int | None = None  # for /teams/{id} links from result tables
-    drivers: str  # "Robert Kubica / Yifei Ye / Phil Hanson"
+    drivers: str  # "Robert Kubica / Yifei Ye / Phil Hanson" (display)
+    # Parallel id-bearing list — empty when al kamel ingest has driver
+    # names that don't match a Driver row (class-specific roster, race
+    # substitution, etc.). Frontend renders this when non-empty so each
+    # name links to /drivers/{id}; falls back to the `drivers` string.
+    driver_refs: list["SessionResultDriverRef"] = []
     race_class: str
     laps: int | None = None
     gap: str | None = None

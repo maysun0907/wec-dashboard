@@ -12,7 +12,7 @@ import { ClassBadge } from "@/components/class-badge";
 import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { PageHeader } from "@/components/page-header";
-import { TeamLink } from "@/components/entity-link";
+import { DriverList, TeamLink } from "@/components/entity-link";
 import { RaceCountdown } from "@/components/race-countdown";
 import { ScheduleRowTime } from "@/components/schedule-row-time";
 import { SessionTime } from "@/components/session-time";
@@ -538,9 +538,11 @@ function SessionRecap({
               >
                 {r.team}
               </TeamLink>
-              <span className="block text-xs text-muted-foreground">
-                {r.drivers}
-              </span>
+              <DriverList
+                refs={r.driverRefs}
+                text={r.drivers}
+                className="block text-xs text-muted-foreground"
+              />
             </span>
             {r.bestLap && (
               <span className="font-mono tabular-nums">{r.bestLap}</span>

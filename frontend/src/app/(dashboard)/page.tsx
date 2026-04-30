@@ -18,7 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ClassBadge } from "@/components/class-badge";
 import { DriversPodium, buildPodiumRows } from "@/components/drivers-podium";
-import { TeamLink } from "@/components/entity-link";
+import { DriverList, TeamLink } from "@/components/entity-link";
 import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { RaceCountdown } from "@/components/race-countdown";
@@ -494,7 +494,7 @@ function LastResultCard({
                       <TeamLink id={row.teamId}>{row.team}</TeamLink>
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground md:table-cell">
-                      {row.drivers}
+                      <DriverList refs={row.driverRefs} text={row.drivers} />
                     </TableCell>
                     <TableCell className="pr-4 text-right font-mono tabular-nums">
                       {row.gap ?? "—"}
