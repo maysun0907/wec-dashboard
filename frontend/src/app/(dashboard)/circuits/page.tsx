@@ -45,7 +45,7 @@ export default async function CircuitsPage() {
             <Link
               key={c.id}
               href={`/circuits/${c.id}`}
-              className="block transition-colors hover:[&_[data-slot=card]]:ring-foreground/30"
+              className="group block [&_[data-slot=card]]:transition-all [&_[data-slot=card]]:duration-200 hover:[&_[data-slot=card]]:-translate-y-0.5 hover:[&_[data-slot=card]]:ring-foreground/30"
             >
               <Card>
                 <CardHeader>

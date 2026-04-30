@@ -4,6 +4,14 @@ import { cn } from "@/lib/utils";
 
 const HOVER = "transition-colors hover:text-[var(--racing-red)]";
 
+/** Tiny muted em-dash for empty cells. The faded color keeps real data
+ *  visually dominant while still showing the cell is empty (vs. "0"). */
+export function Dash({ className }: { className?: string }) {
+  return (
+    <span className={cn("text-muted-foreground/40", className)}>—</span>
+  );
+}
+
 /** Team name → /teams/{id} when an id is available, plain text otherwise. */
 export function TeamLink({
   id,

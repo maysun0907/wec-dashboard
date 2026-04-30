@@ -133,8 +133,15 @@ export default async function HomePage() {
         />
       )}
 
-      {remaining.length > 0 && <UpcomingCard events={remaining} />}
+      {remaining.length > 0 && (
+        <div className="space-y-2">
+          <p className="eyebrow">Schedule</p>
+          <UpcomingCard events={remaining} />
+        </div>
+      )}
 
+      <div className="space-y-2">
+        <p className="eyebrow">Standings</p>
       <section className="grid items-stretch gap-6 lg:grid-cols-2">
         <DriversPodium
           classes={[
@@ -154,6 +161,7 @@ export default async function HomePage() {
           rounds={completedRounds}
         />
       </section>
+      </div>
 
       {lastEventName && lastResultByClass.length > 0 && (
         <LastResultCard

@@ -19,7 +19,7 @@ import {
 import { ChampionBadge } from "@/components/champion-badge";
 import { ClassBadge } from "@/components/class-badge";
 import { DriverPhoto } from "@/components/driver-photo";
-import { CarModelLink, TeamLink } from "@/components/entity-link";
+import { CarModelLink, Dash, TeamLink } from "@/components/entity-link";
 import { Flag } from "@/components/flag";
 import { FormChart } from "@/components/form-chart";
 import {
@@ -376,19 +376,23 @@ function CareerTable({ rows }: { rows: DriverSeason[] }) {
                   (isTitle ? "font-semibold text-[var(--racing-yellow)]" : "")
                 }
               >
-                {s.championshipPosition !== null ? `P${s.championshipPosition}` : "—"}
+                {s.championshipPosition !== null ? (
+                  `P${s.championshipPosition}`
+                ) : (
+                  <Dash />
+                )}
               </TableCell>
               <TableCell className="text-right font-mono tabular-nums">
-                {s.points !== null ? s.points : "—"}
+                {s.points !== null ? s.points : <Dash />}
               </TableCell>
               <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground md:table-cell">
-                {s.races}
+                {s.races > 0 ? s.races : <Dash />}
               </TableCell>
               <TableCell className="hidden text-right font-mono tabular-nums md:table-cell">
-                {s.wins > 0 ? s.wins : "—"}
+                {s.wins > 0 ? s.wins : <Dash />}
               </TableCell>
               <TableCell className="pr-4 text-right font-mono tabular-nums">
-                {s.podiums > 0 ? s.podiums : "—"}
+                {s.podiums > 0 ? s.podiums : <Dash />}
               </TableCell>
             </TableRow>
           );

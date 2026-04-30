@@ -24,7 +24,7 @@ import { ClassBadge } from "@/components/class-badge";
 import { QualifyingResultsTable } from "@/components/qualifying-results-table";
 import { PitStopsCard } from "@/components/pit-stops-card";
 import { RaceLapChart } from "@/components/race-lap-chart";
-import { DriverList, TeamLink } from "@/components/entity-link";
+import { Dash, DriverList, TeamLink } from "@/components/entity-link";
 import {
   eventStatus,
   getEvent,
@@ -135,8 +135,8 @@ export default async function RaceDetailPage({
               className="hover:text-foreground"
             >
               {event.circuit.name}
-            </Link>{" "}
-            · {event.format ?? "—"}
+            </Link>
+            {event.format && <> · {event.format}</>}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
@@ -477,35 +477,23 @@ function ResultsCard({
                 {isPractice && (
                   <>
                     <TableCell className="hidden text-right font-mono tabular-nums sm:table-cell">
-                      {row.bestLap ?? "—"}
+                      {row.bestLap ?? <Dash />}
                     </TableCell>
-                    <TableCell
-                      className={
-                        "pr-4 text-right font-mono tabular-nums " +
-                        (row.gap ? "text-muted-foreground" : "text-muted-foreground/40")
-                      }
-                    >
-                      {row.gap ?? "—"}
+                    <TableCell className="pr-4 text-right font-mono tabular-nums text-muted-foreground">
+                      {row.gap ?? <Dash />}
                     </TableCell>
                   </>
                 )}
                 {isRace && (
                   <>
                     <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground lg:table-cell">
-                      {row.laps ?? "—"}
+                      {row.laps ?? <Dash />}
                     </TableCell>
                     <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground lg:table-cell">
-                      {row.bestLap ?? "—"}
+                      {row.bestLap ?? <Dash />}
                     </TableCell>
-                    <TableCell
-                      className={
-                        "hidden text-right font-mono tabular-nums md:table-cell " +
-                        (row.pitStops !== null
-                          ? "text-muted-foreground"
-                          : "text-muted-foreground/40")
-                      }
-                    >
-                      {row.pitStops ?? "—"}
+                    <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground md:table-cell">
+                      {row.pitStops ?? <Dash />}
                     </TableCell>
                     <TableCell
                       className={
@@ -515,10 +503,10 @@ function ResultsCard({
                           : "text-muted-foreground")
                       }
                     >
-                      {row.pointsAwarded > 0 ? row.pointsAwarded : "—"}
+                      {row.pointsAwarded > 0 ? row.pointsAwarded : <Dash />}
                     </TableCell>
                     <TableCell className="pr-4 text-right font-mono tabular-nums">
-                      {row.position === 1 ? "—" : row.gap ?? "—"}
+                      {row.position === 1 || !row.gap ? <Dash /> : row.gap}
                     </TableCell>
                   </>
                 )}

@@ -40,50 +40,59 @@ export default async function StatsPage() {
         description="Aggregates across every ingested season — championship titles, race-win counts, and Le Mans winner history."
       />
 
-      <section className="grid gap-6 lg:grid-cols-3">
-        <TitlesCard
-          title="Drivers · most titles"
-          rows={stats.driverTitles}
-          hrefBase="/drivers"
-        />
-        <TitlesCard
-          title="Manufacturers · most titles"
-          rows={stats.manufacturerTitles}
-          hrefBase="/manufacturers"
-        />
-        <TitlesCard
-          title="Teams · most titles"
-          rows={stats.teamTitles}
-          hrefBase="/teams"
-        />
-      </section>
+      <div className="space-y-2">
+        <p className="eyebrow">Championships</p>
+        <section className="grid gap-6 lg:grid-cols-3">
+          <TitlesCard
+            title="Drivers · most titles"
+            rows={stats.driverTitles}
+            hrefBase="/drivers"
+          />
+          <TitlesCard
+            title="Manufacturers · most titles"
+            rows={stats.manufacturerTitles}
+            hrefBase="/manufacturers"
+          />
+          <TitlesCard
+            title="Teams · most titles"
+            rows={stats.teamTitles}
+            hrefBase="/teams"
+          />
+        </section>
+      </div>
 
-      <section className="grid gap-6 lg:grid-cols-2">
-        <WinsCard
-          title="Drivers · most race wins"
-          rows={stats.driverWins}
-          countLabel="wins"
-          countOf={(d) => d.wins}
-        />
-        <WinsCard
-          title="Drivers · most podiums"
-          rows={stats.driverPodiums}
-          countLabel="podiums"
-          countOf={(d) => d.podiums}
-        />
-      </section>
+      <div className="space-y-2">
+        <p className="eyebrow">Race finishes</p>
+        <section className="grid gap-6 lg:grid-cols-2">
+          <WinsCard
+            title="Drivers · most race wins"
+            rows={stats.driverWins}
+            countLabel="wins"
+            countOf={(d) => d.wins}
+          />
+          <WinsCard
+            title="Drivers · most podiums"
+            rows={stats.driverPodiums}
+            countLabel="podiums"
+            countOf={(d) => d.podiums}
+          />
+        </section>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Le Mans winners</CardTitle>
-          <CardDescription>
-            Overall winners of the 24 Hours of Le Mans, year by year.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-0">
-          <LeMansTable rows={stats.leMansWinners} />
-        </CardContent>
-      </Card>
+      <div className="space-y-2">
+        <p className="eyebrow">Le Mans</p>
+        <Card>
+          <CardHeader>
+            <CardTitle>Overall winners</CardTitle>
+            <CardDescription>
+              Outright winners of the 24 Hours of Le Mans, year by year.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-0">
+            <LeMansTable rows={stats.leMansWinners} />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
