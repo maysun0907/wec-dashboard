@@ -290,6 +290,7 @@ class ManufacturerCarOut(_BaseSchema):
     team_id: int
     team_name: str
     model: str | None = None
+    car_model_slug: str | None = None
     drivers: list[DriverRef] = []
 
 
@@ -298,6 +299,7 @@ class ManufacturerResultOut(_BaseSchema):
     round: int
     event_name: str
     car_number: str
+    team_id: int | None = None
     team_name: str
     race_class: str
     position: int  # overall
@@ -346,6 +348,7 @@ class CircuitWinnerOut(_BaseSchema):
     race_class: str
     car_number: str
     team: str
+    team_id: int | None = None
 
 
 class CircuitEventOut(_BaseSchema):

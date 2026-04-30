@@ -119,6 +119,7 @@ def get_manufacturer(
         db.query(models.Car, models.Team, models.RaceClass)
         .join(models.Team, models.Car.team_id == models.Team.id)
         .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
+        .options(joinedload(models.Car.car_model))
         .filter(models.Team.manufacturer_id == manufacturer_id)
         .filter(models.Car.season_id == season.id)
         .all()
@@ -189,6 +190,7 @@ def get_manufacturer(
                 team_id=team.id,
                 team_name=team.name,
                 model=car.model,
+                car_model_slug=car.car_model.slug if car.car_model else None,
                 drivers=[
                     schemas.DriverRef(
                         id=d.id,
@@ -207,6 +209,7 @@ def get_manufacturer(
                 round=ev.round,
                 event_name=ev.name,
                 car_number=car.number,
+                team_id=team.id,
                 team_name=team.name,
                 race_class=rc.name,
                 position=sr.position,

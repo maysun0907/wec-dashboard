@@ -204,13 +204,8 @@ export function RoundPodiumChart({
   height?: number;
 }) {
   const { metas, data, context } = useMemo(() => buildSeries(rows), [rows]);
-  if (metas.length === 0 || data.length === 0) {
-    return (
-      <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-        No completed rounds yet.
-      </div>
-    );
-  }
+  // Compute the legend before any conditional return — hooks have to
+  // run unconditionally on every render.
   const legend = useMemo(() => {
     const seen = new Map<string, string>();
     for (const m of metas) seen.set(m.manufacturer, m.color);
@@ -219,6 +214,13 @@ export function RoundPodiumChart({
       color,
     }));
   }, [metas]);
+  if (metas.length === 0 || data.length === 0) {
+    return (
+      <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+        No completed rounds yet.
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-1">

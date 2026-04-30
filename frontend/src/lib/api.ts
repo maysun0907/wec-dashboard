@@ -222,6 +222,7 @@ export type ManufacturerCar = {
   teamId: number;
   teamName: string;
   model: string | null;
+  carModelSlug: string | null;
   drivers: DriverRef[];
 };
 
@@ -230,6 +231,7 @@ export type ManufacturerResult = {
   round: number;
   eventName: string;
   carNumber: string;
+  teamId: number | null;
   teamName: string;
   raceClass: RaceClass;
   position: number;
@@ -271,6 +273,7 @@ export type CircuitWinner = {
   raceClass: RaceClass;
   carNumber: string;
   team: string;
+  teamId: number | null;
 };
 
 export type CircuitEventEntry = {

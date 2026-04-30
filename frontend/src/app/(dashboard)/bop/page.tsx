@@ -35,11 +35,12 @@ export default async function BopPage() {
         />
         <Card>
           <CardHeader>
-            <CardTitle>No BoP data yet</CardTitle>
+            <CardTitle>Awaiting the next round</CardTitle>
             <CardDescription>
-              The FIA publishes Hypercar BoP a few days before each round.
-              Curate values into <code>backend/app/data/bop.py</code> and
-              redeploy — entries auto-apply via the curator.
+              The FIA publishes the Hypercar Balance of Performance table
+              a few days before each round — minimum weight, maximum
+              power, energy per stint, and any 2026 success handicaps.
+              Check back closer to the next race weekend.
             </CardDescription>
           </CardHeader>
         </Card>

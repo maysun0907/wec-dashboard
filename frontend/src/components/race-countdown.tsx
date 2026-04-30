@@ -19,27 +19,32 @@ function pad(n: number) {
 }
 
 export function RaceCountdown({ targetIso }: { targetIso: string }) {
-  const [parts, setParts] = useState<Parts | null>(null);
+  const target = new Date(targetIso).getTime();
+  // Compute initial digits server-side so the first paint isn't a frozen
+  // 00:00:00:00. Server Date.now() and client Date.now() differ by a few
+  // ms which would normally trip a hydration warning — suppress on the
+  // root since the discrepancy is correct, not a bug.
+  const [parts, setParts] = useState<Parts>(() => compute(target));
 
   useEffect(() => {
-    const target = new Date(targetIso).getTime();
     const tick = () => setParts(compute(target));
     tick();
     const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [targetIso]);
-
-  const display = parts ?? { days: 0, hours: 0, minutes: 0, seconds: 0 };
+  }, [target]);
 
   return (
-    <div className="flex flex-wrap items-stretch gap-2 sm:gap-3">
-      <Unit value={pad(display.days)} label="Days" />
+    <div
+      className="flex flex-wrap items-stretch gap-2 sm:gap-3"
+      suppressHydrationWarning
+    >
+      <Unit value={pad(parts.days)} label="Days" />
       <Sep />
-      <Unit value={pad(display.hours)} label="Hours" />
+      <Unit value={pad(parts.hours)} label="Hours" />
       <Sep />
-      <Unit value={pad(display.minutes)} label="Min" />
+      <Unit value={pad(parts.minutes)} label="Min" />
       <Sep />
-      <Unit value={pad(display.seconds)} label="Sec" />
+      <Unit value={pad(parts.seconds)} label="Sec" />
     </div>
   );
 }

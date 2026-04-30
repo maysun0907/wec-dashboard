@@ -77,6 +77,7 @@ def get_circuit(
                         race_class=rc.name,
                         car_number=car.number,
                         team=team.name,
+                        team_id=team.id,
                     )
                 )
         events_out.append(

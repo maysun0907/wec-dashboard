@@ -97,6 +97,11 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
       </Card>
     );
   }
+  // Loaded but no lap rows ingested for this session — render an
+  // explicit empty state instead of an empty chart frame.
+  if (chart.cars.length === 0 || chart.totalLaps === 0) {
+    return null;
+  }
 
   const presentClasses = RACE_CLASSES.filter((c) =>
     chart.cars.some((car) => car.raceClass === c),

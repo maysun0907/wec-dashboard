@@ -572,12 +572,12 @@ function ClassPanel({
 
   const simulated = useMemo(() => {
     if (activeChamp === "drivers") {
-      return simulateDrivers(driverStandings, picks, drivers, [...upcoming], raceClass);
+      return simulateDrivers(driverStandings, picks, drivers, upcoming, raceClass);
     }
     if (activeChamp === "manufacturers") {
-      return simulateManufacturers(manufacturerStandings, picks, teams, [...upcoming], raceClass);
+      return simulateManufacturers(manufacturerStandings, picks, teams, upcoming, raceClass);
     }
-    return simulateTeams(teamStandings, picks, teams, [...upcoming], raceClass);
+    return simulateTeams(teamStandings, picks, teams, upcoming, raceClass);
   }, [
     activeChamp,
     driverStandings,

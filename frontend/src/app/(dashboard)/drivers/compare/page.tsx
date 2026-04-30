@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/card";
 import { DriverComparePicker } from "@/components/driver-compare-picker";
 import { FormCompareChart, type FormSeries } from "@/components/form-compare-chart";
+import { PageHeader } from "@/components/page-header";
 import {
   ProgressionChart,
   type Series as ProgressionSeries,
@@ -110,13 +111,11 @@ export default async function ComparePage({
         ← Drivers
       </Link>
 
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Compare drivers</h1>
-        <p className="text-muted-foreground">
-          Up to 5 drivers from the same class. Lines drop to a gap when a
-          driver missed that round.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Side by side"
+        title="Compare drivers"
+        description="Up to 5 drivers from the same class. Lines drop to a gap when a driver missed that round."
+      />
 
       <DriverComparePicker
         selected={selected.map((d) => ({

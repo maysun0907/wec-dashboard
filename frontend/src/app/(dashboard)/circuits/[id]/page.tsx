@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ClassBadge } from "@/components/class-badge";
+import { TeamLink } from "@/components/entity-link";
 import { Flag } from "@/components/flag";
 import { getCircuit, type CircuitDetail } from "@/lib/api";
 
@@ -135,7 +136,8 @@ export default async function CircuitDetailPage({
                       className="flex items-center justify-end gap-2"
                     >
                       <span className="text-muted-foreground">
-                        #{w.carNumber} {w.team}
+                        #{w.carNumber}{" "}
+                        <TeamLink id={w.teamId}>{w.team}</TeamLink>
                       </span>
                       <ClassBadge raceClass={w.raceClass} />
                     </div>

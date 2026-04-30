@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ManufacturerComparePicker } from "@/components/manufacturer-compare-picker";
+import { PageHeader } from "@/components/page-header";
 import {
   ProgressionChart,
   type Series as ProgressionSeries,
@@ -87,15 +88,11 @@ export default async function ManufacturerComparePage({
         ← Standings
       </Link>
 
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">
-          Compare manufacturers
-        </h1>
-        <p className="text-muted-foreground">
-          Hypercar manufacturers&rsquo; championship — pick up to 5 brands to
-          watch their cumulative points side by side.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Side by side"
+        title="Compare manufacturers"
+        description="Hypercar manufacturers’ championship — pick up to 5 brands to watch their cumulative points side by side."
+      />
 
       <ManufacturerComparePicker selected={selected} catalog={standings} />
 

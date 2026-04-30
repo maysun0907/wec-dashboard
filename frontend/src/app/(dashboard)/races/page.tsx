@@ -56,7 +56,6 @@ export default async function RacesPage() {
                 <TableHead>Event</TableHead>
                 <TableHead className="hidden md:table-cell">Circuit</TableHead>
                 <TableHead>Date</TableHead>
-                <TableHead className="hidden sm:table-cell">Format</TableHead>
                 <TableHead className="pr-4 text-right">Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -89,9 +88,6 @@ export default async function RacesPage() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {format(parseISO(e.dateStart), "MMM d, yyyy")}
-                    </TableCell>
-                    <TableCell className="hidden text-muted-foreground sm:table-cell">
-                      {e.format ?? "—"}
                     </TableCell>
                     <TableCell className="pr-4 text-right">
                       <Badge

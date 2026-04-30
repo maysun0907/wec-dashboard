@@ -13,6 +13,7 @@ import {
 } from "@/components/car-progression-card";
 import { DriverPhoto } from "@/components/driver-photo";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import { PageHeader } from "@/components/page-header";
 import { RoundPodiumChart } from "@/components/round-podium-chart";
 import { SeasonComparePicker } from "@/components/season-compare-picker";
 import {
@@ -130,14 +131,11 @@ export default async function SeasonComparePage({
         ← Standings
       </Link>
 
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Compare seasons</h1>
-        <p className="text-muted-foreground">
-          Drivers&rsquo; champion, manufacturers&rsquo; champion, and the top
-          standings of two or three seasons side by side. Top class
-          auto-switches from LMP1 (pre-2021) to Hypercar.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Side by side"
+        title="Compare seasons"
+        description="Drivers’ champion, manufacturers’ champion, and the top standings of two or three seasons side by side. Top class auto-switches from LMP1 (pre-2021) to Hypercar."
+      />
 
       <SeasonComparePicker selected={years} catalog={seasons} />
 

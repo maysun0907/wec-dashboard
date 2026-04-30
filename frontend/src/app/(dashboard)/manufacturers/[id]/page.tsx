@@ -19,6 +19,7 @@ import {
 import { ChampionBadge } from "@/components/champion-badge";
 import { ClassBadge } from "@/components/class-badge";
 import { DriverPhoto } from "@/components/driver-photo";
+import { CarModelLink, TeamLink } from "@/components/entity-link";
 import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import {
@@ -152,7 +153,9 @@ export default async function ManufacturerDetailPage({
                 <span className="font-mono text-xs text-foreground">
                   #{c.carNumber}
                 </span>
-                {c.model && <span>{c.model}</span>}
+                {c.model && (
+                  <CarModelLink slug={c.carModelSlug}>{c.model}</CarModelLink>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -328,7 +331,7 @@ function ResultsTable({ rows }: { rows: ManufacturerResult[] }) {
               </Link>
             </TableCell>
             <TableCell className="hidden text-muted-foreground md:table-cell">
-              {r.teamName}
+              <TeamLink id={r.teamId}>{r.teamName}</TeamLink>
             </TableCell>
             <TableCell className="text-right font-mono tabular-nums">
               {r.carNumber}

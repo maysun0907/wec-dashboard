@@ -119,8 +119,10 @@ export default async function RaceDetailPage({
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-            Round {event.round} · {parseISO(event.dateStart).getFullYear()}
+          <div className="flex items-center gap-3 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+            <span>
+              Round {event.round} · {parseISO(event.dateStart).getFullYear()}
+            </span>
             <StatusBadge status={status} />
           </div>
           <CardTitle className="flex items-center gap-2 text-2xl sm:text-3xl">
@@ -411,7 +413,12 @@ function ResultsCard({
             <TableRow>
               <TableHead className="w-12 pl-4">Pos</TableHead>
               {isRace && (
-                <TableHead className="hidden w-14 sm:table-cell">Cls</TableHead>
+                <TableHead
+                  className="hidden w-14 sm:table-cell"
+                  title="Position within class"
+                >
+                  Cls #
+                </TableHead>
               )}
               <TableHead className="w-12">#</TableHead>
               <TableHead>Team</TableHead>
