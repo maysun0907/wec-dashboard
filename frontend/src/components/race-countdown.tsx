@@ -32,29 +32,35 @@ export function RaceCountdown({ targetIso }: { targetIso: string }) {
   const display = parts ?? { days: 0, hours: 0, minutes: 0, seconds: 0 };
 
   return (
-    <div className="flex items-baseline gap-3 font-mono text-3xl font-semibold tabular-nums sm:text-5xl">
-      <Unit value={display.days} label="d" />
+    <div className="flex flex-wrap items-stretch gap-2 sm:gap-3">
+      <Unit value={display.days} label="Days" />
       <Sep />
-      <Unit value={pad(display.hours)} label="h" />
+      <Unit value={pad(display.hours)} label="Hours" />
       <Sep />
-      <Unit value={pad(display.minutes)} label="m" />
+      <Unit value={pad(display.minutes)} label="Min" />
       <Sep />
-      <Unit value={pad(display.seconds)} label="s" />
+      <Unit value={pad(display.seconds)} label="Sec" />
     </div>
   );
 }
 
 function Unit({ value, label }: { value: number | string; label: string }) {
   return (
-    <span className="flex items-baseline gap-1">
-      <span>{value}</span>
-      <span className="text-sm font-medium text-muted-foreground sm:text-base">
+    <div className="flex min-w-[68px] flex-col items-start rounded-md border border-border/60 bg-background/40 px-3 py-2 backdrop-blur-sm sm:min-w-[96px] sm:px-4 sm:py-3">
+      <span className="font-heading text-4xl font-extrabold leading-none tabular-nums tracking-tight sm:text-6xl">
+        {value}
+      </span>
+      <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground sm:text-xs">
         {label}
       </span>
-    </span>
+    </div>
   );
 }
 
 function Sep() {
-  return <span className="text-muted-foreground/40">·</span>;
+  return (
+    <span className="hidden self-center font-heading text-3xl font-bold text-[var(--racing-red)]/40 sm:inline sm:text-5xl">
+      :
+    </span>
+  );
 }

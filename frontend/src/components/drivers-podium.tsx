@@ -15,6 +15,10 @@ type StepStyle = {
   bar: string;
   /** Trophy / accent color */
   accent: string;
+  /** Inline gradient applied to the points-bar background */
+  barGradient: string;
+  /** Border tint for the photo halo */
+  ring: string;
 };
 
 // Style is keyed by the driver's actual championship position. Three
@@ -22,9 +26,27 @@ type StepStyle = {
 // step, instead of being incorrectly painted gold/silver/bronze by the
 // display slot.
 const STEPS: Record<number, StepStyle> = {
-  1: { bar: "h-24", accent: "text-yellow-400" },
-  2: { bar: "h-20", accent: "text-gray-300" },
-  3: { bar: "h-16", accent: "text-amber-700" },
+  1: {
+    bar: "h-32",
+    accent: "text-yellow-400",
+    barGradient:
+      "linear-gradient(180deg, rgba(250,204,21,0.18) 0%, rgba(250,204,21,0.04) 100%)",
+    ring: "ring-yellow-400/60",
+  },
+  2: {
+    bar: "h-24",
+    accent: "text-gray-300",
+    barGradient:
+      "linear-gradient(180deg, rgba(229,231,235,0.14) 0%, rgba(229,231,235,0.03) 100%)",
+    ring: "ring-gray-300/50",
+  },
+  3: {
+    bar: "h-20",
+    accent: "text-amber-600",
+    barGradient:
+      "linear-gradient(180deg, rgba(217,119,6,0.18) 0%, rgba(217,119,6,0.03) 100%)",
+    ring: "ring-amber-600/50",
+  },
 };
 
 function stepFor(position: number): StepStyle {
@@ -68,18 +90,23 @@ export function DriversPodium({
                 key={r.id}
                 className="flex flex-col items-center text-center"
               >
-                <div className="relative size-20 sm:size-24">
+                <div
+                  className={
+                    "relative size-20 rounded-full ring-2 ring-offset-2 ring-offset-card transition-transform hover:scale-105 sm:size-24 " +
+                    step.ring
+                  }
+                >
                   <Link href={`/drivers/${r.id}`}>
                     <DriverPhoto
                       src={r.photoUrl}
                       name={r.name}
                       size="xl"
-                      className="size-full transition-transform hover:scale-105"
+                      className="size-full"
                     />
                   </Link>
                   <Trophy
                     className={
-                      "absolute -top-1 -right-1 size-6 drop-shadow " +
+                      "absolute -top-2 -right-1 size-7 drop-shadow-lg " +
                       step.accent
                     }
                     fill="currentColor"
@@ -87,7 +114,7 @@ export function DriversPodium({
                 </div>
                 <Link
                   href={`/drivers/${r.id}`}
-                  className="mt-2 block truncate font-medium hover:text-[var(--racing-red)]"
+                  className="mt-3 block truncate font-medium hover:text-[var(--racing-red)]"
                   title={r.name}
                 >
                   {r.name}
@@ -99,14 +126,15 @@ export function DriversPodium({
                 )}
                 <div
                   className={
-                    "mt-2 flex w-full flex-col items-center justify-end rounded-t bg-secondary/40 " +
+                    "mt-3 flex w-full flex-col items-center justify-end rounded-t border-t border-border/60 px-2 pb-2 " +
                     step.bar
                   }
+                  style={{ background: step.barGradient }}
                 >
-                  <span className="font-mono text-2xl font-bold tabular-nums">
+                  <span className="font-heading text-4xl font-extrabold leading-none tabular-nums sm:text-5xl">
                     {r.points}
                   </span>
-                  <span className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <span className="mt-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
                     pts · P{r.position}
                   </span>
                 </div>

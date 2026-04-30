@@ -94,7 +94,7 @@
 }
 
 .dark {
-  --background: oklch(0.11 0 0);
+  --background: oklch(0.085 0 0);
   --foreground: oklch(0.98 0 0);
   --card: oklch(0.16 0 0);
   --card-foreground: oklch(0.98 0 0);
@@ -140,14 +140,21 @@
     @apply bg-background text-foreground;
     background-image:
       radial-gradient(
-        ellipse 60% 60% at 50% -10%,
-        oklch(0.62 0.24 27 / 0.08),
-        transparent 60%
+        ellipse 70% 60% at 50% -10%,
+        oklch(0.62 0.24 27 / 0.14),
+        transparent 65%
       ),
       radial-gradient(
-        ellipse 80% 50% at 100% 100%,
-        oklch(0.66 0.18 230 / 0.05),
+        ellipse 80% 50% at 100% 110%,
+        oklch(0.66 0.18 230 / 0.08),
         transparent 70%
+      ),
+      /* Faint diagonal racing stripes — gives the dark canvas grain
+         instead of being a flat oklch swatch. */
+      repeating-linear-gradient(
+        115deg,
+        oklch(1 0 0 / 0.012) 0 1px,
+        transparent 1px 14px
       );
     background-attachment: fixed;
   }

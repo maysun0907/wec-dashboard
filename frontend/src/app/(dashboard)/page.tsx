@@ -143,45 +143,93 @@ function NextRaceHero({
   event: Event;
   startIso: string | null;
 }) {
-  // Real session startTime when ingestion has it, else assume 13:00 UTC
-  // on the event start date — close enough for the countdown until the
-  // FIA publishes the schedule.
   const startIso = raceStartIso ?? `${event.dateStart}T13:00:00Z`;
 
   return (
-    <Card className="relative overflow-hidden">
+    <Card className="relative overflow-hidden border-transparent bg-card/40 p-0">
+      {/* Racing stripe pattern — sits behind everything, faint. */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-30"
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.08]"
         style={{
-          background:
-            "radial-gradient(800px circle at 0% 0%, var(--racing-red) 0%, transparent 50%)",
+          backgroundImage:
+            "repeating-linear-gradient(115deg, var(--foreground) 0 1px, transparent 1px 32px)",
         }}
       />
-      <CardHeader className="relative">
-        <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-[var(--racing-red)] uppercase">
-          <span className="size-1.5 animate-pulse rounded-full bg-[var(--racing-red)]" />
-          Next Race · Round {event.round} · 2026
+      {/* Red corner glow + blue counterweight. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0"
+        style={{
+          background:
+            "radial-gradient(900px circle at 8% -20%, color-mix(in oklab, var(--racing-red) 70%, transparent) 0%, transparent 55%), radial-gradient(700px circle at 100% 120%, color-mix(in oklab, var(--class-lmp2) 50%, transparent) 0%, transparent 60%)",
+        }}
+      />
+      {/* Top accent stripe. */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--racing-red)] to-transparent" />
+
+      {/* Giant flag backdrop on the right side. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -right-8 top-1/2 -translate-y-1/2 select-none text-[14rem] leading-none opacity-[0.07] sm:text-[22rem]"
+      >
+        <Flag code={event.circuit.country} flagOnly />
+      </div>
+
+      <div className="relative flex flex-col gap-6 p-6 sm:gap-8 sm:p-10 lg:p-12">
+        {/* Eyebrow row */}
+        <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--racing-red)] sm:text-sm">
+          <span className="inline-flex items-center gap-2">
+            <span className="size-2 animate-pulse rounded-full bg-[var(--racing-red)] shadow-[0_0_12px_var(--racing-red)]" />
+            Next Race
+          </span>
+          <span className="text-muted-foreground/60">/</span>
+          <span className="text-muted-foreground">
+            Round {event.round} · 2026
+          </span>
         </div>
-        <CardTitle className="mt-2 flex items-center gap-2 text-2xl sm:text-3xl">
-          <Flag code={event.circuit.country} flagOnly className="text-2xl" />
-          {event.name}
-        </CardTitle>
-        <CardDescription>
-          {event.circuit.name} · {event.format ?? "—"}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="relative space-y-4">
-        <RaceCountdown targetIso={startIso} />
-        <div className="flex items-center gap-3 text-sm text-muted-foreground">
-          <span>{format(parseISO(event.dateStart), "EEEE, MMMM d, yyyy")}</span>
+
+        {/* Title block */}
+        <div className="space-y-3">
+          <h2 className="font-heading text-4xl font-extrabold uppercase leading-[0.92] tracking-tight sm:text-6xl lg:text-7xl">
+            {event.name}
+          </h2>
+          <p className="flex flex-wrap items-center gap-2 text-base text-muted-foreground sm:text-lg">
+            <Flag code={event.circuit.country} flagOnly className="text-lg" />
+            <span>{event.circuit.name}</span>
+            {event.format && (
+              <>
+                <span className="text-muted-foreground/40">·</span>
+                <span>{event.format}</span>
+              </>
+            )}
+          </p>
+        </div>
+
+        {/* Countdown */}
+        <div className="space-y-2">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground sm:text-xs">
+            Counts down to lights out
+          </p>
+          <div className="text-foreground">
+            <RaceCountdown targetIso={startIso} />
+          </div>
+        </div>
+
+        {/* Footer row */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-5 text-sm">
+          <span className="font-medium text-muted-foreground">
+            {format(parseISO(event.dateStart), "EEEE, MMMM d, yyyy")}
+          </span>
           <Link
-            href="/races"
-            className="ml-auto text-foreground hover:text-[var(--racing-red)]"
+            href={`/races/${event.id}`}
+            className="group inline-flex items-center gap-2 rounded-md border border-[var(--racing-red)]/30 bg-[var(--racing-red)]/10 px-4 py-2 text-sm font-semibold uppercase tracking-widest text-[var(--racing-red)] transition-colors hover:bg-[var(--racing-red)]/20"
           >
-            View schedule →
+            Race weekend
+            <span className="transition-transform group-hover:translate-x-0.5">→</span>
           </Link>
         </div>
-      </CardContent>
+      </div>
     </Card>
   );
 }
