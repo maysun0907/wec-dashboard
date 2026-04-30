@@ -11,6 +11,7 @@ import {
 import { ClassBadge } from "@/components/class-badge";
 import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import { PageHeader } from "@/components/page-header";
 import { RaceCountdown } from "@/components/race-countdown";
 import { ScheduleRowTime } from "@/components/schedule-row-time";
 import { SessionTime } from "@/components/session-time";
@@ -135,13 +136,11 @@ export default async function LivePage() {
   if (next === null) {
     return (
       <div className="space-y-6">
-        <header className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Live</h1>
-          <p className="text-muted-foreground">
-            Race-weekend hub. Times shown in the circuit&rsquo;s timezone
-            and your browser&rsquo;s local timezone.
-          </p>
-        </header>
+        <PageHeader
+          eyebrow="Race Weekend"
+          title="Live"
+          description="Race-weekend hub. Times shown in the circuit’s timezone and your browser’s local timezone."
+        />
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
             No more sessions on this season&rsquo;s calendar.
@@ -185,13 +184,11 @@ export default async function LivePage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Live</h1>
-        <p className="text-muted-foreground">
-          Race-weekend hub. Times shown in the circuit&rsquo;s timezone and
-          your browser&rsquo;s local timezone.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Race Weekend"
+        title="Live"
+        description="Race-weekend hub. Times shown in the circuit’s timezone and your browser’s local timezone."
+      />
 
       <Card className="relative overflow-hidden">
         {liveSession && (

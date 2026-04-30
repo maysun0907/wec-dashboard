@@ -9,6 +9,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import { PageHeader } from "@/components/page-header";
 import {
   RACE_CLASSES,
   getTeams,
@@ -61,12 +62,11 @@ export default async function TeamsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Teams</h1>
-        <p className="text-muted-foreground">
-          {all.length} teams · {teams.length} cars
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="2026 Entries"
+        title="Teams"
+        description={`${all.length} teams · ${teams.length} cars`}
+      />
 
       <Tabs defaultValue={present[0] ?? "HYPERCAR"}>
         <TabsList>

@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DriversTableFilter } from "@/components/drivers-table-filter";
+import { PageHeader } from "@/components/page-header";
 import {
   RACE_CLASSES,
   getDrivers,
@@ -44,18 +45,19 @@ export default async function DriversPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Drivers</h1>
-          <p className="text-muted-foreground">{drivers.length} entries</p>
-        </div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <PageHeader
+          eyebrow="2026 Roster"
+          title="Drivers"
+          description={`${drivers.length} entries`}
+        />
         <Link
           href="/drivers/compare"
           className="inline-flex items-center rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-medium hover:bg-secondary"
         >
           Compare →
         </Link>
-      </header>
+      </div>
 
       <Tabs defaultValue={defaultTab}>
         <TabsList>

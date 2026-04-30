@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Flag } from "@/components/flag";
+import { PageHeader } from "@/components/page-header";
 import { eventStatus, getEvents, type EventStatus } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
 
@@ -37,12 +38,11 @@ export default async function RacesPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Schedule</h1>
-        <p className="text-muted-foreground">
-          2026 season · {events.length} rounds
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Calendar"
+        title="Schedule"
+        description={`2026 season · ${events.length} rounds`}
+      />
 
       <Card>
         <CardHeader>

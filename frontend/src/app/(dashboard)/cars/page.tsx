@@ -9,6 +9,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import { PageHeader } from "@/components/page-header";
 import {
   RACE_CLASSES,
   getTeams,
@@ -63,12 +64,11 @@ export default async function CarsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Cars</h1>
-        <p className="text-muted-foreground">
-          {all.length} car models
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="2026 Grid"
+        title="Cars"
+        description={`${all.length} car models`}
+      />
 
       {(() => {
         const present = RACE_CLASSES.filter(

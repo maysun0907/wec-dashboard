@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/table";
 import { DriverPhoto } from "@/components/driver-photo";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import { PageHeader } from "@/components/page-header";
 import {
   getAllTimeStats,
   type DriverPodiumStat,
@@ -32,13 +33,11 @@ export default async function StatsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">All-time stats</h1>
-        <p className="text-muted-foreground">
-          Aggregates across every ingested season — championship titles,
-          race-win counts, and Le Mans winner history.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Records"
+        title="All-time stats"
+        description="Aggregates across every ingested season — championship titles, race-win counts, and Le Mans winner history."
+      />
 
       <section className="grid gap-6 lg:grid-cols-3">
         <TitlesCard

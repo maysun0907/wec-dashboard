@@ -17,6 +17,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import { PageHeader } from "@/components/page-header";
 import { ProgressionChart, type Series } from "@/components/progression-chart";
 import {
   RACE_CLASSES,
@@ -110,13 +111,12 @@ export default async function StandingsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">Standings</h1>
-          <p className="text-muted-foreground">
-            After R{completedRounds}
-          </p>
-        </div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <PageHeader
+          eyebrow="Championship"
+          title="Standings"
+          description={`After R${completedRounds}`}
+        />
         <div className="flex items-center gap-4 text-sm">
           <Link
             href="/seasons/compare"
@@ -131,7 +131,7 @@ export default async function StandingsPage() {
             Open simulator →
           </Link>
         </div>
-      </header>
+      </div>
 
       {(() => {
         const present = RACE_CLASSES.filter(

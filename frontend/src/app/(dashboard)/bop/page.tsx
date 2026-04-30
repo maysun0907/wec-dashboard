@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import { PageHeader } from "@/components/page-header";
 import { getBop, type BopEvent, type BopRow } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
 
@@ -27,14 +28,11 @@ export default async function BopPage() {
   if (events.length === 0) {
     return (
       <div className="space-y-6">
-        <header className="space-y-1">
-          <h1 className="text-3xl font-bold tracking-tight">
-            Balance of Performance
-          </h1>
-          <p className="text-muted-foreground">
-            FIA-published per-round adjustments for the Hypercar field
-          </p>
-        </header>
+        <PageHeader
+          eyebrow="Balance of Performance"
+          title="BoP"
+          description="FIA-published per-round adjustments for the Hypercar field"
+        />
         <Card>
           <CardHeader>
             <CardTitle>No BoP data yet</CardTitle>
@@ -51,15 +49,11 @@ export default async function BopPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">
-          Balance of Performance
-        </h1>
-        <p className="text-muted-foreground">
-          {events.length} {events.length === 1 ? "round" : "rounds"} ·{" "}
-          per-event adjustments published by the FIA
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Balance of Performance"
+        title="BoP"
+        description={`${events.length} ${events.length === 1 ? "round" : "rounds"} · per-event adjustments published by the FIA`}
+      />
 
       <Tabs defaultValue={String(events[0].eventId)}>
         <TabsList>

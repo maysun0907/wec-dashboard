@@ -7,6 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Flag } from "@/components/flag";
+import { PageHeader } from "@/components/page-header";
 import { getCircuits } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
 
@@ -18,12 +19,11 @@ export default async function CircuitsPage() {
 
   return (
     <div className="space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-3xl font-bold tracking-tight">Circuits</h1>
-        <p className="text-muted-foreground">
-          {circuits.length} circuits on the calendar
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Calendar"
+        title="Circuits"
+        description={`${circuits.length} circuits on the calendar`}
+      />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {circuits.map((c) => (
