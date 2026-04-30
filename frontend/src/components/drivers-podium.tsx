@@ -65,17 +65,20 @@ type Driver = {
 export function DriversPodium({
   rows,
   rounds,
+  label = "Drivers",
 }: {
   rows: Driver[];
   rounds: number;
+  /** Title prefix — e.g. "Hypercar Drivers" / "LMGT3 Drivers". */
+  label?: string;
 }) {
   if (rows.length === 0) return null;
 
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Drivers · Top 3</CardTitle>
+          <CardTitle>{label} · Top 3</CardTitle>
           <Badge variant="outline" className="text-[10px]">
             After R{rounds}
           </Badge>

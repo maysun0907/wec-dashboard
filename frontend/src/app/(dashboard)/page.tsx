@@ -41,18 +41,25 @@ import {
 
 export default async function HomePage() {
   const year = await getSelectedSeason();
-  const [events, driverStandings, driverEntries, mfrStandings] =
-    await Promise.all([
-      getEvents(year),
-      getDriverStandings("HYPERCAR", year),
-      getDrivers(year),
-      getManufacturerStandings("HYPERCAR", year).catch(
-        () => [] as StandingManufacturer[],
-      ),
-    ]);
+  const [
+    events,
+    hypercarStandings,
+    lmgt3Standings,
+    driverEntries,
+    mfrStandings,
+  ] = await Promise.all([
+    getEvents(year),
+    getDriverStandings("HYPERCAR", year),
+    getDriverStandings("LMGT3", year).catch(() => []),
+    getDrivers(year),
+    getManufacturerStandings("HYPERCAR", year).catch(
+      () => [] as StandingManufacturer[],
+    ),
+  ]);
   // Photos live on driver entries, not standings rows — bridge by id.
   const photoById = new Map(driverEntries.map((d) => [d.id, d.photoUrl]));
-  const podium = buildPodiumRows(driverStandings, photoById);
+  const hypercarPodium = buildPodiumRows(hypercarStandings, photoById);
+  const lmgt3Podium = buildPodiumRows(lmgt3Standings, photoById);
 
   const today = new Date();
   const next = getNextEvent(events, today);
@@ -68,7 +75,7 @@ export default async function HomePage() {
   const seasonYear = events[0]?.dateStart
     ? new Date(events[0].dateStart).getFullYear()
     : year ?? new Date().getFullYear();
-  const champions = driverStandings.filter((d) => d.position === 1);
+  const champions = hypercarStandings.filter((d) => d.position === 1);
   const manufacturerChamp =
     mfrStandings.find((m) => m.position === 1) ?? null;
 
@@ -117,17 +124,31 @@ export default async function HomePage() {
       {remaining.length > 0 && <UpcomingCard events={remaining} />}
 
       <section className="grid items-stretch gap-6 lg:grid-cols-2">
-        <DriversPodium rows={podium} rounds={completedRounds} />
-        <StandingsCard
-          title="Manufacturers"
-          rows={mfrStandings.slice(0, 5)}
-          rowKey={(r) => `m-${r.manufacturerId}`}
-          rowName={(r) => r.manufacturerName}
-          rowDetail={() => undefined}
-          rowLogo={(r) => r.manufacturerLogoUrl}
+        <DriversPodium
+          label="Hypercar Drivers"
+          rows={hypercarPodium}
+          rounds={completedRounds}
+        />
+        <DriversPodium
+          label="LMGT3 Drivers"
+          rows={lmgt3Podium}
           rounds={completedRounds}
         />
       </section>
+
+      {mfrStandings.length > 0 && (
+        <section className="lg:max-w-[calc(50%-0.75rem)]">
+          <StandingsCard
+            title="Hypercar Manufacturers"
+            rows={mfrStandings.slice(0, 5)}
+            rowKey={(r) => `m-${r.manufacturerId}`}
+            rowName={(r) => r.manufacturerName}
+            rowDetail={() => undefined}
+            rowLogo={(r) => r.manufacturerLogoUrl}
+            rounds={completedRounds}
+          />
+        </section>
+      )}
 
       {lastEventName && (
         <LastResultCard eventName={lastEventName} rows={lastResult} />
