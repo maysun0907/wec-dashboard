@@ -102,10 +102,10 @@ export function DriversPodium({
           </div>
         ))}
       </CardContent>
-      <div className="mt-auto px-4 pb-3 text-right text-xs">
+      <div className="mt-auto px-4 pb-3 text-right text-sm">
         <Link
           href="/standings"
-          className="text-muted-foreground hover:text-foreground"
+          className="font-medium text-muted-foreground hover:text-foreground"
         >
           Full standings →
         </Link>

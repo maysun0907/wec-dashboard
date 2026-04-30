@@ -363,10 +363,10 @@ function StandingsCard<T extends { position: number; points: number }>({
                       }}
                     />
                   </div>
-                  <div className="relative flex h-full items-center gap-3 rounded-md px-3 py-2">
+                  <div className="relative flex h-full items-center gap-4 rounded-md px-4 py-3">
                     <span
                       className={
-                        "font-heading w-6 shrink-0 text-center text-lg font-bold tabular-nums " +
+                        "font-heading w-8 shrink-0 text-center text-2xl font-bold tabular-nums " +
                         (isLeader
                           ? "text-[var(--racing-red)]"
                           : "text-muted-foreground")
@@ -378,24 +378,26 @@ function StandingsCard<T extends { position: number; points: number }>({
                       <ManufacturerLogo
                         src={logo}
                         name={rowName(row)}
-                        size="md"
+                        size="lg"
                       />
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium">{rowName(row)}</div>
+                      <div className="truncate text-lg font-semibold">
+                        {rowName(row)}
+                      </div>
                       {detail ? (
-                        <div className="truncate text-xs text-muted-foreground">
+                        <div className="truncate text-sm text-muted-foreground">
                           {detail}
                         </div>
                       ) : (
                         !isLeader && (
-                          <div className="truncate text-xs text-muted-foreground">
+                          <div className="truncate text-sm text-muted-foreground">
                             −{gap} from leader
                           </div>
                         )
                       )}
                     </div>
-                    <span className="font-heading shrink-0 text-2xl font-extrabold tabular-nums">
+                    <span className="font-heading shrink-0 text-4xl font-extrabold tabular-nums">
                       {row.points}
                     </span>
                   </div>
@@ -405,10 +407,10 @@ function StandingsCard<T extends { position: number; points: number }>({
           </ul>
         )}
       </CardContent>
-      <div className="mt-2 px-4 pt-2 pb-1 text-right text-xs">
+      <div className="mt-2 px-4 pt-2 pb-2 text-right text-sm">
         <Link
           href="/standings"
-          className="text-muted-foreground hover:text-foreground"
+          className="font-medium text-muted-foreground hover:text-foreground"
         >
           Full standings →
         </Link>
