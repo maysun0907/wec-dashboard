@@ -155,10 +155,15 @@ export default async function DriverDetailPage({
                   label="Avg class result"
                   value={averageClassPosition(driver.results).toFixed(1)}
                 />
-                <Stat
-                  label="Points scored"
-                  value={pointsScored(driver.results).toString()}
-                />
+                {/* Hide redundant "Points scored" when the driver already
+                    has a standing — `standing.points` is the canonical
+                    figure and matches what we'd compute here anyway. */}
+                {!driver.standing && (
+                  <Stat
+                    label="Points scored"
+                    value={pointsScored(driver.results).toString()}
+                  />
+                )}
               </>
             )}
           </div>

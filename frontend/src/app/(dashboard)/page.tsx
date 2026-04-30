@@ -299,7 +299,7 @@ function UpcomingCard({ events }: { events: Event[] }) {
                   <span className="block">
                     {format(parseISO(e.dateStart), "MMM d, yyyy")}
                   </span>
-                  <span className="block">{e.format ?? "—"}</span>
+                  {e.format && <span className="block">{e.format}</span>}
                 </span>
               </Link>
             </li>
