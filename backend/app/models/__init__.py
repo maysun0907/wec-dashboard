@@ -202,6 +202,28 @@ class SessionResult(Base):
     car: Mapped["Car"] = relationship()
 
 
+class PitStopEvent(Base):
+    """One row per car pit visit, derived from Al Kamel lap analysis.
+
+    `lap_number` is the lap the car was crossing the line in pit lane;
+    `duration_ms` is the published PIT_TIME (pit-in to pit-out crossing)
+    when available. Replaced wholesale on re-ingest.
+    """
+
+    __tablename__ = "pit_stop_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(
+        ForeignKey("sessions.id"), index=True
+    )
+    car_id: Mapped[int] = mapped_column(ForeignKey("cars.id"), index=True)
+    lap_number: Mapped[int]
+    duration_ms: Mapped[int | None] = mapped_column(default=None)
+
+    session: Mapped["Session"] = relationship()
+    car: Mapped["Car"] = relationship()
+
+
 class StandingDriver(Base):
     __tablename__ = "standings_drivers"
 

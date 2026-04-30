@@ -273,3 +273,46 @@ def session_lap_chart(
     chart = schemas.LapChart(cars=cars_out, total_laps=total_laps)
     _LAP_CHART_CACHE[session_id] = chart
     return chart
+
+
+@router.get(
+    "/sessions/{session_id}/pit-stops",
+    response_model=list[schemas.PitStopOut],
+)
+def session_pit_stops(
+    session_id: int, db: Session = Depends(get_db)
+) -> list[schemas.PitStopOut]:
+    """Pit visits for a race session, sorted by lap. Empty when the
+    session isn't a race or ingestion hasn't run yet."""
+    session = db.get(models.Session, session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    rows = (
+        db.query(
+            models.PitStopEvent,
+            models.Car,
+            models.Team,
+            models.RaceClass,
+        )
+        .join(models.Car, models.PitStopEvent.car_id == models.Car.id)
+        .join(models.Team, models.Car.team_id == models.Team.id)
+        .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
+        .filter(models.PitStopEvent.session_id == session_id)
+        .order_by(
+            models.PitStopEvent.lap_number,
+            models.Car.race_class_id,
+            models.Car.number,
+        )
+        .all()
+    )
+    return [
+        schemas.PitStopOut(
+            car_number=car.number,
+            team=team.name,
+            race_class=rc.name,
+            lap=ps.lap_number,
+            duration_ms=ps.duration_ms,
+        )
+        for ps, car, team, rc in rows
+    ]

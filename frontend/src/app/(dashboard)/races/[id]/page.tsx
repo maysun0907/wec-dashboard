@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Flag } from "@/components/flag";
 import { ClassBadge } from "@/components/class-badge";
 import { QualifyingResultsTable } from "@/components/qualifying-results-table";
+import { PitStopsCard } from "@/components/pit-stops-card";
 import { RaceLapChart } from "@/components/race-lap-chart";
 import {
   eventStatus,
@@ -183,6 +184,7 @@ export default async function RaceDetailPage({
                       rows={rows}
                     />
                     <RaceLapChart sessionId={s.id} />
+                    <PitStopsCard sessionId={s.id} />
                   </>
                 ) : isPractice && rows.length <= 3 ? (
                   <PracticeFastestCard

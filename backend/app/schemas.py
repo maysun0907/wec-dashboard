@@ -535,3 +535,16 @@ class BopEventOut(_BaseSchema):
     round: int
     event_name: str
     rows: list[BopRowOut] = []
+
+
+# --- Pit stops ---
+
+
+class PitStopOut(_BaseSchema):
+    """One pit visit during a RACE session."""
+
+    car_number: str
+    team: str
+    race_class: str
+    lap: int
+    duration_ms: int | None = None

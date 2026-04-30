@@ -571,6 +571,19 @@ export const getLapChart = (sessionId: number) =>
     revalidate: 3600,
   });
 
+export type PitStop = {
+  carNumber: string;
+  team: string;
+  raceClass: RaceClass;
+  lap: number;
+  durationMs: number | null;
+};
+
+export const getPitStops = (sessionId: number) =>
+  api<PitStop[]>(`/api/v1/sessions/${sessionId}/pit-stops`, {
+    revalidate: 3600,
+  });
+
 export const getDriverStandings = (
   raceClass?: RaceClass,
   year?: number | null,

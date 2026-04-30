@@ -414,18 +414,38 @@ def _parse_race_classification(text: str) -> list[dict[str, str]]:
     return out
 
 
-def _parse_pit_counts(text: str) -> dict[str, int]:
-    """Count laps where PIT_TIME is set per car. PIT_TIME is the time
-    elapsed in pit lane on that lap; race lap 1 (rolling start) leaves
-    it blank, so each non-empty value corresponds to a real stop."""
-    counts: dict[str, int] = {}
+def _parse_pit_events(text: str) -> list[dict]:
+    """One dict per pit visit: {'number', 'lap', 'duration_ms'}.
+    Race lap 1 (rolling start) has no PIT_TIME so isn't picked up — each
+    row corresponds to a real stop."""
+    out: list[dict] = []
     for r in _parse_csv(text):
         num = (r.get("NUMBER") or r.get(" NUMBER") or "").strip()
         if not num:
             continue
         pit = (r.get("PIT_TIME") or r.get(" PIT_TIME") or "").strip()
-        if pit:
-            counts[num] = counts.get(num, 0) + 1
+        if not pit:
+            continue
+        lap = (r.get("LAP_NUMBER") or r.get(" LAP_NUMBER") or "").strip()
+        try:
+            lap_num = int(lap)
+        except ValueError:
+            continue
+        out.append(
+            {
+                "number": num,
+                "lap": lap_num,
+                "duration_ms": _hms_to_ms(pit),
+            }
+        )
+    return out
+
+
+def _parse_pit_counts(text: str) -> dict[str, int]:
+    """Backwards-compatible counts derived from `_parse_pit_events`."""
+    counts: dict[str, int] = {}
+    for ev in _parse_pit_events(text):
+        counts[ev["number"]] = counts.get(ev["number"], 0) + 1
     return counts
 
 
@@ -832,11 +852,35 @@ def enrich_race_results(
             continue
 
         pit_counts: dict[str, int] = {}
+        pit_events: list[dict] = []
         if analysis_url:
             try:
-                pit_counts = _parse_pit_counts(_fetch(analysis_url))
+                pit_events = _parse_pit_events(_fetch(analysis_url))
+                for ev_row in pit_events:
+                    pit_counts[ev_row["number"]] = (
+                        pit_counts.get(ev_row["number"], 0) + 1
+                    )
             except httpx.HTTPError:
                 pit_counts = {}
+                pit_events = []
+
+        # Replace pit_stop_events for this session — idempotent on re-ingest.
+        if pit_events:
+            db.query(models.PitStopEvent).filter(
+                models.PitStopEvent.session_id == race_session.id
+            ).delete(synchronize_session=False)
+            for ev_row in pit_events:
+                row = by_car_number.get(ev_row["number"])
+                if row is None:
+                    continue
+                db.add(
+                    models.PitStopEvent(
+                        session_id=race_session.id,
+                        car_id=row.car_id,
+                        lap_number=ev_row["lap"],
+                        duration_ms=ev_row["duration_ms"],
+                    )
+                )
 
         for r in classification_rows:
             row = by_car_number.get(r["number"])
