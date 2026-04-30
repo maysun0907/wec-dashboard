@@ -63,7 +63,7 @@ export default async function TeamsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="2026 Entries"
+        eyebrow={`${year ?? 2026} Entries`}
         title="Teams"
         description={`${all.length} teams · ${teams.length} cars`}
       />

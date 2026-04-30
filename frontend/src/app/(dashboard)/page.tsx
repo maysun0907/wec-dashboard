@@ -185,7 +185,7 @@ function NextRaceHero({
           </span>
           <span className="text-muted-foreground/60">/</span>
           <span className="text-muted-foreground">
-            Round {event.round} · 2026
+            Round {event.round} · {parseISO(event.dateStart).getFullYear()}
           </span>
         </div>
 

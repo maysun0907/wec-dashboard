@@ -41,7 +41,7 @@ export default async function RacesPage() {
       <PageHeader
         eyebrow="Calendar"
         title="Schedule"
-        description={`2026 season · ${events.length} rounds`}
+        description={`${year ?? 2026} season · ${events.length} rounds`}
       />
 
       <Card>

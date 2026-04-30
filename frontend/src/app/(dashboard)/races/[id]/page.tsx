@@ -119,7 +119,7 @@ export default async function RaceDetailPage({
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
-            Round {event.round} · 2026
+            Round {event.round} · {parseISO(event.dateStart).getFullYear()}
             <StatusBadge status={status} />
           </div>
           <CardTitle className="flex items-center gap-2 text-2xl sm:text-3xl">

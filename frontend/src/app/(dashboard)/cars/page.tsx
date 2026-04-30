@@ -65,7 +65,7 @@ export default async function CarsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="2026 Grid"
+        eyebrow={`${year ?? 2026} Grid`}
         title="Cars"
         description={`${all.length} car models`}
       />
