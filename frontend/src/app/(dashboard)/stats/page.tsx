@@ -222,7 +222,12 @@ function LeMansTable({ rows }: { rows: LeMansWinner[] }) {
               </Link>
             </TableCell>
             <TableCell className="text-muted-foreground">
-              <DriverList refs={r.driverRefs} text={r.drivers} />
+              <DriverList
+                refs={r.driverRefs}
+                text={r.drivers}
+                stacked
+                className="text-sm"
+              />
             </TableCell>
             <TableCell className="hidden pr-4 sm:table-cell">
               <span className="inline-flex items-center gap-2">

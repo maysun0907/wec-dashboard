@@ -42,20 +42,53 @@ export function CarModelLink({
 
 /** Renders a slash-joined driver list, linking each name to /drivers/{id}
  *  when the parallel `refs` list has a match. Falls back to the plain
- *  string when refs is empty (older ingest data). */
+ *  string when refs is empty (older ingest data). When `stacked` is set
+ *  each name renders on its own line — useful for cramped table cells. */
 export function DriverList({
   refs,
   text,
   className,
   separator = " / ",
+  stacked = false,
 }: {
   refs: { id: number; name: string }[];
   text: string;
   className?: string;
   separator?: string;
+  stacked?: boolean;
 }) {
   if (refs.length === 0) {
+    if (stacked) {
+      const parts = text
+        .split(/\s*\/\s*/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return (
+        <span className={className}>
+          {parts.map((nm, i) => (
+            <span key={`${nm}-${i}`} className="block">
+              {nm}
+            </span>
+          ))}
+        </span>
+      );
+    }
     return <span className={className}>{text}</span>;
+  }
+  if (stacked) {
+    return (
+      <span className={className}>
+        {refs.map((d) => (
+          <Link
+            key={d.id}
+            href={`/drivers/${d.id}`}
+            className={cn("block", HOVER)}
+          >
+            {d.name}
+          </Link>
+        ))}
+      </span>
+    );
   }
   return (
     <span className={className}>

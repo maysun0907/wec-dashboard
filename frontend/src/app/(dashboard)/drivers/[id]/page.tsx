@@ -170,7 +170,7 @@ export default async function DriverDetailPage({
           <CardHeader>
             <CardTitle>Form</CardTitle>
             <CardDescription>
-              Class position by round — lower is better.
+              Class finishing position by round (P1 at the top).
             </CardDescription>
           </CardHeader>
           <CardContent className="pb-4">
