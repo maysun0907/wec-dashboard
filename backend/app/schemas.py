@@ -153,6 +153,18 @@ class SessionResultOut(_BaseSchema):
     pole_sectors: list[str | None] | None = None
 
 
+class SessionWeather(_BaseSchema):
+    """Aggregated weather summary for one session, derived from the
+    Al Kamel 26_Weather CSV. Median across all readings; rain is true
+    if any reading was > 0 mm/h."""
+
+    air_temp_c: float | None = None
+    track_temp_c: float | None = None
+    humidity_pct: float | None = None
+    wind_kph: float | None = None
+    rain: bool = False
+
+
 class LapChartCar(_BaseSchema):
     """One car's per-lap trajectory, used by the race position chart."""
 

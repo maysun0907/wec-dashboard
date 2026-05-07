@@ -192,6 +192,90 @@ def _list_session_csvs(
     return out
 
 
+def find_weather_url(
+    season_param: str, evvent_param: str, kind: str
+) -> str | None:
+    """Locate one ``26_Weather_*.CSV`` for the requested session kind.
+    `kind` is 'RACE', 'Q', 'FP1', 'FP2', 'FP3', 'HP'. For RACE we pick
+    any hour's weather file (the field doesn't change much across the
+    race relative to summary precision). Returns None if no file
+    exists yet."""
+    try:
+        html = _fetch(
+            f"{BASE}/?season={season_param}&evvent={evvent_param}"
+        )
+    except httpx.HTTPError:
+        return None
+    for href in re.findall(r'href="(Results/[^"]+\.CSV)"', html):
+        decoded = href.replace("%20", " ")
+        slash = decoded.rfind("/")
+        if slash < 0:
+            continue
+        fname = decoded[slash + 1 :]
+        if not re.match(r"^26_Weather_", fname, re.IGNORECASE):
+            continue
+        if kind == "RACE":
+            if "_Race/" in href and "Hour" in href:
+                return f"{BASE}/{href}"
+            continue
+        m = _SESSION_FOLDER_RE.search(href + "/")
+        if m is None:
+            continue
+        folder_kind = _name_to_kind(m.group(3).replace("%20", " "))
+        if folder_kind == kind:
+            return f"{BASE}/{href}"
+    return None
+
+
+def _to_float(raw: str) -> float | None:
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def parse_weather_summary(text: str) -> dict[str, float | str | None]:
+    """Aggregate the weather CSV — median temperatures, max humidity,
+    rain flag if any reading > 0. Returns a small dict ready for the
+    API layer."""
+    rows = _parse_csv(text)
+    air: list[float] = []
+    track: list[float] = []
+    humidity: list[float] = []
+    wind: list[float] = []
+    rain_seen = False
+    for r in rows:
+        a = _to_float((r.get("AIR_TEMP") or r.get(" AIR_TEMP") or "").strip())
+        t = _to_float((r.get("TRACK_TEMP") or r.get(" TRACK_TEMP") or "").strip())
+        h = _to_float((r.get("HUMIDITY") or r.get(" HUMIDITY") or "").strip())
+        w = _to_float((r.get("WIND_SPEED") or r.get(" WIND_SPEED") or "").strip())
+        rn = _to_float((r.get("RAIN") or r.get(" RAIN") or "").strip())
+        if a is not None:
+            air.append(a)
+        if t is not None:
+            track.append(t)
+        if h is not None:
+            humidity.append(h)
+        if w is not None:
+            wind.append(w)
+        if rn is not None and rn > 0:
+            rain_seen = True
+
+    def median(xs: list[float]) -> float | None:
+        if not xs:
+            return None
+        s = sorted(xs)
+        return s[len(s) // 2]
+
+    return {
+        "air_temp_c": median(air),
+        "track_temp_c": median(track),
+        "humidity_pct": median(humidity),
+        "wind_kph": median(wind),
+        "rain": rain_seen,
+    }
+
+
 # Race folders look like `{event}_FIA WEC/{ts}_Race/{NN}_Hour {N}/`. The
 # final-hour classification CSV is the official result; the analysis CSV
 # next to it covers the whole race.

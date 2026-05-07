@@ -24,6 +24,7 @@ import { ClassBadge } from "@/components/class-badge";
 import { QualifyingResultsTable } from "@/components/qualifying-results-table";
 import { PitStopsCard } from "@/components/pit-stops-card";
 import { RaceLapChart } from "@/components/race-lap-chart";
+import { SessionWeatherBadge } from "@/components/session-weather-badge";
 import { Dash, DriverList, TeamLink } from "@/components/entity-link";
 import {
   eventStatus,
@@ -185,6 +186,9 @@ export default async function RaceDetailPage({
                 value={s.type}
                 className="mt-4 space-y-4"
               >
+                <div className="flex justify-end">
+                  <SessionWeatherBadge sessionId={s.id} />
+                </div>
                 {s.type === "Q" ? (
                   <>
                     <SessionWinnersCard type={s.type} rows={rows} />

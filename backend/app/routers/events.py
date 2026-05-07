@@ -303,6 +303,58 @@ def session_results(
     return out
 
 
+_WEATHER_CACHE: dict[int, schemas.SessionWeather] = {}
+
+
+@router.get(
+    "/sessions/{session_id}/weather",
+    response_model=schemas.SessionWeather,
+)
+def session_weather(
+    session_id: int, db: Session = Depends(get_db)
+) -> schemas.SessionWeather:
+    """Median air/track temps, humidity, wind, and a rain flag for one
+    session. Returns an empty (all-null) summary when the Al Kamel
+    weather CSV hasn't been published — the frontend just hides the
+    badge in that case."""
+    cached = _WEATHER_CACHE.get(session_id)
+    if cached is not None:
+        return cached
+    session = db.get(models.Session, session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    event = db.get(models.Event, session.event_id)
+    season = db.get(models.Season, event.season_id) if event else None
+    empty = schemas.SessionWeather()
+    if event is None or season is None:
+        _WEATHER_CACHE[session_id] = empty
+        return empty
+    from app.ingest import alkamel
+
+    season_param = alkamel._season_param_for_year(season.year)
+    if season_param is None:
+        _WEATHER_CACHE[session_id] = empty
+        return empty
+    events_ = alkamel._event_options_for_season(season_param)
+    evvent_param = next((ev for r, ev in events_ if r == event.round), None)
+    if evvent_param is None:
+        _WEATHER_CACHE[session_id] = empty
+        return empty
+    url = alkamel.find_weather_url(season_param, evvent_param, session.type)
+    if url is None:
+        _WEATHER_CACHE[session_id] = empty
+        return empty
+    try:
+        text = alkamel._fetch(url)
+    except Exception:
+        _WEATHER_CACHE[session_id] = empty
+        return empty
+    summary = alkamel.parse_weather_summary(text)
+    out = schemas.SessionWeather(**summary)
+    _WEATHER_CACHE[session_id] = out
+    return out
+
+
 @router.get(
     "/sessions/{session_id}/lap-chart",
     response_model=schemas.LapChart,

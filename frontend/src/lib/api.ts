@@ -617,6 +617,19 @@ export const getPitStops = (sessionId: number) =>
     revalidate: 300,
   });
 
+export type SessionWeather = {
+  airTempC: number | null;
+  trackTempC: number | null;
+  humidityPct: number | null;
+  windKph: number | null;
+  rain: boolean;
+};
+
+export const getSessionWeather = (sessionId: number) =>
+  api<SessionWeather>(`/api/v1/sessions/${sessionId}/weather`, {
+    revalidate: 600,
+  });
+
 export const getDriverStandings = (
   raceClass?: RaceClass,
   year?: number | null,
