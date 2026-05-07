@@ -19,10 +19,22 @@ import { getPitStops, type PitStop } from "@/lib/api";
 
 function formatDuration(ms: number | null): string {
   if (ms == null) return "—";
-  const total = ms / 1000;
-  const m = Math.floor(total / 60);
-  const s = total - m * 60;
-  return m > 0 ? `${m}:${s.toFixed(1).padStart(4, "0")}` : `${s.toFixed(1)}s`;
+  const totalSeconds = ms / 1000;
+  if (totalSeconds < 60) return `${totalSeconds.toFixed(1)}s`;
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds - m * 60;
+  return `${m}m ${s.toFixed(1)}s`;
+}
+
+/** A normal WEC stop is 1m 10s – 1m 35s (refuel + tire + driver
+ *  change). Anything past ~3 minutes almost always means a repair or
+ *  FCY hold; tint those rows so they don't read like a normal stop. */
+function durationTone(ms: number | null): string {
+  if (ms == null) return "text-muted-foreground";
+  const seconds = ms / 1000;
+  if (seconds > 600) return "text-[var(--racing-red)]";
+  if (seconds > 180) return "text-[var(--racing-yellow)]";
+  return "";
 }
 
 export async function PitStopsCard({ sessionId }: { sessionId: number }) {
@@ -39,7 +51,9 @@ export async function PitStopsCard({ sessionId }: { sessionId: number }) {
       <CardHeader>
         <CardTitle>Pit stops</CardTitle>
         <CardDescription>
-          {stops.length} stops, sorted chronologically by lap
+          {stops.length} stops, sorted chronologically by lap. A normal
+          WEC stop is 1m 10s – 1m 35s; longer rows are typically repairs
+          or red-flag holds.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0">
@@ -68,7 +82,12 @@ export async function PitStopsCard({ sessionId }: { sessionId: number }) {
                 <TableCell>
                   <ClassBadge raceClass={s.raceClass} />
                 </TableCell>
-                <TableCell className="pr-4 text-right font-mono tabular-nums">
+                <TableCell
+                  className={
+                    "pr-4 text-right font-mono tabular-nums " +
+                    durationTone(s.durationMs)
+                  }
+                >
                   {formatDuration(s.durationMs)}
                 </TableCell>
               </TableRow>
