@@ -69,11 +69,20 @@ export default async function CircuitDetailPage({
         </CardHeader>
         {layoutSvg && (
           <CardContent className="border-t border-border">
-            <div className="flex justify-center bg-secondary/20 py-4">
+            {/* Wikimedia track maps are mostly black-line on white, so
+                they vanish on our dark page bg. The classic dark-mode
+                trick — invert + hue-rotate(180°) — turns the line
+                white while preserving any sector colors that happen to
+                be drawn (e.g. Fuji, Spa). Containing it in a fixed
+                aspect box gives every circuit a uniform footprint. */}
+            <div className="flex h-56 items-center justify-center bg-secondary/20 px-4 py-4 sm:h-72">
               <img
                 src={layoutSvg}
                 alt={`${circuit.name} layout`}
-                className="h-48 w-auto max-w-full object-contain sm:h-64"
+                className="h-full w-full object-contain"
+                style={{
+                  filter: "invert(1) hue-rotate(180deg)",
+                }}
                 loading="lazy"
               />
             </div>
