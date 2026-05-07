@@ -476,7 +476,7 @@ type FetchOpts = { revalidate?: number };
 
 async function api<T>(path: string, opts: FetchOpts = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
-    next: { revalidate: opts.revalidate ?? 600 },
+    next: { revalidate: opts.revalidate ?? 300 },
   });
   if (!res.ok) {
     throw new Error(`GET ${path} → ${res.status} ${res.statusText}`);
@@ -511,26 +511,26 @@ export const getDrivers = (year?: number | null) =>
 
 export const getDriver = (id: number, year?: number | null) =>
   api<DriverDetail>(withYear(`/api/v1/drivers/${id}`, year), {
-    revalidate: 600,
+    revalidate: 60,
   });
 
 export const getTeams = (year?: number | null) =>
-  api<TeamEntry[]>(withYear("/api/v1/teams", year), { revalidate: 3600 });
+  api<TeamEntry[]>(withYear("/api/v1/teams", year), { revalidate: 600 });
 
 export const getTeam = (id: number, year?: number | null) =>
-  api<TeamDetail>(withYear(`/api/v1/teams/${id}`, year), { revalidate: 600 });
+  api<TeamDetail>(withYear(`/api/v1/teams/${id}`, year), { revalidate: 60 });
 
 export const getManufacturer = (id: number, year?: number | null) =>
   api<ManufacturerDetail>(withYear(`/api/v1/manufacturers/${id}`, year), {
-    revalidate: 600,
+    revalidate: 60,
   });
 
 export const getCarModels = (year?: number | null) =>
-  api<CarModelSummary[]>(withYear("/api/v1/cars", year), { revalidate: 3600 });
+  api<CarModelSummary[]>(withYear("/api/v1/cars", year), { revalidate: 600 });
 
 export const getCarModel = (slug: string, year?: number | null) =>
   api<CarModelDetail>(withYear(`/api/v1/cars/${slug}`, year), {
-    revalidate: 600,
+    revalidate: 60,
   });
 
 export type BopRow = {
@@ -554,17 +554,18 @@ export type BopEvent = {
 export const getBop = (year?: number | null) =>
   api<BopEvent[]>(withYear("/api/v1/bop", year), { revalidate: 3600 });
 
-// Events change occasionally (status transitions) — 10 minutes.
+// Status flips (upcoming → live → completed) and ingestion lands new
+// session results on race weekends — keep the freshness window under
+// the cron tick (hourly) so a refresh always shows the latest pull.
 export const getEvents = (year?: number | null) =>
-  api<Event[]>(withYear("/api/v1/events", year), { revalidate: 600 });
+  api<Event[]>(withYear("/api/v1/events", year), { revalidate: 60 });
 
 export const getEvent = (id: number) =>
-  api<EventDetail>(`/api/v1/events/${id}`, { revalidate: 600 });
+  api<EventDetail>(`/api/v1/events/${id}`, { revalidate: 60 });
 
-// Results and standings update on race weekends — 5 minutes.
 export const getSessionResults = (sessionId: number) =>
   api<SessionResult[]>(`/api/v1/sessions/${sessionId}/results`, {
-    revalidate: 300,
+    revalidate: 60,
   });
 
 export type LapChartCar = {
@@ -582,11 +583,12 @@ export type LapChart = {
   totalLaps: number;
 };
 
-// Race lap charts are immutable once a race ends and expensive to
-// compute, so cache for an hour.
+// Lap charts are still immutable post-race but ingestion can land
+// updated lap rows mid-event; 5 min keeps them current without
+// re-running the position math on every page hit.
 export const getLapChart = (sessionId: number) =>
   api<LapChart>(`/api/v1/sessions/${sessionId}/lap-chart`, {
-    revalidate: 3600,
+    revalidate: 300,
   });
 
 export type PitStop = {
@@ -600,7 +602,7 @@ export type PitStop = {
 
 export const getPitStops = (sessionId: number) =>
   api<PitStop[]>(`/api/v1/sessions/${sessionId}/pit-stops`, {
-    revalidate: 3600,
+    revalidate: 300,
   });
 
 export const getDriverStandings = (
@@ -612,7 +614,7 @@ export const getDriverStandings = (
       `/api/v1/standings/drivers${raceClass ? `?raceClass=${raceClass}` : ""}`,
       year,
     ),
-    { revalidate: 300 },
+    { revalidate: 60 },
   );
 
 export const getDriverProgression = (
@@ -625,7 +627,7 @@ export const getDriverProgression = (
       `/api/v1/standings/drivers/progression?raceClass=${raceClass}&limit=${limit}`,
       year,
     ),
-    { revalidate: 300 },
+    { revalidate: 60 },
   );
 
 export const getManufacturerProgression = (
@@ -638,7 +640,7 @@ export const getManufacturerProgression = (
       `/api/v1/standings/manufacturers/progression?raceClass=${raceClass}&limit=${limit}`,
       year,
     ),
-    { revalidate: 300 },
+    { revalidate: 60 },
   );
 
 export const getTeamProgression = (
@@ -651,13 +653,13 @@ export const getTeamProgression = (
       `/api/v1/standings/teams/progression?raceClass=${raceClass}&limit=${limit}`,
       year,
     ),
-    { revalidate: 300 },
+    { revalidate: 60 },
   );
 
 export const getRoundPodiums = (raceClass: RaceClass, year?: number | null) =>
   api<RoundPodium[]>(
     withYear(`/api/v1/standings/podiums?raceClass=${raceClass}`, year),
-    { revalidate: 300 },
+    { revalidate: 60 },
   );
 
 export const getTeamStandings = (
@@ -669,7 +671,7 @@ export const getTeamStandings = (
       `/api/v1/standings/teams${raceClass ? `?raceClass=${raceClass}` : ""}`,
       year,
     ),
-    { revalidate: 300 },
+    { revalidate: 60 },
   );
 
 export const getManufacturerStandings = (
@@ -683,7 +685,7 @@ export const getManufacturerStandings = (
       }`,
       year,
     ),
-    { revalidate: 300 },
+    { revalidate: 60 },
   );
 
 // --- Derived helpers (mock-data parity) ---
