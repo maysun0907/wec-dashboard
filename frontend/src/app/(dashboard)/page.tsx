@@ -604,7 +604,7 @@ function StandingsCard<T extends { position: number; points: number }>({
                         )
                       )}
                     </div>
-                    <span className="font-heading shrink-0 text-4xl font-extrabold tabular-nums">
+                    <span className="font-heading inline-block min-w-[3.5ch] shrink-0 text-right text-4xl font-extrabold tabular-nums">
                       {row.points}
                     </span>
                   </div>

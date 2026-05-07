@@ -70,20 +70,42 @@ function ProgressionPanel({
 }) {
   if (rows.length === 0) return null;
   const stroke = CLASS_COLOR[raceClass] ?? "currentColor";
-  const maxRound = Math.max(
-    1,
-    ...rows.flatMap((r) => r.points.map((p) => p.round)),
-  );
+  // Recharts can't infer the X-axis domain when each <Line> has its
+  // own `data` prop — it treats the shared dataset as empty and
+  // collapses every point to round 1. Pivot the per-driver series
+  // into one row-per-round table and pass it on the LineChart.
+  const allRounds = new Set<number>();
+  for (const r of rows) for (const p of r.points) allRounds.add(p.round);
+  const sortedRounds = [...allRounds].sort((a, b) => a - b);
+  const data = sortedRounds.map((round) => {
+    const row: Record<string, number> = { round };
+    for (const r of rows) {
+      const found = r.points.find((p) => p.round === round);
+      if (found) row[r.driverName] = found.cumulativePoints;
+    }
+    return row;
+  });
+  const maxRound = sortedRounds[sortedRounds.length - 1] ?? 1;
+  // A "line" needs at least 2 points; with only round 1 ingested we'd
+  // render bare dots, which read worse than nothing. Hide the panel
+  // until the season has progressed past round 1.
+  if (sortedRounds.length < 2) return null;
   return (
     <div>
       <div className="mb-2 flex items-baseline justify-between">
         <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">
           {raceClassLabel(raceClass)}
         </span>
+        <span className="text-xs text-muted-foreground">
+          Leader: <span className="text-foreground">{rows[0].driverName}</span>
+        </span>
       </div>
       <div className="h-56">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+          <LineChart
+            data={data}
+            margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+          >
             <CartesianGrid
               strokeDasharray="3 3"
               stroke="var(--border)"
@@ -93,6 +115,7 @@ function ProgressionPanel({
               type="number"
               dataKey="round"
               domain={[1, maxRound]}
+              ticks={sortedRounds}
               tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
               stroke="var(--border)"
               label={{
@@ -145,16 +168,14 @@ function ProgressionPanel({
             {rows.map((r, i) => (
               <Line
                 key={r.driverId}
-                data={r.points.map((p) => ({
-                  round: p.round,
-                  [r.driverName]: p.cumulativePoints,
-                }))}
                 type="monotone"
                 dataKey={r.driverName}
                 stroke={stroke}
                 strokeOpacity={1 - i * 0.12}
                 strokeWidth={i === 0 ? 2.5 : 1.4}
-                dot={false}
+                dot={{ r: 2 }}
+                activeDot={{ r: 4 }}
+                connectNulls
                 isAnimationActive={false}
               />
             ))}
