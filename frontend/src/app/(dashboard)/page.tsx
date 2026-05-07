@@ -142,9 +142,11 @@ export default async function HomePage() {
 
   // Past-season recap: compute the rich sections only when the season
   // has wrapped, since these need to walk every race and it'd be wasted
-  // work mid-season.
+  // work mid-season. Pass the season year explicitly — without it the
+  // standings / progression endpoints fall back to the current season
+  // and mix data from the wrong year into a past-season recap.
   const recap = isPastSeason
-    ? await buildSeasonRecap(events, photoById)
+    ? await buildSeasonRecap(events, seasonYear)
     : null;
 
   return (
@@ -255,9 +257,8 @@ type SeasonRecap = {
  *  render only when there's actually data to show. */
 async function buildSeasonRecap(
   events: Event[],
-  photoById: Map<number, string | null>,
+  year: number,
 ): Promise<SeasonRecap> {
-  void photoById; // referenced by callers; kept here for symmetry
   // Per-event race winners — top class_position=1 in each race_class.
   const winnersByEvent = new Map<
     number,
@@ -304,10 +305,10 @@ async function buildSeasonRecap(
   await Promise.all(
     [...classesPresent].map(async (raceClass) => {
       const [drv, team, mfr, prog] = await Promise.all([
-        getDriverStandings(raceClass).catch(() => []),
-        getTeamStandings(raceClass).catch(() => []),
-        getManufacturerStandings(raceClass).catch(() => []),
-        getDriverProgression(raceClass, 5).catch(
+        getDriverStandings(raceClass, year).catch(() => []),
+        getTeamStandings(raceClass, year).catch(() => []),
+        getManufacturerStandings(raceClass, year).catch(() => []),
+        getDriverProgression(raceClass, 5, year).catch(
           () => [] as DriverProgression[],
         ),
       ]);
