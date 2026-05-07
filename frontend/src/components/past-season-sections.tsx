@@ -97,107 +97,120 @@ export function SeasonChampionsCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {usable.map((row) => {
-          const tiles: ReactNode[] = [];
-          if (row.driver) {
-            tiles.push(
-              <ChampionTile
-                key="d"
-                eyebrow="Drivers"
-                primary={row.driver.driverName}
-                secondary={row.driver.team}
-                points={row.driver.points}
-                href={`/drivers/${row.driver.driverId}`}
-                photo={
-                  driverPhotoById.get(row.driver.driverId) ?? null
-                }
-              />,
-            );
-          }
-          if (row.team) {
-            tiles.push(
-              <ChampionTile
-                key="t"
-                eyebrow="Team"
-                primary={row.team.teamName}
-                secondary={null}
-                points={row.team.points}
-                href={`/teams/${row.team.teamId}`}
-              />,
-            );
-          }
-          if (row.manufacturer) {
-            tiles.push(
-              <ChampionTile
-                key="m"
-                eyebrow="Manufacturer"
-                primary={row.manufacturer.manufacturerName}
-                secondary={null}
-                points={row.manufacturer.points}
-                logo={row.manufacturer.manufacturerLogoUrl ?? null}
-                href={`/manufacturers/${row.manufacturer.manufacturerId}`}
-              />,
-            );
-          }
-          // Pick the tightest grid that fills the row to avoid
-          // half-empty 3-up layouts when only 1-2 tiles exist.
-          const grid =
-            tiles.length === 1
-              ? "grid-cols-1"
-              : tiles.length === 2
-                ? "sm:grid-cols-2"
-                : "sm:grid-cols-3";
-          return (
-            <div
-              key={row.raceClass}
-              className="rounded-lg border border-border/60 bg-secondary/20 p-4"
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <ClassBadge raceClass={row.raceClass} />
-                <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                  {raceClassLabel(row.raceClass)} Champions
-                </span>
-              </div>
-              <div className={`grid gap-4 ${grid}`}>{tiles}</div>
+        {usable.map((row) => (
+          <div
+            key={row.raceClass}
+            className="rounded-lg border border-border/60 bg-secondary/20 p-4"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <ClassBadge raceClass={row.raceClass} />
+              <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                {raceClassLabel(row.raceClass)} Champions
+              </span>
             </div>
-          );
-        })}
+            {/* Always 3 slots so columns align across HYPERCAR/LMGT3
+                rows even when one of them is missing a manufacturer
+                or team standing. Missing slots render a muted "not
+                recorded" placeholder rather than a wide gap. */}
+            <div className="grid gap-3 sm:grid-cols-3">
+              <ChampionSlot
+                eyebrow="Drivers"
+                value={
+                  row.driver
+                    ? {
+                        primary: row.driver.driverName,
+                        secondary: row.driver.team,
+                        points: row.driver.points,
+                        href: `/drivers/${row.driver.driverId}`,
+                        photo:
+                          driverPhotoById.get(row.driver.driverId) ?? null,
+                      }
+                    : null
+                }
+              />
+              <ChampionSlot
+                eyebrow="Team"
+                value={
+                  row.team
+                    ? {
+                        primary: row.team.teamName,
+                        secondary: null,
+                        points: row.team.points,
+                        href: `/teams/${row.team.teamId}`,
+                      }
+                    : null
+                }
+              />
+              <ChampionSlot
+                eyebrow="Manufacturer"
+                value={
+                  row.manufacturer
+                    ? {
+                        primary: row.manufacturer.manufacturerName,
+                        secondary: null,
+                        points: row.manufacturer.points,
+                        href: `/manufacturers/${row.manufacturer.manufacturerId}`,
+                        logo: row.manufacturer.manufacturerLogoUrl ?? null,
+                      }
+                    : null
+                }
+              />
+            </div>
+          </div>
+        ))}
       </CardContent>
     </Card>
   );
 }
 
-function ChampionTile({
-  eyebrow,
-  primary,
-  secondary,
-  points,
-  href,
-  photo,
-  logo,
-}: {
-  eyebrow: string;
+type ChampionValue = {
   primary: string;
   secondary: string | null;
   points: number | null;
-  href: string | null;
+  href: string;
   photo?: string | null;
   logo?: string | null;
+};
+
+function ChampionSlot({
+  eyebrow,
+  value,
+}: {
+  eyebrow: string;
+  value: ChampionValue | null;
 }) {
+  if (value === null) {
+    return (
+      <div className="flex h-full items-center gap-3 rounded-md border border-dashed border-border/40 bg-background/20 p-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+            {eyebrow}
+          </div>
+          <div className="truncate text-sm text-muted-foreground/60">
+            Not recorded
+          </div>
+        </div>
+      </div>
+    );
+  }
   const inner = (
     <div className="flex h-full items-center gap-3 rounded-md border border-border/40 bg-background/40 p-3 transition-colors hover:bg-background/70">
-      {(photo || logo) && (
-        <div className="size-12 shrink-0 overflow-hidden rounded-full bg-secondary/40">
-          {photo ? (
+      {(value.photo || value.logo) && (
+        <div className="size-10 shrink-0 overflow-hidden rounded-full bg-secondary/40">
+          {value.photo ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={photo}
-              alt={primary}
+              src={value.photo}
+              alt={value.primary}
               className="size-full object-cover"
               loading="lazy"
             />
           ) : (
-            <ManufacturerLogo src={logo ?? null} name={primary} size="lg" />
+            <ManufacturerLogo
+              src={value.logo ?? null}
+              name={value.primary}
+              size="lg"
+            />
           )}
         </div>
       )}
@@ -205,28 +218,25 @@ function ChampionTile({
         <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
           {eyebrow}
         </div>
-        <div className="truncate font-semibold">{primary}</div>
-        {secondary && (
+        <div className="truncate text-sm font-semibold">{value.primary}</div>
+        {value.secondary && (
           <div className="truncate text-xs text-muted-foreground">
-            {secondary}
+            {value.secondary}
           </div>
         )}
       </div>
-      {points !== null && (
-        <span className="font-mono text-lg font-bold tabular-nums">
-          {points}
+      {value.points !== null && (
+        <span className="font-mono text-base font-bold tabular-nums">
+          {value.points}
         </span>
       )}
     </div>
   );
-  if (href) {
-    return (
-      <Link href={href} className="block h-full">
-        {inner}
-      </Link>
-    );
-  }
-  return <div className="h-full">{inner}</div>;
+  return (
+    <Link href={value.href} className="block h-full">
+      {inner}
+    </Link>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -264,10 +274,15 @@ export function LeMansSpotlight({
             <Link
               key={raceClass}
               href={`/races/${event.id}`}
-              className="flex items-center gap-3 rounded-md border border-border/60 bg-secondary/20 px-4 py-3 transition-colors hover:bg-secondary/40"
+              className="flex items-center gap-4 rounded-md border border-border/60 bg-secondary/20 px-4 py-3 transition-colors hover:bg-secondary/40"
             >
-              <ClassBadge raceClass={raceClass} />
-              <span className="font-mono text-sm tabular-nums text-muted-foreground">
+              {/* Fixed-width slot so HYPERCAR / LMGT3 / LMP1 badges
+                  with different label widths still leave the car
+                  number / team name aligned vertically across rows. */}
+              <span className="inline-flex w-24 shrink-0 justify-start">
+                <ClassBadge raceClass={raceClass} />
+              </span>
+              <span className="w-12 shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
                 #{row.carNumber}
               </span>
               <div className="min-w-0 flex-1">
@@ -329,17 +344,22 @@ export function RoundsGrid({
                     </span>
                   </span>
                   {winners.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
+                    /* Fixed two-column grid so each class's winner
+                       pill starts at the same x position regardless
+                       of team name length. */
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:repeat(2,minmax(0,16rem))]">
                       {winners.map(({ raceClass, row }) => (
                         <span
                           key={raceClass}
-                          className="inline-flex items-center gap-1.5 rounded-md border border-border/40 bg-secondary/30 px-2 py-1 text-xs"
+                          className="inline-flex items-center gap-2 rounded-md border border-border/40 bg-secondary/30 px-2 py-1 text-xs"
                         >
-                          <ClassBadge raceClass={raceClass} />
-                          <span className="font-mono tabular-nums text-muted-foreground">
+                          <span className="inline-flex w-16 shrink-0 justify-start">
+                            <ClassBadge raceClass={raceClass} />
+                          </span>
+                          <span className="w-9 shrink-0 font-mono tabular-nums text-muted-foreground">
                             #{row.carNumber}
                           </span>
-                          <span className="max-w-[160px] truncate font-medium">
+                          <span className="min-w-0 flex-1 truncate font-medium">
                             {row.team}
                           </span>
                         </span>
