@@ -21,7 +21,7 @@ export const NAV_LINKS = [
   { href: "/drivers", label: "Drivers" },
   { href: "/teams", label: "Teams" },
   { href: "/cars", label: "Cars" },
-  { href: "/bop", label: "BoP" },
+  { href: "/rules", label: "Rules" },
   { href: "/circuits", label: "Circuits" },
   { href: "/stats", label: "Stats" },
 ];
