@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import {
@@ -81,7 +82,12 @@ export function SeasonChampionsCard({
   classes: ClassChampions[];
   driverPhotoById: Map<number, string | null>;
 }) {
-  if (classes.length === 0) return null;
+  // Hide rows where every championship is missing — and the whole
+  // card if no class has anything to show.
+  const usable = classes.filter(
+    (c) => c.driver || c.team || c.manufacturer,
+  );
+  if (usable.length === 0) return null;
   return (
     <Card>
       <CardHeader>
@@ -91,56 +97,71 @@ export function SeasonChampionsCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {classes.map((row) => (
-          <div
-            key={row.raceClass}
-            className="rounded-lg border border-border/60 bg-secondary/20 p-4"
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <ClassBadge raceClass={row.raceClass} />
-              <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                {raceClassLabel(row.raceClass)} Champions
-              </span>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+        {usable.map((row) => {
+          const tiles: ReactNode[] = [];
+          if (row.driver) {
+            tiles.push(
               <ChampionTile
+                key="d"
                 eyebrow="Drivers"
-                primary={row.driver?.driverName ?? "—"}
-                secondary={row.driver?.team ?? null}
-                points={row.driver?.points ?? null}
-                href={
-                  row.driver
-                    ? `/drivers/${row.driver.driverId}`
-                    : null
-                }
+                primary={row.driver.driverName}
+                secondary={row.driver.team}
+                points={row.driver.points}
+                href={`/drivers/${row.driver.driverId}`}
                 photo={
-                  row.driver
-                    ? driverPhotoById.get(row.driver.driverId) ?? null
-                    : null
+                  driverPhotoById.get(row.driver.driverId) ?? null
                 }
-              />
+              />,
+            );
+          }
+          if (row.team) {
+            tiles.push(
               <ChampionTile
+                key="t"
                 eyebrow="Team"
-                primary={row.team?.teamName ?? "—"}
+                primary={row.team.teamName}
                 secondary={null}
-                points={row.team?.points ?? null}
-                href={row.team ? `/teams/${row.team.teamId}` : null}
-              />
+                points={row.team.points}
+                href={`/teams/${row.team.teamId}`}
+              />,
+            );
+          }
+          if (row.manufacturer) {
+            tiles.push(
               <ChampionTile
+                key="m"
                 eyebrow="Manufacturer"
-                primary={row.manufacturer?.manufacturerName ?? "—"}
+                primary={row.manufacturer.manufacturerName}
                 secondary={null}
-                points={row.manufacturer?.points ?? null}
-                logo={row.manufacturer?.manufacturerLogoUrl ?? null}
-                href={
-                  row.manufacturer
-                    ? `/manufacturers/${row.manufacturer.manufacturerId}`
-                    : null
-                }
-              />
+                points={row.manufacturer.points}
+                logo={row.manufacturer.manufacturerLogoUrl ?? null}
+                href={`/manufacturers/${row.manufacturer.manufacturerId}`}
+              />,
+            );
+          }
+          // Pick the tightest grid that fills the row to avoid
+          // half-empty 3-up layouts when only 1-2 tiles exist.
+          const grid =
+            tiles.length === 1
+              ? "grid-cols-1"
+              : tiles.length === 2
+                ? "sm:grid-cols-2"
+                : "sm:grid-cols-3";
+          return (
+            <div
+              key={row.raceClass}
+              className="rounded-lg border border-border/60 bg-secondary/20 p-4"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <ClassBadge raceClass={row.raceClass} />
+                <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                  {raceClassLabel(row.raceClass)} Champions
+                </span>
+              </div>
+              <div className={`grid gap-4 ${grid}`}>{tiles}</div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </CardContent>
     </Card>
   );
@@ -220,16 +241,8 @@ export function LeMansSpotlight({
   winnersByClass: { raceClass: RaceClass; row: SessionResult }[];
 }) {
   return (
-    <Card className="relative overflow-hidden">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.08]"
-        style={{
-          backgroundImage:
-            "repeating-linear-gradient(115deg, var(--foreground) 0 1px, transparent 1px 32px)",
-        }}
-      />
-      <CardHeader className="relative">
+    <Card>
+      <CardHeader>
         <div className="flex items-center gap-3">
           <Flag code="FRA" flagOnly className="text-2xl" />
           <div>
@@ -241,7 +254,7 @@ export function LeMansSpotlight({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="relative space-y-3">
+      <CardContent className="space-y-3">
         {winnersByClass.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No race results recorded.

@@ -33,13 +33,20 @@ const CLASS_COLOR: Partial<Record<RaceClass, string>> = {
 
 /** Mini progression chart for the season recap. Plots top 5 drivers
  *  per class, x = round, y = cumulative points. Read-only — full
- *  detail lives on /standings. */
+ *  detail lives on /standings. Skips classes with <2 rounds (a
+ *  single dot reads worse than nothing) and hides the whole card
+ *  when no class qualifies. */
 export function ChampionProgressionMini({
   classes,
 }: {
   classes: { raceClass: RaceClass; rows: DriverProgression[] }[];
 }) {
-  if (classes.length === 0) return null;
+  const renderable = classes.filter(({ rows }) => {
+    const rounds = new Set<number>();
+    for (const r of rows) for (const p of r.points) rounds.add(p.round);
+    return rounds.size >= 2;
+  });
+  if (renderable.length === 0) return null;
   return (
     <Card>
       <CardHeader>
@@ -49,7 +56,7 @@ export function ChampionProgressionMini({
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6 lg:grid-cols-2">
-        {classes.map(({ raceClass, rows }) => (
+        {renderable.map(({ raceClass, rows }) => (
           <ProgressionPanel
             key={raceClass}
             raceClass={raceClass}
