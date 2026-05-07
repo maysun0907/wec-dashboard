@@ -36,8 +36,10 @@ yarn-error.log*
 # vercel
 .vercel
 
-# Claude Code transient files (settings.local.json, scheduled_tasks.lock, etc.)
+# Claude Code / agent config — local-only
 .claude/
+CLAUDE.md
+AGENTS.md
 
 # typescript
 *.tsbuildinfo
