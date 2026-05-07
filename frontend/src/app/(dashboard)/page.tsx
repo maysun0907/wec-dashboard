@@ -24,8 +24,18 @@ import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { RaceCountdown } from "@/components/race-countdown";
 import { SeasonRecapHero } from "@/components/season-recap-hero";
+import {
+  LeMansSpotlight,
+  RoundsGrid,
+  SeasonChampionsCard,
+  SeasonNumbersStrip,
+  type ClassChampions,
+} from "@/components/past-season-sections";
+import { ChampionProgressionMini } from "@/components/champion-progression-mini";
 import { getSelectedSeason } from "@/lib/season";
 import {
+  RACE_CLASSES,
+  getDriverProgression,
   getDriverStandings,
   getDrivers,
   getEvent,
@@ -35,8 +45,11 @@ import {
   getNextEvent,
   getSessionByType,
   getSessionResults,
+  getTeamStandings,
   getUpcomingEvents,
+  type DriverProgression,
   type Event,
+  type RaceClass,
   type SessionResult,
   type StandingManufacturer,
 } from "@/lib/api";
@@ -127,6 +140,13 @@ export default async function HomePage() {
     }
   }
 
+  // Past-season recap: compute the rich sections only when the season
+  // has wrapped, since these need to walk every race and it'd be wasted
+  // work mid-season.
+  const recap = isPastSeason
+    ? await buildSeasonRecap(events, photoById)
+    : null;
+
   return (
     <div className="space-y-8">
       {next && <NextRaceHero event={next} startIso={nextRaceStart} />}
@@ -138,6 +158,37 @@ export default async function HomePage() {
           manufacturerChamp={manufacturerChamp}
           driverEntries={driverEntries}
         />
+      )}
+
+      {recap && (
+        <>
+          <SeasonNumbersStrip
+            rounds={recap.rounds}
+            classes={recap.classCount}
+            manufacturers={recap.manufacturerCount}
+            drivers={recap.driverCount}
+            teams={recap.teamCount}
+          />
+          {recap.champions.length > 0 && (
+            <SeasonChampionsCard
+              classes={recap.champions}
+              driverPhotoById={photoById}
+            />
+          )}
+          {recap.leMans && (
+            <LeMansSpotlight
+              event={recap.leMans.event}
+              winnersByClass={recap.leMans.winners}
+            />
+          )}
+          <RoundsGrid
+            events={events}
+            winnersByEvent={recap.winnersByEvent}
+          />
+          {recap.progressions.length > 0 && (
+            <ChampionProgressionMini classes={recap.progressions} />
+          )}
+        </>
       )}
 
       {remaining.length > 0 && (
@@ -178,6 +229,138 @@ export default async function HomePage() {
       )}
     </div>
   );
+}
+
+type SeasonRecap = {
+  rounds: number;
+  classCount: number;
+  manufacturerCount: number;
+  driverCount: number;
+  teamCount: number;
+  champions: ClassChampions[];
+  winnersByEvent: Map<
+    number,
+    { raceClass: RaceClass; row: SessionResult }[]
+  >;
+  leMans: {
+    event: Event;
+    winners: { raceClass: RaceClass; row: SessionResult }[];
+  } | null;
+  progressions: { raceClass: RaceClass; rows: DriverProgression[] }[];
+};
+
+/** Walk every race + standings endpoint for a wrapped season and
+ *  build the rich-recap sections in one shot. Anything that fails
+ *  (missing class, partial ingest) just gets dropped — sections
+ *  render only when there's actually data to show. */
+async function buildSeasonRecap(
+  events: Event[],
+  photoById: Map<number, string | null>,
+): Promise<SeasonRecap> {
+  void photoById; // referenced by callers; kept here for symmetry
+  // Per-event race winners — top class_position=1 in each race_class.
+  const winnersByEvent = new Map<
+    number,
+    { raceClass: RaceClass; row: SessionResult }[]
+  >();
+  const classesPresent = new Set<RaceClass>();
+  const teamIds = new Set<number>();
+  const driverIds = new Set<number>();
+
+  await Promise.all(
+    events.map(async (e) => {
+      try {
+        const detail = await getEvent(e.id);
+        const race = detail.sessions.find((s) => s.type === "RACE");
+        if (!race) return;
+        const all = await getSessionResults(race.id);
+        const winners: { raceClass: RaceClass; row: SessionResult }[] = [];
+        for (const r of all) {
+          if (r.classPosition === 1) {
+            winners.push({ raceClass: r.raceClass, row: r });
+            classesPresent.add(r.raceClass);
+          }
+          if (r.teamId != null) teamIds.add(r.teamId);
+          for (const d of r.driverRefs) driverIds.add(d.id);
+        }
+        winners.sort((a, b) =>
+          RACE_CLASSES.indexOf(a.raceClass) -
+          RACE_CLASSES.indexOf(b.raceClass),
+        );
+        winnersByEvent.set(e.id, winners);
+      } catch {
+        // skip — partial ingest, not fatal
+      }
+    }),
+  );
+
+  // For each class with at least one race winner, try to fetch the
+  // championship trio (driver / team / manufacturer). Missing rows
+  // become `null` rather than blocking the whole card.
+  const champions: ClassChampions[] = [];
+  const progressions: { raceClass: RaceClass; rows: DriverProgression[] }[] =
+    [];
+  const manufacturerIds = new Set<number>();
+  await Promise.all(
+    [...classesPresent].map(async (raceClass) => {
+      const [drv, team, mfr, prog] = await Promise.all([
+        getDriverStandings(raceClass).catch(() => []),
+        getTeamStandings(raceClass).catch(() => []),
+        getManufacturerStandings(raceClass).catch(() => []),
+        getDriverProgression(raceClass, 5).catch(
+          () => [] as DriverProgression[],
+        ),
+      ]);
+      const driverChamp = drv.find((d) => d.position === 1) ?? null;
+      const teamChamp = team.find((t) => t.position === 1) ?? null;
+      const mfrChamp = mfr.find((m) => m.position === 1) ?? null;
+      if (driverChamp || teamChamp || mfrChamp) {
+        champions.push({
+          raceClass,
+          driver: driverChamp,
+          team: teamChamp,
+          manufacturer: mfrChamp,
+        });
+      }
+      for (const m of mfr) manufacturerIds.add(m.manufacturerId);
+      if (prog.length > 0) {
+        progressions.push({ raceClass, rows: prog });
+      }
+    }),
+  );
+  // Render champions in our standard class order.
+  champions.sort((a, b) =>
+    RACE_CLASSES.indexOf(a.raceClass) - RACE_CLASSES.indexOf(b.raceClass),
+  );
+  progressions.sort((a, b) =>
+    RACE_CLASSES.indexOf(a.raceClass) - RACE_CLASSES.indexOf(b.raceClass),
+  );
+
+  // Le Mans = the round whose name mentions Le Mans. Fall back to a
+  // circuit name match if the event was renamed.
+  const leMansEvent =
+    events.find((e) => /le mans/i.test(e.name)) ??
+    events.find((e) => /sarthe/i.test(e.circuit.name)) ??
+    null;
+  const leMans =
+    leMansEvent !== null
+      ? {
+          event: leMansEvent,
+          winners: winnersByEvent.get(leMansEvent.id) ?? [],
+        }
+      : null;
+
+  return {
+    rounds: events.length,
+    classCount: classesPresent.size,
+    manufacturerCount: manufacturerIds.size,
+    driverCount: driverIds.size,
+    teamCount: teamIds.size,
+    champions,
+    winnersByEvent,
+    leMans,
+    progressions,
+  };
 }
 
 function NextRaceHero({
