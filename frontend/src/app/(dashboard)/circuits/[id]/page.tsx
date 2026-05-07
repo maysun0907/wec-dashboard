@@ -72,20 +72,31 @@ export default async function CircuitDetailPage({
             {/* Wikimedia track maps are mostly black-line on white, so
                 they vanish on our dark page bg. The classic dark-mode
                 trick — invert + hue-rotate(180°) — turns the line
-                white while preserving any sector colors that happen to
-                be drawn (e.g. Fuji, Spa). Containing it in a fixed
-                aspect box gives every circuit a uniform footprint. */}
-            <div className="flex h-56 items-center justify-center bg-secondary/20 px-4 py-4 sm:h-72">
-              <img
-                src={layoutSvg}
-                alt={`${circuit.name} layout`}
-                className="h-full w-full object-contain"
-                style={{
-                  filter: "invert(1) hue-rotate(180deg)",
-                }}
-                loading="lazy"
-              />
-            </div>
+                white while preserving any sector colors that happen
+                to be drawn (e.g. Fuji, Spa).
+
+                Le Mans is the one portrait-aspect circuit (Mulsanne is
+                a long straight running ~13 km south); a uniform
+                landscape container shrinks it to nothing. Rotate that
+                one 90° so the layout reads horizontally like the
+                others, with labels still legible after the rotation. */}
+            {(() => {
+              const isLeMans = circuit.country === "FRA";
+              return (
+                <div className="flex h-[28rem] items-center justify-center bg-secondary/20 px-4 py-4 sm:h-[34rem]">
+                  <img
+                    src={layoutSvg}
+                    alt={`${circuit.name} layout`}
+                    className="h-full w-full object-contain"
+                    style={{
+                      filter: "invert(1) hue-rotate(180deg)",
+                      transform: isLeMans ? "rotate(-90deg) scale(1.4)" : undefined,
+                    }}
+                    loading="lazy"
+                  />
+                </div>
+              );
+            })()}
           </CardContent>
         )}
         <CardContent>
