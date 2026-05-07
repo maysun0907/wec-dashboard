@@ -8,6 +8,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DriversTableFilter } from "@/components/drivers-table-filter";
 import { PageHeader } from "@/components/page-header";
+import { localDriverImage } from "@/lib/driver-image";
 import {
   RACE_CLASSES,
   getDrivers,
@@ -38,7 +39,13 @@ function groupByClass(
 
 export default async function DriversPage() {
   const year = await getSelectedSeason();
-  const drivers = await getDrivers(year);
+  const driversRaw = await getDrivers(year);
+  // Apply the public/drivers/{id}.* override server-side so the client
+  // table filter doesn't need to import node:fs.
+  const drivers = driversRaw.map((d) => ({
+    ...d,
+    photoUrl: localDriverImage(d.id) ?? d.photoUrl,
+  }));
   const byClass = groupByClass(drivers);
   const presentClasses = RACE_CLASSES.filter((c) => byClass[c].length > 0);
   const defaultTab = presentClasses[0] ?? "HYPERCAR";

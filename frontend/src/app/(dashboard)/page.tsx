@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { ClassBadge } from "@/components/class-badge";
 import { DriversPodium, buildPodiumRows } from "@/components/drivers-podium";
 import { DriverList, TeamLink } from "@/components/entity-link";
+import { localDriverImage } from "@/lib/driver-image";
 import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { RaceCountdown } from "@/components/race-countdown";
@@ -58,7 +59,13 @@ export default async function HomePage() {
     ),
   ]);
   // Photos live on driver entries, not standings rows — bridge by id.
-  const photoById = new Map(driverEntries.map((d) => [d.id, d.photoUrl]));
+  // Driver photos: prefer the public/drivers/{id}.* override when
+  // it's there, fall back to the wikipedia thumbnail otherwise.
+  const photoById = new Map(
+    driverEntries.map(
+      (d) => [d.id, localDriverImage(d.id) ?? d.photoUrl] as const,
+    ),
+  );
   const hypercarPodium = buildPodiumRows(hypercarStandings, photoById);
   const lmgt3Podium = buildPodiumRows(lmgt3Standings, photoById);
 

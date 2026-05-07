@@ -19,6 +19,7 @@ import {
 import { ChampionBadge } from "@/components/champion-badge";
 import { ClassBadge } from "@/components/class-badge";
 import { DriverPhoto } from "@/components/driver-photo";
+import { localDriverImage } from "@/lib/driver-image";
 import { CarModelLink, Dash, TeamLink } from "@/components/entity-link";
 import { Flag } from "@/components/flag";
 import { FormChart } from "@/components/form-chart";
@@ -81,7 +82,7 @@ export default async function DriverDetailPage({
       <Card className="relative overflow-hidden">
         <CardHeader className="flex flex-row items-start gap-4 space-y-0">
           <DriverPhoto
-            src={driver.photoUrl}
+            src={localDriverImage(driver.id) ?? driver.photoUrl}
             name={driver.name}
             size="xl"
             className="mt-1"
