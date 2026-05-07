@@ -75,28 +75,28 @@ export default async function CircuitDetailPage({
                 white while preserving any sector colors that happen
                 to be drawn (e.g. Fuji, Spa).
 
-                Le Mans is the one portrait-aspect circuit (Mulsanne is
-                a long straight running ~13 km south); a uniform
-                landscape container shrinks it to nothing. Rotate that
-                one 90° so the layout reads horizontally like the
-                others, with labels still legible after the rotation. */}
-            {(() => {
-              const isLeMans = circuit.country === "FRA";
-              return (
-                <div className="flex h-[28rem] items-center justify-center bg-secondary/20 px-4 py-4 sm:h-[34rem]">
-                  <img
-                    src={layoutSvg}
-                    alt={`${circuit.name} layout`}
-                    className="h-full w-full object-contain"
-                    style={{
-                      filter: "invert(1) hue-rotate(180deg)",
-                      transform: isLeMans ? "rotate(-90deg) scale(1.4)" : undefined,
-                    }}
-                    loading="lazy"
-                  />
-                </div>
-              );
-            })()}
+                Le Mans is the one portrait-aspect circuit (Mulsanne
+                runs ~13 km south); rotating it shifted the labels
+                sideways too, so instead we give it a taller container
+                and let it sit at its natural orientation. */}
+            <div
+              className={
+                "flex items-center justify-center bg-secondary/20 px-4 py-4 " +
+                (circuit.country === "FRA"
+                  ? "h-[36rem] sm:h-[44rem]"
+                  : "h-[28rem] sm:h-[34rem]")
+              }
+            >
+              <img
+                src={layoutSvg}
+                alt={`${circuit.name} layout`}
+                className="h-full w-full object-contain"
+                style={{
+                  filter: "invert(1) hue-rotate(180deg)",
+                }}
+                loading="lazy"
+              />
+            </div>
           </CardContent>
         )}
         <CardContent>
@@ -123,7 +123,7 @@ export default async function CircuitDetailPage({
             )}
             <div className="flex flex-col">
               <dt className="text-xs uppercase tracking-wider text-muted-foreground">
-                WEC events
+                Times hosted WEC
               </dt>
               <dd className="font-mono text-lg font-semibold tabular-nums">
                 {circuit.events.length}
