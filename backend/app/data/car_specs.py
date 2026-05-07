@@ -30,9 +30,12 @@ class CarSpec(TypedDict, total=False):
     image_url: str
 
 
-# Hypercar entries are BoP-equalized to ~680 hp combined and 1030 kg
-# minimum weight, so those values are repeated across the field.
-_HYPERCAR_BOP = {"power_hp": 680, "weight_kg": 1030}
+# Hypercar entries are governed by a 500 kW (~670 hp) maximum combined
+# power and 1030 kg minimum weight. From 2026 the FIA stopped
+# publishing per-round BoP figures (private to teams), so the per-car
+# rows below all carry the regulation max — actual settings differ
+# between cars and rounds but aren't disclosed.
+_HYPERCAR_BOP = {"power_hp": 670, "weight_kg": 1030}
 
 CAR_SPECS: dict[str, CarSpec] = {
     # ---- HYPERCAR (LMH + LMDh) ----

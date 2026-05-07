@@ -31,16 +31,96 @@ export default async function BopPage() {
         <PageHeader
           eyebrow="Balance of Performance"
           title="BoP"
-          description="FIA-published per-round adjustments for the Hypercar field"
+          description="Per-round Hypercar adjustments — and why this page is empty for 2026"
         />
+
         <Card>
           <CardHeader>
-            <CardTitle>Awaiting the next round</CardTitle>
+            <CardTitle>The 2026 BoP table is private</CardTitle>
+            <CardDescription className="space-y-2 text-sm">
+              <p>
+                Starting with the 2026 season, the FIA and ACO stopped
+                publishing Hypercar Balance of Performance figures.
+                Per-round weight, power, and energy adjustments are now
+                shared{" "}
+                <span className="font-medium text-foreground">
+                  only with the competing teams
+                </span>{" "}
+                — there is no public source for the actual numbers.
+              </p>
+              <p>
+                The reasoning, per the FIA: outsiders can&rsquo;t see each
+                car&rsquo;s homologation parameters, so publishing the BoP
+                figures alone leads to misinterpretation. The dashboard
+                will surface the table again if the policy reverses.
+              </p>
+              <p>
+                Background:{" "}
+                <a
+                  href="https://www.motorsport.com/wec/news/wec-will-stop-publishing-bop-data-2026/10813085/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-foreground underline-offset-2 hover:text-[var(--racing-red)] hover:underline"
+                >
+                  Motorsport.com
+                </a>{" "}
+                ·{" "}
+                <a
+                  href="https://sportscar365.com/lemans/wec/fia-confirms-minor-change-to-hypercar-bop-process-from-spa/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-foreground underline-offset-2 hover:text-[var(--racing-red)] hover:underline"
+                >
+                  Sportscar365
+                </a>
+              </p>
+            </CardDescription>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>What is public</CardTitle>
             <CardDescription>
-              The FIA publishes the Hypercar Balance of Performance table
-              a few days before each round — minimum weight, maximum
-              power, energy per stint, and any 2026 success handicaps.
-              Check back closer to the next race weekend.
+              Class-wide regulation maxima from the homologation
+              framework. Every Hypercar entry is built and homologated to
+              fit inside this envelope; per-round adjustments slide
+              individual cars within it.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
+              <Spec
+                label="Min weight"
+                value="1030 kg"
+                detail="Hypercar floor"
+              />
+              <Spec
+                label="Max combined power"
+                value="500 kW"
+                detail="≈ 670 hp"
+              />
+              <Spec
+                label="Hybrid threshold"
+                value="190 km/h"
+                detail="Front ERS deploys above this"
+              />
+            </dl>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>2026 success handicap</CardTitle>
+            <CardDescription>
+              New for 2026: a results-based mass penalty for top
+              championship runners (LMGT3-style), applied at every round
+              <span className="font-medium text-foreground">
+                {" "}except the 24 Hours of Le Mans
+              </span>
+              . The handicap is folded into the same private BoP table —
+              you can sometimes infer it from grid weight differences
+              when teams discuss it publicly.
             </CardDescription>
           </CardHeader>
         </Card>
@@ -78,6 +158,28 @@ export default async function BopPage() {
           </TabsContent>
         ))}
       </Tabs>
+    </div>
+  );
+}
+
+function Spec({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+}) {
+  return (
+    <div className="flex flex-col">
+      <dt className="text-xs uppercase tracking-wider text-muted-foreground">
+        {label}
+      </dt>
+      <dd className="font-mono text-lg font-semibold tabular-nums">{value}</dd>
+      {detail && (
+        <span className="mt-0.5 text-xs text-muted-foreground">{detail}</span>
+      )}
     </div>
   );
 }
