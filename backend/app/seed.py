@@ -235,8 +235,12 @@ STANDINGS = {
 
 
 def _clear(db) -> None:
-    # Delete in reverse FK dependency order.
+    # Delete in reverse FK dependency order. PitStopEvent + BopAdjustment
+    # are FK-children of Session/Event/Car/CarModel — must drop before
+    # the parents.
     for model in [
+        models.PitStopEvent,
+        models.BopAdjustment,
         models.SessionResult,
         models.StandingDriver,
         models.StandingTeam,

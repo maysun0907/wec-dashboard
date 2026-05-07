@@ -1112,10 +1112,21 @@ def _clear_season(db: Session, season_id: int) -> None:
             models.SessionResult.car_id.in_(car_ids_subq)
         )
     )
-    # Sessions (via events in season)
+    # Pit-stop events reference sessions + cars, so wipe them before
+    # we touch either parent (otherwise the session DELETE below trips
+    # pit_stop_events_session_id_fkey).
     event_ids_subq = select(models.Event.id).where(
         models.Event.season_id == season_id
     )
+    session_ids_subq = select(models.Session.id).where(
+        models.Session.event_id.in_(event_ids_subq)
+    )
+    db.execute(
+        delete(models.PitStopEvent).where(
+            models.PitStopEvent.session_id.in_(session_ids_subq)
+        )
+    )
+    # Sessions (via events in season)
     db.execute(
         delete(models.Session).where(models.Session.event_id.in_(event_ids_subq))
     )
