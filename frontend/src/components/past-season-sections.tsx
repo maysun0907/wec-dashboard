@@ -354,9 +354,9 @@ export function RoundsGrid({
                       {winners.map(({ raceClass, row }) => (
                         <span
                           key={raceClass}
-                          className="flex w-full items-center gap-2 rounded-md border border-border/40 bg-secondary/30 px-2 py-1 text-xs"
+                          className="flex w-full items-center gap-3 rounded-md border border-border/40 bg-secondary/30 px-2 py-1 text-xs"
                         >
-                          <span className="inline-flex w-[60px] shrink-0 justify-start">
+                          <span className="inline-flex w-[68px] shrink-0 justify-start">
                             <ClassBadge raceClass={raceClass} />
                           </span>
                           <span className="w-9 shrink-0 font-mono tabular-nums text-muted-foreground">
