@@ -344,16 +344,19 @@ export function RoundsGrid({
                     </span>
                   </span>
                   {winners.length > 0 && (
-                    /* Fixed two-column grid so each class's winner
-                       pill starts at the same x position regardless
-                       of team name length. */
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:[grid-template-columns:repeat(2,minmax(0,16rem))]">
+                    /* Fixed-width 2-column grid so each class's
+                       winner pill starts at the same x position on
+                       every round, regardless of team name length.
+                       Each pill is `flex w-full` so it actually
+                       fills its track instead of shrinking to its
+                       content. */
+                    <div className="grid w-full max-w-[34rem] shrink-0 grid-cols-2 gap-2 sm:w-[34rem]">
                       {winners.map(({ raceClass, row }) => (
                         <span
                           key={raceClass}
-                          className="inline-flex items-center gap-2 rounded-md border border-border/40 bg-secondary/30 px-2 py-1 text-xs"
+                          className="flex w-full items-center gap-2 rounded-md border border-border/40 bg-secondary/30 px-2 py-1 text-xs"
                         >
-                          <span className="inline-flex w-16 shrink-0 justify-start">
+                          <span className="inline-flex w-[60px] shrink-0 justify-start">
                             <ClassBadge raceClass={raceClass} />
                           </span>
                           <span className="w-9 shrink-0 font-mono tabular-nums text-muted-foreground">
