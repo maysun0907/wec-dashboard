@@ -210,9 +210,10 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
                   />
                 )}
               />
-              {/* Slow-zone shading — laps where the field's median pace
-                  collapsed (likely SC / FCY). Painted under the lines so
-                  the trajectories still read on top. */}
+              {/* Race-control incident shading. Source data is not yet
+                  wired up — the array is currently always empty. When a
+                  curated incidents pipeline lands, each entry renders
+                  here as a yellow (SC) or red (red-flag) band. */}
               {chart.incidents.map((inc, i) => (
                 <ReferenceArea
                   key={`inc-${i}`}
@@ -272,10 +273,11 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
           {chart.incidents.length > 0 && (
             <>
               {" "}
-              Yellow bands are{" "}
-              <span className="text-[var(--racing-yellow)]">slow zones</span> —
-              laps where the field&rsquo;s median pace dropped 35%+ (almost
-              always Safety Car or Full Course Yellow).
+              Yellow bands mark{" "}
+              <span className="text-[var(--racing-yellow)]">
+                Safety Car / FCY periods
+              </span>
+              .
             </>
           )}
         </p>

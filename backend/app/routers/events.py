@@ -294,77 +294,16 @@ def session_lap_chart(
             )
         )
 
-    # ---- Detect Safety Car / Full Course Yellow periods ----
-    # Pit-in laps and outliers are excluded — only "clean" rolling laps
-    # contribute to the per-lap median. A lap whose median is at least
-    # 35% slower than the field's normal median is flagged; consecutive
-    # flagged laps collapse into one period.
-    incidents = _detect_slow_zones(laps)
-
+    # Safety-car / FCY periods would go here, but we don't surface
+    # heuristic guesses — Al Kamel doesn't publish a race-control feed
+    # publicly. The schema field stays in place for a future manual
+    # curation pipeline (race_incidents table + curate script) so the
+    # frontend overlay code keeps working when real data lands.
     chart = schemas.LapChart(
-        cars=cars_out, total_laps=total_laps, incidents=incidents
+        cars=cars_out, total_laps=total_laps, incidents=[]
     )
     _LAP_CHART_CACHE[session_id] = chart
     return chart
-
-
-def _detect_slow_zones(
-    lap_rows: list[dict[str, str]],
-) -> list[schemas.LapChartIncident]:
-    """Group consecutive laps where the median lap time is ≥ 1.35x the
-    race's overall median. Pit-in laps are skipped because their lap
-    time includes ~80s of stop time and would false-positive."""
-    from app.ingest import alkamel
-
-    times_by_lap: dict[int, list[int]] = {}
-    for r in lap_rows:
-        in_pit = (r.get("in_pit") or "").strip()
-        if in_pit:
-            continue
-        lt = alkamel._hms_to_ms(r.get("lap_time") or "")
-        if lt is None or lt < 60_000:
-            continue
-        try:
-            lap_n = int(r["lap"])
-        except (KeyError, ValueError):
-            continue
-        times_by_lap.setdefault(lap_n, []).append(lt)
-    if not times_by_lap:
-        return []
-
-    def median(xs: list[int]) -> int:
-        if not xs:
-            return 0
-        s = sorted(xs)
-        return s[len(s) // 2]
-
-    all_times = [t for ts in times_by_lap.values() for t in ts]
-    baseline = median(all_times)
-    if baseline == 0:
-        return []
-    threshold = int(baseline * 1.35)
-    flagged_laps = sorted(
-        lap for lap, ts in times_by_lap.items() if median(ts) >= threshold
-    )
-    if not flagged_laps:
-        return []
-
-    periods: list[schemas.LapChartIncident] = []
-    start = flagged_laps[0]
-    prev = flagged_laps[0]
-    for lap_n in flagged_laps[1:]:
-        if lap_n == prev + 1:
-            prev = lap_n
-        else:
-            periods.append(
-                schemas.LapChartIncident(start_lap=start, end_lap=prev)
-            )
-            start = lap_n
-            prev = lap_n
-    periods.append(schemas.LapChartIncident(start_lap=start, end_lap=prev))
-
-    # Drop sub-2-lap blips — could be a single-car wave-by, not an SC.
-    return [p for p in periods if p.end_lap - p.start_lap >= 1]
 
 
 @router.get(
