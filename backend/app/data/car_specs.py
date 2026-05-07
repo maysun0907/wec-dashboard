@@ -85,46 +85,70 @@ CAR_SPECS: dict[str, CarSpec] = {
         **_HYPERCAR_BOP,
     },
     # ---- LMGT3 ----
+    # All GT3 cars race under Group GT3 BoP — peak homologated power
+    # sits in a 470–510 kW (≈ 630–685 hp) window per round, weight in a
+    # 1300–1330 kg window. The numbers below are the 2025 base
+    # homologation figures published by SRO / IMSA before round-by-round
+    # adjustments. Use them as a baseline; per-round BoP overrides land
+    # in app/data/bop.py.
     "ferrari-296-gt3-evo": {
         "category": "LMGT3",
         "engine": "3.0 L twin-turbo V6",
+        "power_hp": 600,
+        "weight_kg": 1325,
         "year_introduced": 2023,
     },
     "porsche-911-gt3-r-992-2": {
         "category": "LMGT3",
         "engine": "4.2 L naturally aspirated flat-6",
+        "power_hp": 565,
+        "weight_kg": 1290,
         "year_introduced": 2023,
     },
     "bmw-m4-gt3-evo": {
         "category": "LMGT3",
         "engine": "3.0 L twin-turbo inline-6",
+        "power_hp": 590,
+        "weight_kg": 1300,
         "year_introduced": 2025,
     },
     "mclaren-720s-gt3-evo-2": {
         "category": "LMGT3",
         "engine": "4.0 L twin-turbo V8",
+        "power_hp": 580,
+        "weight_kg": 1310,
     },
     "mercedes-amg-gt3-evo": {
         "category": "LMGT3",
         "engine": "6.3 L naturally aspirated V8",
+        "power_hp": 550,
+        "weight_kg": 1300,
     },
     "lexus-rc-f-gt3": {
         "category": "LMGT3",
         "engine": "5.4 L naturally aspirated V8",
+        "power_hp": 530,
+        "weight_kg": 1300,
     },
     "ford-mustang-gt3-evo": {
         "category": "LMGT3",
         "engine": "5.4 L naturally aspirated V8",
+        "power_hp": 600,
+        "weight_kg": 1300,
         "year_introduced": 2024,
     },
     "aston-martin-vantage-amr-gt3-evo": {
         "category": "LMGT3",
         "engine": "4.0 L twin-turbo V8",
+        "power_hp": 550,
+        "weight_kg": 1320,
         "year_introduced": 2024,
     },
     "chevrolet-corvette-z06-gt3-r": {
         "category": "LMGT3",
         "engine": "5.5 L naturally aspirated V8",
+        "power_hp": 600,
+        "weight_kg": 1320,
         "year_introduced": 2024,
     },
 }

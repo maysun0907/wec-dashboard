@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Saira_Condensed } from "next/font/google";
 import "./globals.css";
 
@@ -36,6 +36,18 @@ export const metadata: Metadata = {
   },
   description:
     "FIA World Endurance Championship — schedule, results, standings, drivers, teams, and circuits.",
+  appleWebApp: {
+    capable: true,
+    title: "WEC Dashboard",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0a0a0a",
+  // Notched-phone safe area + lock the meta to dark so iOS / Android
+  // chrome don't briefly flash white on launch.
+  colorScheme: "dark",
 };
 
 export default function RootLayout({

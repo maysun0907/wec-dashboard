@@ -228,7 +228,7 @@ function NextRaceHero({
 
         {/* Title block */}
         <div className="space-y-3">
-          <h2 className="font-heading text-4xl font-extrabold uppercase leading-[0.92] tracking-tight sm:text-6xl lg:text-7xl">
+          <h2 className="font-heading text-3xl font-extrabold uppercase leading-[0.95] tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl">
             {event.name}
           </h2>
           <p className="flex flex-wrap items-center gap-2 text-base text-muted-foreground sm:text-lg">
