@@ -75,10 +75,15 @@ export async function generateMetadata({
 
 export default async function RaceDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<Params>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { id } = await params;
+  const sp = await searchParams;
+  const requestedSession =
+    typeof sp.session === "string" ? sp.session.toUpperCase() : null;
   const numId = Number(id);
   if (!Number.isFinite(numId)) notFound();
 
@@ -148,7 +153,14 @@ export default async function RaceDetailPage({
 
       {sessionsWithResults.length > 0 ? (
         <Tabs
-          defaultValue={sessionsWithResults[sessionsWithResults.length - 1].type}
+          defaultValue={
+            // Honor ?session=FP1 etc. from /live deep links, else
+            // default to the most recent session with data.
+            (requestedSession &&
+              sessionsWithResults.some((s) => s.type === requestedSession) &&
+              requestedSession) ||
+            sessionsWithResults[sessionsWithResults.length - 1].type
+          }
         >
           <TabsList className="flex w-full max-w-full overflow-x-auto sm:w-fit">
             {sessionsWithResults.map((s) => (

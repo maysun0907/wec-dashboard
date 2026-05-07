@@ -293,7 +293,13 @@ export default async function LivePage() {
           <CardContent className="px-0">
             <ul className="divide-y divide-border">
               {sessions.map((s) => (
-                <ScheduleRow key={s.id} session={s} tz={tz} now={now} />
+                <ScheduleRow
+                  key={s.id}
+                  session={s}
+                  tz={tz}
+                  now={now}
+                  eventId={next.id}
+                />
               ))}
             </ul>
           </CardContent>
@@ -426,40 +432,54 @@ function ScheduleRow({
   session,
   tz,
   now,
+  eventId,
 }: {
   session: TimedSession;
   tz: string;
   now: number;
+  /** Event the session belongs to. Row links to the race-detail page
+   *  with this session's tab pre-selected. */
+  eventId: number;
 }) {
   const status = session.status;
   return (
-    <li className="flex items-center gap-3 px-4 py-2.5 text-sm">
-      {status === "live" && (
-        <span className="size-2 animate-pulse rounded-full bg-[var(--racing-red)]" />
-      )}
-      {status === "past" && <Check className="size-4 text-muted-foreground" />}
-      {status === "upcoming" && (
-        <span className="size-2 rounded-full border border-border" />
-      )}
-      <div className="min-w-0 flex-1">
-        <div className="font-medium">
-          {SESSION_LABEL[session.type] ?? session.type}
-        </div>
-        {session.startTime ? (
-          <div className="text-xs text-muted-foreground">
-            <ScheduleRowTime
-              iso={session.startTime}
-              circuitTz={tz}
-              now={now}
-              status={status}
-            />
-          </div>
-        ) : (
-          <div className="text-xs text-muted-foreground">
-            Time not yet published
-          </div>
+    <li>
+      <Link
+        href={`/races/${eventId}?session=${session.type}`}
+        className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-secondary/40"
+      >
+        {status === "live" && (
+          <span className="size-2 animate-pulse rounded-full bg-[var(--racing-red)]" />
         )}
-      </div>
+        {status === "past" && (
+          <Check className="size-4 text-muted-foreground" />
+        )}
+        {status === "upcoming" && (
+          <span className="size-2 rounded-full border border-border" />
+        )}
+        <div className="min-w-0 flex-1">
+          <div className="font-medium">
+            {SESSION_LABEL[session.type] ?? session.type}
+          </div>
+          {session.startTime ? (
+            <div className="text-xs text-muted-foreground">
+              <ScheduleRowTime
+                iso={session.startTime}
+                circuitTz={tz}
+                now={now}
+                status={status}
+              />
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground">
+              Time not yet published
+            </div>
+          )}
+        </div>
+        <span className="text-xs text-muted-foreground/40 transition-colors group-hover:text-muted-foreground">
+          →
+        </span>
+      </Link>
     </li>
   );
 }
