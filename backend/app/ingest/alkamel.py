@@ -332,7 +332,7 @@ def _parse_lap_analysis(text: str) -> list[dict[str, str]]:
     """Lightweight parse of the race analysis CSV — one dict per lap
     with the fields we care about (NUMBER, LAP_NUMBER, LAP_TIME,
     ELAPSED, CLASS, TEAM, DRIVER_NAME, KPH, CROSSING_FINISH_LINE_IN_PIT,
-    PIT_TIME)."""
+    PIT_TIME, TOP_SPEED, S1/S2/S3)."""
     out: list[dict[str, str]] = []
     for r in _parse_csv(text):
         num = (r.get("NUMBER") or r.get(" NUMBER") or "").strip()
@@ -357,6 +357,12 @@ def _parse_lap_analysis(text: str) -> list[dict[str, str]]:
                     or ""
                 ).strip(),
                 "pit_time": (r.get("PIT_TIME") or r.get(" PIT_TIME") or "").strip(),
+                "top_speed": (
+                    r.get("TOP_SPEED") or r.get(" TOP_SPEED") or ""
+                ).strip(),
+                "s1": (r.get("S1") or r.get(" S1") or "").strip(),
+                "s2": (r.get("S2") or r.get(" S2") or "").strip(),
+                "s3": (r.get("S3") or r.get(" S3") or "").strip(),
             }
         )
     return out

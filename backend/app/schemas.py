@@ -146,6 +146,7 @@ class SessionResultOut(_BaseSchema):
     qualifying_driver: str | None = None
     hyperpole_driver: str | None = None
     pit_stops: int | None = None
+    top_speed_kph: float | None = None  # V-max across all the car's laps
 
 
 class LapChartCar(_BaseSchema):

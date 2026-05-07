@@ -93,6 +93,9 @@ export type SessionResult = {
   /** Pit stop count from Al Kamel race analysis. Null for non-race or
    *  un-enriched seasons. */
   pitStops: number | null;
+  /** Race V-max in km/h (top speed across all laps, from Al Kamel
+   *  TOP_SPEED column). Null for non-race or pre-CSV-publication. */
+  topSpeedKph: number | null;
 };
 
 export type DriverEntry = {

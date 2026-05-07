@@ -13,6 +13,55 @@ router = APIRouter(tags=["events"])
 # 200KB-2MB and the position computation is cheap, but we render the
 # same response for every page hit, so the network fetch dominates.
 _LAP_CHART_CACHE: dict[int, "schemas.LapChart"] = {}
+# Per-car race V-max (km/h), keyed by session_id. Same source CSV as
+# the lap chart — we fetch on first hit from either endpoint.
+_TOP_SPEED_CACHE: dict[int, dict[str, float]] = {}
+
+
+def _get_top_speeds_by_car(
+    session_id: int, db: Session
+) -> dict[str, float]:
+    """Return {car_number: max TOP_SPEED across the race}, fetching the
+    Al Kamel race analysis CSV if not yet cached for this session."""
+    cached = _TOP_SPEED_CACHE.get(session_id)
+    if cached is not None:
+        return cached
+    session = db.get(models.Session, session_id)
+    if session is None or session.type != "RACE":
+        _TOP_SPEED_CACHE[session_id] = {}
+        return {}
+    event = db.get(models.Event, session.event_id)
+    season = db.get(models.Season, event.season_id) if event else None
+    if event is None or season is None:
+        _TOP_SPEED_CACHE[session_id] = {}
+        return {}
+    from app.ingest import alkamel
+
+    season_param = alkamel._season_param_for_year(season.year)
+    if season_param is None:
+        _TOP_SPEED_CACHE[session_id] = {}
+        return {}
+    events_ = alkamel._event_options_for_season(season_param)
+    evvent_param = next((ev for r, ev in events_ if r == event.round), None)
+    if evvent_param is None:
+        _TOP_SPEED_CACHE[session_id] = {}
+        return {}
+    laps = alkamel.fetch_race_lap_data(season_param, evvent_param)
+    out: dict[str, float] = {}
+    for r in laps:
+        raw = r.get("top_speed") or ""
+        try:
+            v = float(raw)
+        except ValueError:
+            continue
+        if v <= 0:
+            continue
+        num = r["number"]
+        prev = out.get(num)
+        if prev is None or v > prev:
+            out[num] = v
+    _TOP_SPEED_CACHE[session_id] = out
+    return out
 
 _SESSION_ORDER = {"FP1": 1, "FP2": 2, "FP3": 3, "Q": 4, "RACE": 5}
 
@@ -116,6 +165,14 @@ def session_results(
             driver_refs_by_car.setdefault(cd.car_id, []).append((d.id, d.name))
             name_to_id[d.name] = d.id
 
+    # Race-only V-max lookup. Empty dict for non-race sessions or when
+    # the CSV hasn't been published yet — falls through as None per car.
+    top_speeds = (
+        _get_top_speeds_by_car(session_id, db)
+        if session.type == "RACE"
+        else {}
+    )
+
     out: list[schemas.SessionResultOut] = []
     for r in results:
         cp = class_position_for(
@@ -160,6 +217,7 @@ def session_results(
                 qualifying_driver=r.qualifying_driver,
                 hyperpole_driver=r.hyperpole_driver,
                 pit_stops=r.pit_stops,
+                top_speed_kph=top_speeds.get(r.car.number),
             )
         )
     return out

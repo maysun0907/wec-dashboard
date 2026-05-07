@@ -452,6 +452,9 @@ function ResultsCard({
                   <TableHead className="hidden w-24 text-right lg:table-cell">
                     Best lap
                   </TableHead>
+                  <TableHead className="hidden w-16 text-right xl:table-cell">
+                    V-max
+                  </TableHead>
                   <TableHead className="hidden w-12 text-right md:table-cell">
                     Pit
                   </TableHead>
@@ -503,6 +506,9 @@ function ResultsCard({
                     </TableCell>
                     <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground lg:table-cell">
                       {row.bestLap ?? <Dash />}
+                    </TableCell>
+                    <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground xl:table-cell">
+                      {row.topSpeedKph ? Math.round(row.topSpeedKph) : <Dash />}
                     </TableCell>
                     <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground md:table-cell">
                       {row.pitStops ?? <Dash />}
