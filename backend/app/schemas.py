@@ -164,9 +164,21 @@ class LapChartCar(_BaseSchema):
     class_positions: list[int]
 
 
+class LapChartIncident(_BaseSchema):
+    """A continuous range of laps where the median pace dropped well
+    below normal — almost always a Safety Car or Full Course Yellow.
+    Detected heuristically from lap-time medians (Al Kamel doesn't
+    publish a race-control feed publicly), so call it "Slow zone"
+    rather than overstating "SC"."""
+
+    start_lap: int
+    end_lap: int
+
+
 class LapChart(_BaseSchema):
     cars: list[LapChartCar]
     total_laps: int
+    incidents: list[LapChartIncident] = []
 
 
 # --- Standings ---

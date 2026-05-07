@@ -578,9 +578,15 @@ export type LapChartCar = {
   classPositions: number[];
 };
 
+export type LapChartIncident = {
+  startLap: number;
+  endLap: number;
+};
+
 export type LapChart = {
   cars: LapChartCar[];
   totalLaps: number;
+  incidents: LapChartIncident[];
 };
 
 // Lap charts are still immutable post-race but ingestion can land

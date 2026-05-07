@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CartesianGrid,
+  Label,
   Line,
   LineChart,
+  ReferenceArea,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -208,6 +210,32 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
                   />
                 )}
               />
+              {/* Slow-zone shading — laps where the field's median pace
+                  collapsed (likely SC / FCY). Painted under the lines so
+                  the trajectories still read on top. */}
+              {chart.incidents.map((inc, i) => (
+                <ReferenceArea
+                  key={`inc-${i}`}
+                  x1={inc.startLap}
+                  x2={inc.endLap}
+                  ifOverflow="visible"
+                  fill="var(--racing-yellow)"
+                  fillOpacity={0.08}
+                  stroke="var(--racing-yellow)"
+                  strokeOpacity={0.25}
+                  strokeDasharray="3 3"
+                >
+                  {inc.endLap - inc.startLap >= 2 && (
+                    <Label
+                      value={`SC L${inc.startLap}–${inc.endLap}`}
+                      position="insideTop"
+                      fill="var(--racing-yellow)"
+                      fontSize={10}
+                      offset={4}
+                    />
+                  )}
+                </ReferenceArea>
+              ))}
               {visibleCars.map((car) => {
                 const data = car.lapNumbers.map((lap, i) => ({
                   lap,
@@ -241,6 +269,15 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
         <p className="mt-2 px-2 text-xs text-muted-foreground">
           Per-lap classification computed from Al Kamel cumulative race
           time. Hover a line to highlight a car.
+          {chart.incidents.length > 0 && (
+            <>
+              {" "}
+              Yellow bands are{" "}
+              <span className="text-[var(--racing-yellow)]">slow zones</span> —
+              laps where the field&rsquo;s median pace dropped 35%+ (almost
+              always Safety Car or Full Course Yellow).
+            </>
+          )}
         </p>
       </CardContent>
     </Card>
