@@ -147,6 +147,10 @@ class SessionResultOut(_BaseSchema):
     hyperpole_driver: str | None = None
     pit_stops: int | None = None
     top_speed_kph: float | None = None  # V-max across all the car's laps
+    # Sector breakdown of the car's best Q/HP lap, formatted as
+    # ["29.123", "37.456", "23.789"]. None for non-qualifying sessions
+    # or when the analysis CSV hasn't been published.
+    pole_sectors: list[str | None] | None = None
 
 
 class LapChartCar(_BaseSchema):

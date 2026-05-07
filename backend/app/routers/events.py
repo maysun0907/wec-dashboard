@@ -16,6 +16,75 @@ _LAP_CHART_CACHE: dict[int, "schemas.LapChart"] = {}
 # Per-car race V-max (km/h), keyed by session_id. Same source CSV as
 # the lap chart — we fetch on first hit from either endpoint.
 _TOP_SPEED_CACHE: dict[int, dict[str, float]] = {}
+# Per-car sectors of the best Q (or Hyperpole) lap, keyed by Q
+# session_id. value = {car_number: (s1, s2, s3)} where each is the
+# raw seconds string from Al Kamel's analysis CSV.
+_QUAL_SECTORS_CACHE: dict[int, dict[str, tuple[str, str, str]]] = {}
+
+
+def _get_qual_sectors_by_car(
+    session_id: int, db: Session
+) -> dict[str, tuple[str, str, str]]:
+    """For a Q session, fetch every analysis CSV (one per class, plus a
+    Hyperpole CSV when one was run) and pull the sector triple of each
+    car's fastest lap. When both Q and HP exist we prefer HP because
+    that's where pole was decided. Returns {} for non-Q sessions."""
+    cached = _QUAL_SECTORS_CACHE.get(session_id)
+    if cached is not None:
+        return cached
+    session = db.get(models.Session, session_id)
+    if session is None or session.type != "Q":
+        _QUAL_SECTORS_CACHE[session_id] = {}
+        return {}
+    event = db.get(models.Event, session.event_id)
+    season = db.get(models.Season, event.season_id) if event else None
+    if event is None or season is None:
+        _QUAL_SECTORS_CACHE[session_id] = {}
+        return {}
+    from app.ingest import alkamel
+
+    season_param = alkamel._season_param_for_year(season.year)
+    if season_param is None:
+        _QUAL_SECTORS_CACHE[session_id] = {}
+        return {}
+    events_ = alkamel._event_options_for_season(season_param)
+    evvent_param = next((ev for r, ev in events_ if r == event.round), None)
+    if evvent_param is None:
+        _QUAL_SECTORS_CACHE[session_id] = {}
+        return {}
+
+    # Walk Q + HP CSVs. We track HP separately so it overrides Q in the
+    # final dict — the pole-relevant lap is the Hyperpole one.
+    out_q: dict[str, tuple[str, str, str]] = {}
+    out_hp: dict[str, tuple[str, str, str]] = {}
+    for kind, _cls, _cl_url, an_url, _ts in alkamel._list_session_csvs(
+        season_param, evvent_param
+    ):
+        if kind not in ("Q", "HP") or not an_url:
+            continue
+        try:
+            laps = alkamel._parse_lap_analysis(alkamel._fetch(an_url))
+        except Exception:
+            continue
+        # Per car: lap with the smallest LAP_TIME wins.
+        best_by_car: dict[str, tuple[int, str, str, str]] = {}
+        for r in laps:
+            lt_ms = alkamel._hms_to_ms(r.get("lap_time") or "")
+            if lt_ms is None or lt_ms <= 0:
+                continue
+            s1, s2, s3 = r.get("s1") or "", r.get("s2") or "", r.get("s3") or ""
+            if not (s1 and s2 and s3):
+                continue
+            num = r["number"]
+            cur = best_by_car.get(num)
+            if cur is None or lt_ms < cur[0]:
+                best_by_car[num] = (lt_ms, s1, s2, s3)
+        bucket = out_hp if kind == "HP" else out_q
+        for num, (_lt, s1, s2, s3) in best_by_car.items():
+            bucket[num] = (s1, s2, s3)
+    merged = {**out_q, **out_hp}  # HP wins when both present
+    _QUAL_SECTORS_CACHE[session_id] = merged
+    return merged
 
 
 def _get_top_speeds_by_car(
@@ -172,6 +241,12 @@ def session_results(
         if session.type == "RACE"
         else {}
     )
+    # Q-only sector breakdown of the pole lap.
+    qual_sectors = (
+        _get_qual_sectors_by_car(session_id, db)
+        if session.type == "Q"
+        else {}
+    )
 
     out: list[schemas.SessionResultOut] = []
     for r in results:
@@ -218,6 +293,11 @@ def session_results(
                 hyperpole_driver=r.hyperpole_driver,
                 pit_stops=r.pit_stops,
                 top_speed_kph=top_speeds.get(r.car.number),
+                pole_sectors=(
+                    list(qual_sectors[r.car.number])
+                    if r.car.number in qual_sectors
+                    else None
+                ),
             )
         )
     return out

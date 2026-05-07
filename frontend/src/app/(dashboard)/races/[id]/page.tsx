@@ -315,6 +315,18 @@ function SessionWinnersCard({
                       </span>
                     </div>
                   )}
+                  {r.poleSectors && r.poleSectors.length === 3 && (
+                    <div className="flex gap-3 pt-1 text-xs text-muted-foreground">
+                      {r.poleSectors.map((s, i) => (
+                        <span key={i} className="font-mono tabular-nums">
+                          <span className="mr-1 text-[10px] uppercase tracking-wider">
+                            S{i + 1}
+                          </span>
+                          {s ?? "—"}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               {isRace && (
