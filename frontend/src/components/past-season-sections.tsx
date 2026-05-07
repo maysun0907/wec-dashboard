@@ -97,67 +97,79 @@ export function SeasonChampionsCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {usable.map((row) => (
-          <div
-            key={row.raceClass}
-            className="rounded-lg border border-border/60 bg-secondary/20 p-4"
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <ClassBadge raceClass={row.raceClass} />
-              <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                {raceClassLabel(row.raceClass)} Champions
-              </span>
-            </div>
-            {/* Always 3 slots so columns align across HYPERCAR/LMGT3
-                rows even when one of them is missing a manufacturer
-                or team standing. Missing slots render a muted "not
-                recorded" placeholder rather than a wide gap. */}
-            <div className="grid gap-3 sm:grid-cols-3">
+        {usable.map((row) => {
+          const tiles: ReactNode[] = [];
+          if (row.driver) {
+            tiles.push(
               <ChampionSlot
+                key="d"
                 eyebrow="Drivers"
-                value={
-                  row.driver
-                    ? {
-                        primary: row.driver.driverName,
-                        secondary: row.driver.team,
-                        points: row.driver.points,
-                        href: `/drivers/${row.driver.driverId}`,
-                        photo:
-                          driverPhotoById.get(row.driver.driverId) ?? null,
-                      }
-                    : null
-                }
-              />
+                value={{
+                  primary: row.driver.driverName,
+                  secondary: row.driver.team,
+                  points: row.driver.points,
+                  href: `/drivers/${row.driver.driverId}`,
+                  photo:
+                    driverPhotoById.get(row.driver.driverId) ?? null,
+                }}
+              />,
+            );
+          }
+          if (row.team) {
+            tiles.push(
               <ChampionSlot
+                key="t"
                 eyebrow="Team"
-                value={
-                  row.team
-                    ? {
-                        primary: row.team.teamName,
-                        secondary: null,
-                        points: row.team.points,
-                        href: `/teams/${row.team.teamId}`,
-                      }
-                    : null
-                }
-              />
+                value={{
+                  primary: row.team.teamName,
+                  secondary: null,
+                  points: row.team.points,
+                  href: `/teams/${row.team.teamId}`,
+                }}
+              />,
+            );
+          }
+          if (row.manufacturer) {
+            tiles.push(
               <ChampionSlot
+                key="m"
                 eyebrow="Manufacturer"
-                value={
-                  row.manufacturer
-                    ? {
-                        primary: row.manufacturer.manufacturerName,
-                        secondary: null,
-                        points: row.manufacturer.points,
-                        href: `/manufacturers/${row.manufacturer.manufacturerId}`,
-                        logo: row.manufacturer.manufacturerLogoUrl ?? null,
-                      }
-                    : null
-                }
-              />
+                value={{
+                  primary: row.manufacturer.manufacturerName,
+                  secondary: null,
+                  points: row.manufacturer.points,
+                  href: `/manufacturers/${row.manufacturer.manufacturerId}`,
+                  logo: row.manufacturer.manufacturerLogoUrl ?? null,
+                }}
+              />,
+            );
+          }
+          return (
+            <div
+              key={row.raceClass}
+              className="rounded-lg border border-border/60 bg-secondary/20 p-4"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <ClassBadge raceClass={row.raceClass} />
+                <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
+                  {raceClassLabel(row.raceClass)} Champions
+                </span>
+              </div>
+              {/* Each tile is a fixed 18rem on sm+ so a class with
+                  only a Team standing (LMGTE PRO 2016 etc.) doesn't
+                  stretch into a giant box. Wrap freely; 3 tiles fit
+                  on most viewports, 1-2 tiles leave clean whitespace
+                  to the right. */}
+              <div className="flex flex-wrap gap-3">
+                {tiles.map((t, i) => (
+                  <div key={i} className="w-full sm:w-72">
+                    {t}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </CardContent>
     </Card>
   );
@@ -306,13 +318,27 @@ export function LeMansSpotlight({
 export function RoundsGrid({
   events,
   winnersByEvent,
+  classes,
 }: {
   events: Event[];
   winnersByEvent: Map<
     number,
     { raceClass: RaceClass; row: SessionResult }[]
   >;
+  /** Classes that appeared in this season, in display order. The grid
+   *  reserves one column per class so HYPERCAR pills align across
+   *  rows (and so do LMGT3 / LMP1 / LMGTE PRO / LMGTE AM etc.). */
+  classes: RaceClass[];
 }) {
+  // Per-class column width in rem. 4-class legacy seasons (LMP1 +
+  // LMP2 + LMGTE PRO + LMGTE AM) need every column narrower or
+  // they'd push the row past 1400px. Modern 2-3 class seasons get
+  // wider tiles for breathing room.
+  const widthRem = classes.length >= 4 ? 13.5 : 17;
+  const badgeSlotPx =
+    classes.some((c) => c === "LMGTE_PRO" || c === "LMGTE_AM") ? 76 : 68;
+  const totalWidthRem = widthRem * classes.length + 0.5 * (classes.length - 1);
+
   return (
     <Card>
       <CardHeader>
@@ -324,12 +350,17 @@ export function RoundsGrid({
       <CardContent className="px-0">
         <ul className="divide-y divide-border">
           {events.map((e) => {
-            const winners = winnersByEvent.get(e.id) ?? [];
+            const winnersList = winnersByEvent.get(e.id) ?? [];
+            // Map class → winner so empty classes render an empty
+            // cell at the right column.
+            const byClass = new Map(
+              winnersList.map((w) => [w.raceClass, w] as const),
+            );
             return (
               <li key={e.id}>
                 <Link
                   href={`/races/${e.id}`}
-                  className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-secondary/40 sm:flex-row sm:items-center sm:gap-4"
+                  className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-secondary/40 lg:flex-row lg:items-center lg:gap-4"
                 >
                   <span className="w-12 shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
                     R{e.round}
@@ -343,30 +374,39 @@ export function RoundsGrid({
                       {format(parseISO(e.dateStart), "MMM d")}
                     </span>
                   </span>
-                  {winners.length > 0 && (
-                    /* Fixed-width 2-column grid so each class's
-                       winner pill starts at the same x position on
-                       every round, regardless of team name length.
-                       Each pill is `flex w-full` so it actually
-                       fills its track instead of shrinking to its
-                       content. */
-                    <div className="grid w-full max-w-[34rem] shrink-0 grid-cols-2 gap-2 sm:w-[34rem]">
-                      {winners.map(({ raceClass, row }) => (
-                        <span
-                          key={raceClass}
-                          className="flex w-full items-center gap-3 rounded-md border border-border/40 bg-secondary/30 px-2 py-1 text-xs"
-                        >
-                          <span className="inline-flex w-[68px] shrink-0 justify-start">
-                            <ClassBadge raceClass={raceClass} />
+                  {winnersList.length > 0 && (
+                    <div
+                      className="grid shrink-0 gap-2"
+                      style={{
+                        gridTemplateColumns: `repeat(${classes.length}, ${widthRem}rem)`,
+                        width: `${totalWidthRem}rem`,
+                      }}
+                    >
+                      {classes.map((cls) => {
+                        const w = byClass.get(cls);
+                        if (!w) {
+                          return <span key={cls} aria-hidden />;
+                        }
+                        return (
+                          <span
+                            key={cls}
+                            className="flex w-full items-center gap-3 rounded-md border border-border/40 bg-secondary/30 px-2 py-1 text-xs"
+                          >
+                            <span
+                              className="inline-flex shrink-0 justify-start"
+                              style={{ width: `${badgeSlotPx}px` }}
+                            >
+                              <ClassBadge raceClass={cls} />
+                            </span>
+                            <span className="w-9 shrink-0 font-mono tabular-nums text-muted-foreground">
+                              #{w.row.carNumber}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate font-medium">
+                              {w.row.team}
+                            </span>
                           </span>
-                          <span className="w-9 shrink-0 font-mono tabular-nums text-muted-foreground">
-                            #{row.carNumber}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate font-medium">
-                            {row.team}
-                          </span>
-                        </span>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </Link>

@@ -104,6 +104,15 @@ export default async function StandingsPage() {
 
   const today = new Date().toISOString().slice(0, 10);
   const completedRounds = events.filter((e) => e.dateEnd < today).length;
+  // A wrapped season's standings are final, not "as-of round X" —
+  // dropping the "After Rn" suffix in that case keeps the header
+  // honest.
+  const isPastSeason =
+    events.length > 0 &&
+    events.every((e) => e.dateEnd < today);
+  const headerDescription = isPastSeason
+    ? `Final · ${completedRounds} rounds`
+    : `After R${completedRounds}`;
 
   const driversByClass = groupByClass(drivers);
   const teamsByClass = groupByClass(teams);
@@ -115,7 +124,7 @@ export default async function StandingsPage() {
         <PageHeader
           eyebrow="Championship"
           title="Standings"
-          description={`After R${completedRounds}`}
+          description={headerDescription}
         />
         <div className="flex items-center gap-4 text-sm">
           <Link
@@ -124,12 +133,14 @@ export default async function StandingsPage() {
           >
             Compare seasons →
           </Link>
-          <Link
-            href="/standings/simulator"
-            className="text-muted-foreground hover:text-foreground"
-          >
-            Open simulator →
-          </Link>
+          {!isPastSeason && (
+            <Link
+              href="/standings/simulator"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Open simulator →
+            </Link>
+          )}
         </div>
       </div>
 

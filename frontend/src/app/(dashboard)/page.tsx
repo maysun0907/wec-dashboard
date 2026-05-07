@@ -186,6 +186,7 @@ export default async function HomePage() {
           <RoundsGrid
             events={events}
             winnersByEvent={recap.winnersByEvent}
+            classes={recap.classesPresent}
           />
           {recap.progressions.length > 0 && (
             <ChampionProgressionMini classes={recap.progressions} />
@@ -200,28 +201,30 @@ export default async function HomePage() {
         </div>
       )}
 
-      <div className="space-y-2">
-        <p className="eyebrow">Standings</p>
-      <section className="grid items-stretch gap-6 lg:grid-cols-2">
-        <DriversPodium
-          classes={[
-            { label: "Hypercar", rows: hypercarPodium },
-            { label: "LMGT3", rows: lmgt3Podium },
-          ]}
-          rounds={completedRounds}
-        />
-        <StandingsCard
-          title="Manufacturers"
-          rows={mfrStandings.slice(0, 5)}
-          rowKey={(r) => `m-${r.manufacturerId}`}
-          rowName={(r) => r.manufacturerName}
-          rowDetail={() => undefined}
-          rowLogo={(r) => r.manufacturerLogoUrl}
-          rowHref={(r) => `/manufacturers/${r.manufacturerId}`}
-          rounds={completedRounds}
-        />
-      </section>
-      </div>
+      {!isPastSeason && (
+        <div className="space-y-2">
+          <p className="eyebrow">Standings</p>
+          <section className="grid items-stretch gap-6 lg:grid-cols-2">
+            <DriversPodium
+              classes={[
+                { label: "Hypercar", rows: hypercarPodium },
+                { label: "LMGT3", rows: lmgt3Podium },
+              ]}
+              rounds={completedRounds}
+            />
+            <StandingsCard
+              title="Manufacturers"
+              rows={mfrStandings.slice(0, 5)}
+              rowKey={(r) => `m-${r.manufacturerId}`}
+              rowName={(r) => r.manufacturerName}
+              rowDetail={() => undefined}
+              rowLogo={(r) => r.manufacturerLogoUrl}
+              rowHref={(r) => `/manufacturers/${r.manufacturerId}`}
+              rounds={completedRounds}
+            />
+          </section>
+        </div>
+      )}
 
       {lastEventName && lastResultByClass.length > 0 && (
         <LastResultCard
@@ -236,6 +239,7 @@ export default async function HomePage() {
 type SeasonRecap = {
   rounds: number;
   classCount: number;
+  classesPresent: RaceClass[];
   manufacturerCount: number;
   driverCount: number;
   teamCount: number;
@@ -351,9 +355,14 @@ async function buildSeasonRecap(
         }
       : null;
 
+  // Sort classes by RACE_CLASSES display order so columns line up
+  // predictably (HYPERCAR / LMP1 first, GT3 / GTE last).
+  const orderedClasses = RACE_CLASSES.filter((c) => classesPresent.has(c));
+
   return {
     rounds: events.length,
     classCount: classesPresent.size,
+    classesPresent: orderedClasses,
     manufacturerCount: manufacturerIds.size,
     driverCount: driverIds.size,
     teamCount: teamIds.size,
