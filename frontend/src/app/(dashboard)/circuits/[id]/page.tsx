@@ -13,6 +13,7 @@ import { ClassBadge } from "@/components/class-badge";
 import { TeamLink } from "@/components/entity-link";
 import { Flag } from "@/components/flag";
 import { getCircuit, type CircuitDetail } from "@/lib/api";
+import { localCircuitLayout } from "@/lib/circuit-image";
 
 type Params = { id: string };
 
@@ -45,6 +46,8 @@ export default async function CircuitDetailPage({
   const circuit = await fetchCircuit(id);
   if (circuit === null) notFound();
 
+  const layoutSvg = localCircuitLayout(circuit.country);
+
   return (
     <div className="space-y-6">
       <Link
@@ -64,6 +67,18 @@ export default async function CircuitDetailPage({
             <Flag code={circuit.country} />
           </CardDescription>
         </CardHeader>
+        {layoutSvg && (
+          <CardContent className="border-t border-border">
+            <div className="flex justify-center bg-secondary/20 py-4">
+              <img
+                src={layoutSvg}
+                alt={`${circuit.name} layout`}
+                className="h-48 w-auto max-w-full object-contain sm:h-64"
+                loading="lazy"
+              />
+            </div>
+          </CardContent>
+        )}
         <CardContent>
           <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
             {circuit.lengthKm > 0 && (
