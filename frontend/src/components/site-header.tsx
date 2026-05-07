@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { SeasonSwitcher } from "./season-switcher";
-import { SiteNav } from "./site-nav";
+import { MobileMenu, SiteNav } from "./site-nav";
 import { SiteSearch } from "./site-search";
 import { getSeasons, type Season } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
@@ -37,6 +37,7 @@ export async function SiteHeader() {
         <div className="ml-auto flex items-center gap-2">
           <SeasonSwitcher seasons={seasons} selected={selected} />
           <SiteSearch />
+          <MobileMenu />
         </div>
       </div>
       {/* Two-tone underline: thin border + a 1px red accent stripe that
