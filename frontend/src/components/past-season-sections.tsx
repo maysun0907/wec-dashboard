@@ -98,57 +98,63 @@ export function SeasonChampionsCard({
       </CardHeader>
       <CardContent className="space-y-4">
         {usable.map((row) => {
-          const tiles: ReactNode[] = [];
+          // 2014-2020 LMP1 only had a privateer Teams trophy —
+          // factory teams competed for the Manufacturers' Cup, so
+          // marking the eyebrow keeps the user from wondering why
+          // the LMP1 Team champ isn't Porsche / Audi / Toyota.
+          const teamEyebrow =
+            row.raceClass === "LMP1" ? "Team (Privateers)" : "Team";
+          const tiles: { key: "d" | "t" | "m"; node: ReactNode }[] = [];
           if (row.driver) {
-            tiles.push(
-              <ChampionSlot
-                key="d"
-                eyebrow="Drivers"
-                value={{
-                  primary: row.driver.driverName,
-                  secondary: row.driver.team,
-                  points: row.driver.points,
-                  href: `/drivers/${row.driver.driverId}`,
-                  photo:
-                    driverPhotoById.get(row.driver.driverId) ?? null,
-                }}
-              />,
-            );
+            tiles.push({
+              key: "d",
+              node: (
+                <ChampionSlot
+                  eyebrow="Drivers"
+                  value={{
+                    primary: row.driver.driverName,
+                    secondary: row.driver.team,
+                    points: row.driver.points,
+                    href: `/drivers/${row.driver.driverId}`,
+                    photo:
+                      driverPhotoById.get(row.driver.driverId) ?? null,
+                  }}
+                />
+              ),
+            });
           }
           if (row.team) {
-            // 2014-2020 LMP1 only had a privateer Teams trophy —
-            // factory teams competed for the Manufacturers' Cup, so
-            // marking the eyebrow keeps the user from wondering why
-            // the LMP1 Team champ isn't Porsche/Audi/Toyota.
-            const teamEyebrow =
-              row.raceClass === "LMP1" ? "Team (Privateers)" : "Team";
-            tiles.push(
-              <ChampionSlot
-                key="t"
-                eyebrow={teamEyebrow}
-                value={{
-                  primary: row.team.teamName,
-                  secondary: null,
-                  points: row.team.points,
-                  href: `/teams/${row.team.teamId}`,
-                }}
-              />,
-            );
+            tiles.push({
+              key: "t",
+              node: (
+                <ChampionSlot
+                  eyebrow={teamEyebrow}
+                  value={{
+                    primary: row.team.teamName,
+                    secondary: null,
+                    points: row.team.points,
+                    href: `/teams/${row.team.teamId}`,
+                  }}
+                />
+              ),
+            });
           }
           if (row.manufacturer) {
-            tiles.push(
-              <ChampionSlot
-                key="m"
-                eyebrow="Manufacturer"
-                value={{
-                  primary: row.manufacturer.manufacturerName,
-                  secondary: null,
-                  points: row.manufacturer.points,
-                  href: `/manufacturers/${row.manufacturer.manufacturerId}`,
-                  logo: row.manufacturer.manufacturerLogoUrl ?? null,
-                }}
-              />,
-            );
+            tiles.push({
+              key: "m",
+              node: (
+                <ChampionSlot
+                  eyebrow="Manufacturer"
+                  value={{
+                    primary: row.manufacturer.manufacturerName,
+                    secondary: null,
+                    points: row.manufacturer.points,
+                    href: `/manufacturers/${row.manufacturer.manufacturerId}`,
+                    logo: row.manufacturer.manufacturerLogoUrl ?? null,
+                  }}
+                />
+              ),
+            });
           }
           return (
             <div
@@ -167,9 +173,9 @@ export function SeasonChampionsCard({
                   on most viewports, 1-2 tiles leave clean whitespace
                   to the right. */}
               <div className="flex flex-wrap gap-3">
-                {tiles.map((t, i) => (
-                  <div key={i} className="w-full sm:w-72">
-                    {t}
+                {tiles.map((t) => (
+                  <div key={t.key} className="w-full sm:w-72">
+                    {t.node}
                   </div>
                 ))}
               </div>

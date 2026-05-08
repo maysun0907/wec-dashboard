@@ -87,6 +87,10 @@ export default async function CircuitDetailPage({
                   : "h-[28rem] sm:h-[34rem]")
               }
             >
+              {/* Static SVG served from /public — next/image would
+                  needlessly route it through the optimizer. The raw
+                  <img> tag is intentional. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={layoutSvg}
                 alt={`${circuit.name} layout`}

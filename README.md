@@ -1,10 +1,30 @@
 # WEC Dashboard
 
-An unofficial fan dashboard for the FIA World Endurance Championship —
-schedule, results, standings, drivers, teams, cars, and Balance of
-Performance for the 2026 Hypercar and LMGT3 grids.
+An unofficial fan dashboard for the FIA World Endurance Championship.
+Schedule, lap-by-lap race results, sector breakdowns, V-max, weather,
+session-by-session standings progressions, circuit layouts, and a
+recap home for past seasons going back to 2012 (HYPERCAR / LMP1 /
+LMP2 / LMGTE Pro / LMGTE Am).
 
 **Live**: [wec-dashboard-seven.vercel.app](https://wec-dashboard-seven.vercel.app)
+
+## What's in here
+
+- **Live race weekend** — next-race countdown, hourly cron pulls
+  latest classification + Al Kamel CSVs, frontend revalidate windows
+  scoped tighter during weekends.
+- **Race detail page** — qualifying sector breakdown on the pole
+  card, V-max column on the race classification, Al Kamel position
+  chart, pit-stop log, weather emoji badge per session tab.
+- **Past-season recap home** — Champions card per class (drivers /
+  team / manufacturer), Le Mans spotlight, every-round-at-a-glance
+  grid, mini progression charts. Adapts to whatever class taxonomy
+  the season ran (LMP1+LMP2+LMGTE PRO+LMGTE AM in 2014-2020,
+  HYPERCAR+LMGT3 since 2024).
+- **Circuit pages** — per-track SVG layouts (CC-BY-SA from Wikimedia
+  Commons), country-keyed, served straight from `public/circuits/`.
+- **Rules / BoP** — 2026 regulations summary, success-handicap
+  explainer, points tables.
 
 ## Architecture
 
@@ -78,13 +98,18 @@ wec-dashboard/
 │   ├── railway.toml             # Deploy config (alembic + curators)
 │   └── requirements.txt
 └── frontend/
-    ├── public/cars/             # Car-model PNGs/WebPs (slug-keyed)
+    ├── public/
+    │   ├── cars/                # Car-model PNGs/WebPs (slug-keyed)
+    │   ├── circuits/            # Track layout SVGs (ISO-3-keyed)
+    │   └── drivers/             # Optional driver-photo overrides
     ├── src/
     │   ├── app/(dashboard)/     # Routed pages: home, races, live, ...
     │   ├── components/          # Shared UI + cards
     │   └── lib/
     │       ├── api.ts           # Typed API client
     │       ├── car-image.ts     # Server-only public/cars/ lookup
+    │       ├── circuit-image.ts # Server-only public/circuits/ lookup
+    │       ├── driver-image.ts  # Server-only public/drivers/ lookup
     │       └── season.ts        # Selected-season cookie helper
     └── vitest.config.ts
 ```

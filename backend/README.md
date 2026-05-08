@@ -23,6 +23,20 @@ uvicorn app.main:app --reload
 The API serves at `http://localhost:8000`. Browse `/docs` for the
 auto-generated OpenAPI UI.
 
+### Live Al Kamel CSV endpoints
+
+A handful of session endpoints fetch Al Kamel CSVs at request time
+and cache the parsed result per session id (in-process, indefinitely
+once non-empty). Don't be surprised by a 1-3 second cold-start hit
+the first time each is called for a given session.
+
+| Endpoint | What it returns |
+| --- | --- |
+| `GET /api/v1/sessions/{id}/lap-chart` | Per-car lap-by-lap position trajectories (race only) |
+| `GET /api/v1/sessions/{id}/pit-stops` | Pit visits with laps + durations |
+| `GET /api/v1/sessions/{id}/weather` | Median temps, humidity, wind, rain flag |
+| `GET /api/v1/sessions/{id}/results` | Race classification, plus V-max for races and Q sector triples for qualifying |
+
 ## Seed mock data (dev only)
 
 `python -m app.seed` wipes the DB and re-inserts the 2026 Hypercar +

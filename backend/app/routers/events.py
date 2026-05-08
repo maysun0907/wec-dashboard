@@ -3,119 +3,89 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
+from app.ingest import alkamel
 from app.rounds import driver_in_round
 from app.scoring import class_position_for, points_for
 from app.season import YearParam, resolve_season
 
 router = APIRouter(tags=["events"])
 
-# Tiny in-process cache for race lap charts. The Al Kamel CSVs run
-# 200KB-2MB and the position computation is cheap, but we render the
-# same response for every page hit, so the network fetch dominates.
+# In-process caches for the Al Kamel CSV-derived views. CSVs are
+# 200KB-2MB each and the per-render compute is cheap, so caching the
+# parsed result per session_id makes a huge difference. Note: we only
+# cache *non-empty* results — empty payloads usually mean the CSV
+# hasn't been published yet (e.g. mid-race-weekend), and we want to
+# retry on the next request rather than freeze the UI in a "no data"
+# state for the rest of the process lifetime.
 _LAP_CHART_CACHE: dict[int, "schemas.LapChart"] = {}
-# Per-car race V-max (km/h), keyed by session_id. Same source CSV as
-# the lap chart — we fetch on first hit from either endpoint.
 _TOP_SPEED_CACHE: dict[int, dict[str, float]] = {}
-# Per-car sectors of the best Q (or Hyperpole) lap, keyed by Q
-# session_id. value = {car_number: (s1, s2, s3)} where each is the
-# raw seconds string from Al Kamel's analysis CSV.
 _QUAL_SECTORS_CACHE: dict[int, dict[str, tuple[str, str, str]]] = {}
+
+
+def _pole_sectors_for_car(
+    qual_sectors: dict[str, tuple[str, str, str]], car_number: str
+) -> list[str] | None:
+    """Convert the cached qualifying-sector tuple into the API
+    response shape, or None when this car has no Q lap recorded."""
+    triple = qual_sectors.get(car_number)
+    if triple is None:
+        return None
+    return list(triple)
+
+
+def _resolve_alkamel_for_session(
+    session: models.Session, db: Session
+) -> tuple[str, str] | None:
+    """Map a DB Session row to the (season_param, evvent_param) slugs
+    Al Kamel expects. Raises 404 on broken FKs (a Session pointing at
+    a missing Event is integrity corruption, not a "no upstream data"
+    case). Returns None when the upstream listing simply doesn't have
+    that year/round yet."""
+    event = db.get(models.Event, session.event_id)
+    if event is None:
+        raise HTTPException(status_code=404, detail="Event not found")
+    season = db.get(models.Season, event.season_id)
+    if season is None:
+        raise HTTPException(status_code=404, detail="Season not found")
+    return alkamel.resolve_event_params(season.year, event.round)
 
 
 def _get_qual_sectors_by_car(
     session_id: int, db: Session
 ) -> dict[str, tuple[str, str, str]]:
-    """For a Q session, fetch every analysis CSV (one per class, plus a
-    Hyperpole CSV when one was run) and pull the sector triple of each
-    car's fastest lap. When both Q and HP exist we prefer HP because
-    that's where pole was decided. Returns {} for non-Q sessions."""
+    """For a Q session, return {car_number: (s1, s2, s3)} for each
+    car's fastest Q (or Hyperpole) lap. {} for non-Q sessions or when
+    the analysis CSV hasn't been published yet."""
     cached = _QUAL_SECTORS_CACHE.get(session_id)
     if cached is not None:
         return cached
     session = db.get(models.Session, session_id)
     if session is None or session.type != "Q":
-        _QUAL_SECTORS_CACHE[session_id] = {}
         return {}
-    event = db.get(models.Event, session.event_id)
-    season = db.get(models.Season, event.season_id) if event else None
-    if event is None or season is None:
-        _QUAL_SECTORS_CACHE[session_id] = {}
+    params = _resolve_alkamel_for_session(session, db)
+    if params is None:
         return {}
-    from app.ingest import alkamel
-
-    season_param = alkamel._season_param_for_year(season.year)
-    if season_param is None:
-        _QUAL_SECTORS_CACHE[session_id] = {}
-        return {}
-    events_ = alkamel._event_options_for_season(season_param)
-    evvent_param = next((ev for r, ev in events_ if r == event.round), None)
-    if evvent_param is None:
-        _QUAL_SECTORS_CACHE[session_id] = {}
-        return {}
-
-    # Walk Q + HP CSVs. We track HP separately so it overrides Q in the
-    # final dict — the pole-relevant lap is the Hyperpole one.
-    out_q: dict[str, tuple[str, str, str]] = {}
-    out_hp: dict[str, tuple[str, str, str]] = {}
-    for kind, _cls, _cl_url, an_url, _ts in alkamel._list_session_csvs(
-        season_param, evvent_param
-    ):
-        if kind not in ("Q", "HP") or not an_url:
-            continue
-        try:
-            laps = alkamel._parse_lap_analysis(alkamel._fetch(an_url))
-        except Exception:
-            continue
-        # Per car: lap with the smallest LAP_TIME wins.
-        best_by_car: dict[str, tuple[int, str, str, str]] = {}
-        for r in laps:
-            lt_ms = alkamel._hms_to_ms(r.get("lap_time") or "")
-            if lt_ms is None or lt_ms <= 0:
-                continue
-            s1, s2, s3 = r.get("s1") or "", r.get("s2") or "", r.get("s3") or ""
-            if not (s1 and s2 and s3):
-                continue
-            num = r["number"]
-            cur = best_by_car.get(num)
-            if cur is None or lt_ms < cur[0]:
-                best_by_car[num] = (lt_ms, s1, s2, s3)
-        bucket = out_hp if kind == "HP" else out_q
-        for num, (_lt, s1, s2, s3) in best_by_car.items():
-            bucket[num] = (s1, s2, s3)
-    merged = {**out_q, **out_hp}  # HP wins when both present
-    _QUAL_SECTORS_CACHE[session_id] = merged
-    return merged
+    sectors = alkamel.fetch_qualifying_sectors(*params)
+    if sectors:
+        _QUAL_SECTORS_CACHE[session_id] = sectors
+    return sectors
 
 
 def _get_top_speeds_by_car(
     session_id: int, db: Session
 ) -> dict[str, float]:
-    """Return {car_number: max TOP_SPEED across the race}, fetching the
-    Al Kamel race analysis CSV if not yet cached for this session."""
+    """Return {car_number: max TOP_SPEED across the race}. {} for
+    non-race sessions or before the CSV is published."""
     cached = _TOP_SPEED_CACHE.get(session_id)
     if cached is not None:
         return cached
     session = db.get(models.Session, session_id)
     if session is None or session.type != "RACE":
-        _TOP_SPEED_CACHE[session_id] = {}
         return {}
-    event = db.get(models.Event, session.event_id)
-    season = db.get(models.Season, event.season_id) if event else None
-    if event is None or season is None:
-        _TOP_SPEED_CACHE[session_id] = {}
+    params = _resolve_alkamel_for_session(session, db)
+    if params is None:
         return {}
-    from app.ingest import alkamel
-
-    season_param = alkamel._season_param_for_year(season.year)
-    if season_param is None:
-        _TOP_SPEED_CACHE[session_id] = {}
-        return {}
-    events_ = alkamel._event_options_for_season(season_param)
-    evvent_param = next((ev for r, ev in events_ if r == event.round), None)
-    if evvent_param is None:
-        _TOP_SPEED_CACHE[session_id] = {}
-        return {}
-    laps = alkamel.fetch_race_lap_data(season_param, evvent_param)
+    laps = alkamel.fetch_race_lap_data(*params)
     out: dict[str, float] = {}
     for r in laps:
         raw = r.get("top_speed") or ""
@@ -129,7 +99,8 @@ def _get_top_speeds_by_car(
         prev = out.get(num)
         if prev is None or v > prev:
             out[num] = v
-    _TOP_SPEED_CACHE[session_id] = out
+    if out:
+        _TOP_SPEED_CACHE[session_id] = out
     return out
 
 _SESSION_ORDER = {"FP1": 1, "FP2": 2, "FP3": 3, "Q": 4, "RACE": 5}
@@ -293,17 +264,14 @@ def session_results(
                 hyperpole_driver=r.hyperpole_driver,
                 pit_stops=r.pit_stops,
                 top_speed_kph=top_speeds.get(r.car.number),
-                pole_sectors=(
-                    list(qual_sectors[r.car.number])
-                    if r.car.number in qual_sectors
-                    else None
-                ),
+                pole_sectors=_pole_sectors_for_car(qual_sectors, r.car.number),
             )
         )
     return out
 
 
 _WEATHER_CACHE: dict[int, schemas.SessionWeather] = {}
+_EMPTY_WEATHER = schemas.SessionWeather()
 
 
 @router.get(
@@ -316,40 +284,20 @@ def session_weather(
     """Median air/track temps, humidity, wind, and a rain flag for one
     session. Returns an empty (all-null) summary when the Al Kamel
     weather CSV hasn't been published — the frontend just hides the
-    badge in that case."""
+    badge in that case. Empty payloads are *not* cached so we retry
+    the upstream fetch on the next request."""
     cached = _WEATHER_CACHE.get(session_id)
     if cached is not None:
         return cached
     session = db.get(models.Session, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
-    event = db.get(models.Event, session.event_id)
-    season = db.get(models.Season, event.season_id) if event else None
-    empty = schemas.SessionWeather()
-    if event is None or season is None:
-        _WEATHER_CACHE[session_id] = empty
-        return empty
-    from app.ingest import alkamel
-
-    season_param = alkamel._season_param_for_year(season.year)
-    if season_param is None:
-        _WEATHER_CACHE[session_id] = empty
-        return empty
-    events_ = alkamel._event_options_for_season(season_param)
-    evvent_param = next((ev for r, ev in events_ if r == event.round), None)
-    if evvent_param is None:
-        _WEATHER_CACHE[session_id] = empty
-        return empty
-    url = alkamel.find_weather_url(season_param, evvent_param, session.type)
-    if url is None:
-        _WEATHER_CACHE[session_id] = empty
-        return empty
-    try:
-        text = alkamel._fetch(url)
-    except Exception:
-        _WEATHER_CACHE[session_id] = empty
-        return empty
-    summary = alkamel.parse_weather_summary(text)
+    params = _resolve_alkamel_for_session(session, db)
+    if params is None:
+        return _EMPTY_WEATHER
+    summary = alkamel.fetch_session_weather(*params, session.type)
+    if summary is None:
+        return _EMPTY_WEATHER
     out = schemas.SessionWeather(**summary)
     _WEATHER_CACHE[session_id] = out
     return out
@@ -375,27 +323,11 @@ def session_lap_chart(
         raise HTTPException(
             status_code=400, detail="Lap chart is only available for races"
         )
-    event = db.get(models.Event, session.event_id)
-    if event is None:
-        raise HTTPException(status_code=404, detail="Event not found")
-    season = db.get(models.Season, event.season_id)
-    if season is None:
-        raise HTTPException(status_code=404, detail="Season not found")
-
-    # Resolve the Al Kamel slugs for this season + round.
-    from app.ingest import alkamel
-
-    season_param = alkamel._season_param_for_year(season.year)
-    if season_param is None:
-        raise HTTPException(status_code=404, detail="No timing data available")
-    events = alkamel._event_options_for_season(season_param)
-    evvent_param = next(
-        (ev for r, ev in events if r == event.round), None
-    )
-    if evvent_param is None:
+    params = _resolve_alkamel_for_session(session, db)
+    if params is None:
         raise HTTPException(status_code=404, detail="No timing data available")
 
-    laps = alkamel.fetch_race_lap_data(season_param, evvent_param)
+    laps = alkamel.fetch_race_lap_data(*params)
     if not laps:
         raise HTTPException(status_code=404, detail="No timing data available")
 

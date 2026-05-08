@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { getSessionWeather } from "@/lib/api";
 
 /** Pick an at-a-glance condition emoji from rain + humidity. We don't
@@ -39,30 +40,50 @@ export async function SessionWeatherBadge({
     return null;
   }
   const emoji = conditionEmoji(w.humidityPct, w.rain);
+  // Build the parts list bottom-up so a session that only reports
+  // rain (no temperatures) still shows the rain emoji + "Rain" text
+  // — the original code gated the emoji on airTempC and rendered an
+  // empty span in that edge case.
+  const parts: ReactNode[] = [];
+  if (w.airTempC != null) {
+    parts.push(`${Math.round(w.airTempC)}°C`);
+  } else if (w.rain) {
+    parts.push("Rain");
+  }
+  if (w.trackTempC != null) {
+    parts.push(`Track ${Math.round(w.trackTempC)}°C`);
+  }
+  if (w.humidityPct != null) {
+    parts.push(
+      <>
+        <span aria-hidden className="mr-1">
+          💧
+        </span>
+        {Math.round(w.humidityPct)}%
+      </>,
+    );
+  }
+  const ariaLabel = [
+    w.rain ? "rain" : "dry",
+    w.airTempC != null ? `air ${Math.round(w.airTempC)}°C` : null,
+    w.trackTempC != null ? `track ${Math.round(w.trackTempC)}°C` : null,
+    w.humidityPct != null ? `${Math.round(w.humidityPct)}% humidity` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
   return (
-    <span className="inline-flex items-center gap-2 rounded-md border border-border bg-secondary/40 px-2 py-0.5 text-xs text-muted-foreground">
+    <span
+      className="inline-flex items-center gap-2 rounded-md border border-border bg-secondary/40 px-2 py-0.5 text-xs text-muted-foreground"
+      aria-label={ariaLabel}
+    >
+      <span aria-hidden>{emoji}</span>
       <span className="font-mono tabular-nums">
-        {w.airTempC != null && (
-          <>
-            <span className="mr-1" aria-label="weather condition">
-              {emoji}
-            </span>
-            {Math.round(w.airTempC)}°C
-          </>
-        )}
-        {w.trackTempC != null && (
-          <>
-            <span className="mx-1.5 opacity-60">·</span>
-            Track {Math.round(w.trackTempC)}°C
-          </>
-        )}
-        {w.humidityPct != null && (
-          <>
-            <span className="mx-1.5 opacity-60">·</span>
-            <span className="mr-1" aria-label="humidity">💧</span>
-            {Math.round(w.humidityPct)}%
-          </>
-        )}
+        {parts.map((p, i) => (
+          <span key={i}>
+            {i > 0 && <span className="mx-1.5 opacity-60">·</span>}
+            {p}
+          </span>
+        ))}
       </span>
     </span>
   );

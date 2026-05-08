@@ -50,7 +50,7 @@ def _timestamp_to_utc(stamp: str, circuit_tz: str | None) -> datetime | None:
         .replace(tzinfo=None)
     )
 
-USER_AGENT = "wec-dashboard/0.1 (https://github.com/maysun0907/wec-dashboard)"
+USER_AGENT = "wec-dashboard/0.1 (open-source dashboard for FIA WEC fans)"
 BASE = "https://fiawec.alkamelsystems.com"
 
 
@@ -468,6 +468,76 @@ def fetch_race_lap_data(
         return _parse_lap_analysis(_fetch(analysis_url))
     except httpx.HTTPError:
         return []
+
+
+def resolve_event_params(
+    year: int, round_num: int
+) -> tuple[str, str] | None:
+    """Translate (season year, round number) into the (season_param,
+    evvent_param) URL slugs Al Kamel expects. None when the season or
+    round can't be resolved on the upstream listing page."""
+    season_param = _season_param_for_year(year)
+    if season_param is None:
+        return None
+    options = _event_options_for_season(season_param)
+    evvent_param = next((ev for r, ev in options if r == round_num), None)
+    if evvent_param is None:
+        return None
+    return season_param, evvent_param
+
+
+def fetch_qualifying_sectors(
+    season_param: str, evvent_param: str
+) -> dict[str, tuple[str, str, str]]:
+    """For one race weekend, walk every Q + Hyperpole analysis CSV and
+    return {car_number: (s1, s2, s3)} for each car's fastest Q lap.
+    Hyperpole overrides Q when both ran. Empty dict when no Q/HP CSV
+    has been published yet."""
+    out_q: dict[str, tuple[str, str, str]] = {}
+    out_hp: dict[str, tuple[str, str, str]] = {}
+    for kind, _cls, _cl_url, an_url, _ts in _list_session_csvs(
+        season_param, evvent_param
+    ):
+        if kind not in ("Q", "HP") or not an_url:
+            continue
+        try:
+            laps = _parse_lap_analysis(_fetch(an_url))
+        except httpx.HTTPError:
+            continue
+        # Per car: lap with the smallest LAP_TIME wins.
+        best_by_car: dict[str, tuple[int, str, str, str]] = {}
+        for r in laps:
+            lt_ms = _hms_to_ms(r.get("lap_time") or "")
+            if lt_ms is None or lt_ms <= 0:
+                continue
+            s1 = r.get("s1") or ""
+            s2 = r.get("s2") or ""
+            s3 = r.get("s3") or ""
+            if not (s1 and s2 and s3):
+                continue
+            num = r["number"]
+            cur = best_by_car.get(num)
+            if cur is None or lt_ms < cur[0]:
+                best_by_car[num] = (lt_ms, s1, s2, s3)
+        bucket = out_hp if kind == "HP" else out_q
+        for num, (_lt, s1, s2, s3) in best_by_car.items():
+            bucket[num] = (s1, s2, s3)
+    return {**out_q, **out_hp}  # HP wins when both present
+
+
+def fetch_session_weather(
+    season_param: str, evvent_param: str, session_kind: str
+) -> dict[str, float | str | None] | None:
+    """One-shot weather summary for a session — locates the relevant
+    26_Weather CSV, parses, returns the aggregated dict. None when the
+    CSV hasn't been published or the fetch fails."""
+    url = find_weather_url(season_param, evvent_param, session_kind)
+    if url is None:
+        return None
+    try:
+        return parse_weather_summary(_fetch(url))
+    except httpx.HTTPError:
+        return None
 
 
 def _normalize_lap_time(raw: str) -> str:

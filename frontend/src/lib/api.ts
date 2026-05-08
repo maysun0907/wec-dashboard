@@ -98,7 +98,7 @@ export type SessionResult = {
   topSpeedKph: number | null;
   /** S1/S2/S3 of the car's best Q (or HP) lap, raw seconds strings.
    *  Null for non-Q sessions or when the CSV hasn't published. */
-  poleSectors: (string | null)[] | null;
+  poleSectors: string[] | null;
 };
 
 export type DriverEntry = {

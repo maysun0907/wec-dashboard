@@ -149,8 +149,10 @@ class SessionResultOut(_BaseSchema):
     top_speed_kph: float | None = None  # V-max across all the car's laps
     # Sector breakdown of the car's best Q/HP lap, formatted as
     # ["29.123", "37.456", "23.789"]. None for non-qualifying sessions
-    # or when the analysis CSV hasn't been published.
-    pole_sectors: list[str | None] | None = None
+    # or when the analysis CSV hasn't been published. Always a triple
+    # when present — we drop laps where any sector is missing rather
+    # than emit nulls inside the list.
+    pole_sectors: list[str] | None = None
 
 
 class SessionWeather(_BaseSchema):

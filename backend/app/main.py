@@ -20,10 +20,18 @@ from app.routers import (
 configure_logging()
 app = FastAPI(title="WEC Dashboard API", version="0.1.0")
 
+# CORS — locked to localhost dev + the production Vercel alias plus
+# preview deploys from this repo's owner. Loose ".*\\.vercel\\.app"
+# globs match forks, so once the repo is public we don't want them.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
-    allow_origin_regex=r"https://(wec-dashboard.*\.vercel\.app)",
+    allow_origins=[
+        "http://localhost:3000",
+        "https://wec-dashboard-seven.vercel.app",
+    ],
+    allow_origin_regex=(
+        r"^https://wec-dashboard-[a-z0-9-]+-maysun0907\.vercel\.app$"
+    ),
     allow_credentials=False,
     allow_methods=["GET", "OPTIONS"],
     allow_headers=["*"],
