@@ -296,12 +296,7 @@ export function LeMansSpotlight({
               href={`/races/${event.id}`}
               className="flex items-center gap-4 rounded-md border border-border/60 bg-secondary/20 px-4 py-3 transition-colors hover:bg-secondary/40"
             >
-              {/* Fixed-width slot so HYPERCAR / LMGT3 / LMP1 badges
-                  with different label widths still leave the car
-                  number / team name aligned vertically across rows. */}
-              <span className="inline-flex w-24 shrink-0 justify-start">
-                <ClassBadge raceClass={raceClass} />
-              </span>
+              <ClassBadge raceClass={raceClass} className="shrink-0" />
               <span className="w-12 shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
                 #{row.carNumber}
               </span>
@@ -344,8 +339,6 @@ export function RoundsGrid({
   // less competition for horizontal space.
   const widthRem =
     classes.length >= 4 ? 13 : classes.length === 3 ? 16 : 18;
-  const badgeSlotPx =
-    classes.some((c) => c === "LMGTE_PRO" || c === "LMGTE_AM") ? 70 : 62;
 
   return (
     <Card>
@@ -400,12 +393,14 @@ export function RoundsGrid({
                             className="flex w-full items-center gap-2 rounded-md border border-border/40 bg-secondary/30 px-2 py-1 text-xs"
                             title={`#${w.row.carNumber} ${w.row.team}`}
                           >
-                            <span
-                              className="inline-flex shrink-0 justify-start"
-                              style={{ width: `${badgeSlotPx}px` }}
-                            >
-                              <ClassBadge raceClass={cls} />
-                            </span>
+                            {/* Badge is content-sized (no slot
+                                wrapper). Each column always shows the
+                                same class so its badge width is the
+                                same on every row — vertical alignment
+                                survives, and short-label classes like
+                                LMP1 stop wasting an LMGTE-PRO-sized
+                                gap to the team name. */}
+                            <ClassBadge raceClass={cls} className="shrink-0" />
                             <span className="min-w-0 flex-1 truncate font-medium">
                               <span className="mr-1.5 font-mono tabular-nums text-muted-foreground">
                                 #{w.row.carNumber}
