@@ -116,10 +116,16 @@ export function SeasonChampionsCard({
             );
           }
           if (row.team) {
+            // 2014-2020 LMP1 only had a privateer Teams trophy —
+            // factory teams competed for the Manufacturers' Cup, so
+            // marking the eyebrow keeps the user from wondering why
+            // the LMP1 Team champ isn't Porsche/Audi/Toyota.
+            const teamEyebrow =
+              row.raceClass === "LMP1" ? "Team (Privateers)" : "Team";
             tiles.push(
               <ChampionSlot
                 key="t"
-                eyebrow="Team"
+                eyebrow={teamEyebrow}
                 value={{
                   primary: row.team.teamName,
                   secondary: null,

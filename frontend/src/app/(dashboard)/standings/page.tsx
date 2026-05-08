@@ -318,6 +318,14 @@ function StandingsTable({
   rows: Row[];
   emptyMessage: string;
 }) {
+  // The 2014-2020 LMP1 era had no overall Teams' World Championship —
+  // factory teams competed for the Manufacturers' Cup, and only
+  // privateers had a Teams trophy. Tagging the table avoids confusion
+  // when the LMP1 Teams card looks short.
+  const note =
+    title === "Teams" && raceClass === "LMP1"
+      ? "Privateer Trophy only — factory teams competed for the Manufacturers' Cup."
+      : null;
   return (
     <Card>
       <CardHeader>
@@ -325,6 +333,9 @@ function StandingsTable({
           <CardTitle>{title}</CardTitle>
           <ClassBadge raceClass={raceClass} />
         </div>
+        {note && (
+          <p className="text-xs text-muted-foreground">{note}</p>
+        )}
       </CardHeader>
       <CardContent className="px-0">
         {rows.length === 0 ? (
