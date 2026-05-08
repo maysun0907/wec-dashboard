@@ -213,25 +213,27 @@ function ChampionSlot({
   }
   const inner = (
     <div className="flex h-full items-center gap-3 rounded-md border border-border/40 bg-background/40 p-3 transition-colors hover:bg-background/70">
-      {(value.photo || value.logo) && (
+      {value.photo ? (
         <div className="size-10 shrink-0 overflow-hidden rounded-full bg-secondary/40">
-          {value.photo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={value.photo}
-              alt={value.primary}
-              className="size-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <ManufacturerLogo
-              src={value.logo ?? null}
-              name={value.primary}
-              size="lg"
-            />
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={value.photo}
+            alt={value.primary}
+            className="size-full object-cover"
+            loading="lazy"
+          />
         </div>
-      )}
+      ) : value.logo ? (
+        // ManufacturerLogo brings its own white pill + padding;
+        // wrapping it in a circle clipped the logo and made the
+        // spacing feel double-paneled. Render it directly at md.
+        <ManufacturerLogo
+          src={value.logo}
+          name={value.primary}
+          size="md"
+          className="shrink-0"
+        />
+      ) : null}
       <div className="min-w-0 flex-1">
         <div className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
           {eyebrow}
@@ -336,14 +338,13 @@ export function RoundsGrid({
    *  rows (and so do LMGT3 / LMP1 / LMGTE PRO / LMGTE AM etc.). */
   classes: RaceClass[];
 }) {
-  // Per-class column width in rem. 4-class legacy seasons (LMP1 +
-  // LMP2 + LMGTE PRO + LMGTE AM) need every column narrower or
-  // they'd push the row past 1400px. Modern 2-3 class seasons get
-  // wider tiles for breathing room.
-  const widthRem = classes.length >= 4 ? 13.5 : 17;
+  // Each class gets a 1fr column so pills grow into whatever width
+  // the row has after the round number + event details. We only
+  // anchor a min width so badge + #carNo + a couple of name chars
+  // are always visible.
+  const minRem = classes.length >= 4 ? 11 : 14;
   const badgeSlotPx =
     classes.some((c) => c === "LMGTE_PRO" || c === "LMGTE_AM") ? 76 : 68;
-  const totalWidthRem = widthRem * classes.length + 0.5 * (classes.length - 1);
 
   return (
     <Card>
@@ -382,10 +383,9 @@ export function RoundsGrid({
                   </span>
                   {winnersList.length > 0 && (
                     <div
-                      className="grid shrink-0 gap-2"
+                      className="grid w-full min-w-0 flex-[2_1_0%] gap-2"
                       style={{
-                        gridTemplateColumns: `repeat(${classes.length}, ${widthRem}rem)`,
-                        width: `${totalWidthRem}rem`,
+                        gridTemplateColumns: `repeat(${classes.length}, minmax(${minRem}rem, 1fr))`,
                       }}
                     >
                       {classes.map((cls) => {
