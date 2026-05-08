@@ -338,13 +338,14 @@ export function RoundsGrid({
    *  rows (and so do LMGT3 / LMP1 / LMGTE PRO / LMGTE AM etc.). */
   classes: RaceClass[];
 }) {
-  // Each class gets a 1fr column so pills grow into whatever width
-  // the row has after the round number + event details. We only
-  // anchor a min width so badge + #carNo + a couple of name chars
-  // are always visible.
-  const minRem = classes.length >= 4 ? 11 : 14;
+  // Per-class column width tuned to the class count: 4-class legacy
+  // seasons keep the row from wrapping onto two lines on a 1280-wide
+  // viewport, modern 2-class seasons get wider tiles since they have
+  // less competition for horizontal space.
+  const widthRem =
+    classes.length >= 4 ? 13 : classes.length === 3 ? 16 : 18;
   const badgeSlotPx =
-    classes.some((c) => c === "LMGTE_PRO" || c === "LMGTE_AM") ? 76 : 68;
+    classes.some((c) => c === "LMGTE_PRO" || c === "LMGTE_AM") ? 70 : 62;
 
   return (
     <Card>
@@ -383,9 +384,9 @@ export function RoundsGrid({
                   </span>
                   {winnersList.length > 0 && (
                     <div
-                      className="grid w-full min-w-0 flex-[2_1_0%] gap-2"
+                      className="grid shrink-0 gap-2"
                       style={{
-                        gridTemplateColumns: `repeat(${classes.length}, minmax(${minRem}rem, 1fr))`,
+                        gridTemplateColumns: `repeat(${classes.length}, ${widthRem}rem)`,
                       }}
                     >
                       {classes.map((cls) => {
@@ -396,7 +397,8 @@ export function RoundsGrid({
                         return (
                           <span
                             key={cls}
-                            className="flex w-full items-center gap-3 rounded-md border border-border/40 bg-secondary/30 px-2 py-1 text-xs"
+                            className="flex w-full items-center gap-2 rounded-md border border-border/40 bg-secondary/30 px-2 py-1 text-xs"
+                            title={`#${w.row.carNumber} ${w.row.team}`}
                           >
                             <span
                               className="inline-flex shrink-0 justify-start"
@@ -404,10 +406,10 @@ export function RoundsGrid({
                             >
                               <ClassBadge raceClass={cls} />
                             </span>
-                            <span className="w-9 shrink-0 font-mono tabular-nums text-muted-foreground">
-                              #{w.row.carNumber}
-                            </span>
                             <span className="min-w-0 flex-1 truncate font-medium">
+                              <span className="mr-1.5 font-mono tabular-nums text-muted-foreground">
+                                #{w.row.carNumber}
+                              </span>
                               {w.row.team}
                             </span>
                           </span>
