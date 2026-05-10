@@ -1859,7 +1859,10 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
         try:
             from app.ingest.fiawec_assets import ingest_fiawec_assets
 
-            fiawec_assets = ingest_fiawec_assets(db, year)
+            # verbose=True writes per-step diagnostics to Railway's
+            # cron logs — debugging the missing Spa / Imola track-map
+            # state. Drop the flag once we know the resolver lands.
+            fiawec_assets = ingest_fiawec_assets(db, year, verbose=True)
         except Exception as exc:  # pragma: no cover
             print(f"  fiawec asset refresh skipped: {exc}")
             fiawec_assets = {
