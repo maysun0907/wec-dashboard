@@ -109,10 +109,14 @@ _POSTER_RE = re.compile(
 
 
 def _fetch(url: str) -> str:
+    # follow_redirects=True is required: fiawec.com 301-redirects
+    # `/en` to `/en/`; without follow we'd get an empty body and the
+    # race-slug resolver would silently return zero matches.
     r = httpx.get(
         url,
         headers={"User-Agent": USER_AGENT, "Accept-Language": "en"},
         timeout=20,
+        follow_redirects=True,
     )
     r.raise_for_status()
     return r.text
@@ -150,8 +154,10 @@ def _resolve_race_slugs(year: int) -> dict[str, str]:
     """Walk the FIA homepage and return ``{country: race_page_slug}``
     for every round in the given season. The home page lists each
     race link as ``/en/race/<slug>-<year>``."""
+    # Trailing slash matters — `/en` 301-redirects to `/en/` and
+    # using the canonical form skips the redirect hop entirely.
     try:
-        html = _fetch(f"{BASE}/en")
+        html = _fetch(f"{BASE}/en/")
     except httpx.HTTPError:
         return {}
     out: dict[str, str] = {}
