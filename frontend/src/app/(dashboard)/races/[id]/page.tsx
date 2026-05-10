@@ -123,9 +123,21 @@ export default async function RaceDetailPage({
         ← Schedule
       </Link>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+      <Card className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:gap-6">
+        {event.posterUrl && (
+          // FIA-published round poster (transparent-bg PNG). Sits to
+          // the left of the title block at sm+, stacks on top of it
+          // on phones.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={event.posterUrl}
+            alt={`${event.name} round poster`}
+            className="h-28 w-28 shrink-0 self-center object-contain sm:h-32 sm:w-32"
+            loading="lazy"
+          />
+        )}
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-3 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
             <span>
               Round {event.round} · {parseISO(event.dateStart).getFullYear()}
             </span>
@@ -144,12 +156,12 @@ export default async function RaceDetailPage({
             </Link>
             {event.format && <> · {event.format}</>}
           </CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm text-muted-foreground">
-          {format(parseISO(event.dateStart), "EEEE, MMMM d, yyyy")}
-          {event.dateEnd !== event.dateStart &&
-            ` – ${format(parseISO(event.dateEnd), "MMMM d, yyyy")}`}
-        </CardContent>
+          <p className="text-sm text-muted-foreground">
+            {format(parseISO(event.dateStart), "EEEE, MMMM d, yyyy")}
+            {event.dateEnd !== event.dateStart &&
+              ` – ${format(parseISO(event.dateEnd), "MMMM d, yyyy")}`}
+          </p>
+        </div>
       </Card>
 
       {sessionsWithResults.length > 0 ? (

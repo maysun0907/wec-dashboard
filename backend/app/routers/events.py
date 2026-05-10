@@ -147,6 +147,7 @@ def get_event(event_id: int, db: Session = Depends(get_db)) -> schemas.EventDeta
         date_start=event.date_start,
         date_end=event.date_end,
         format=event.format,
+        poster_url=event.poster_url,
         circuit=schemas.CircuitOut.model_validate(event.circuit),
         sessions=[schemas.SessionOut.model_validate(s) for s in sessions],
     )

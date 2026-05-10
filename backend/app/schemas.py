@@ -98,6 +98,7 @@ class EventOut(_OrmBase):
     date_start: date
     date_end: date
     format: str | None = None
+    poster_url: str | None = None  # FIA-published round poster PNG
     circuit: CircuitOut
 
 
@@ -114,6 +115,7 @@ class EventDetailOut(_BaseSchema):
     date_start: date
     date_end: date
     format: str | None = None
+    poster_url: str | None = None  # FIA-published round poster PNG
     circuit: CircuitOut
     sessions: list[SessionOut]
 

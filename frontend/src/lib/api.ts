@@ -53,6 +53,9 @@ export type Event = {
   dateStart: string; // ISO date
   dateEnd: string;
   format: string | null;
+  /** FIA-published official round poster (transparent-bg PNG). Null
+   *  when the event-page upload hasn't landed yet (early-season). */
+  posterUrl: string | null;
   circuit: Circuit;
 };
 

@@ -98,6 +98,11 @@ _CAR_RE = re.compile(
 _TRACK_RE = re.compile(
     r"/uploads/\d{4}-tracks-rvb-[a-z]+-[a-f0-9-]+\.png"
 )
+# Race-poster URL pattern (FIA's "WEC Round Logo" format):
+# `/uploads/wec-rl-{event}{yy}-classic-bluexnavy-rgb-{hash}.png`.
+_POSTER_RE = re.compile(
+    r"/uploads/wec-rl-[a-z0-9]+\d{2}-classic-[a-z]+-rgb-[a-f0-9-]+\.png"
+)
 
 
 def _fetch(url: str) -> str:
@@ -138,14 +143,20 @@ def _scrape_grid(year: int) -> tuple[dict[str, str], dict[str, str]]:
     return mfr_logos, car_renders
 
 
-def _scrape_track(race_slug: str) -> str | None:
-    """Pull the circuit-map PNG URL from a per-race page."""
+def _scrape_race_assets(race_slug: str) -> tuple[str | None, str | None]:
+    """Return ``(track_map_url, poster_url)`` from a per-race page.
+    Either may be None when FIA hasn't uploaded that asset yet for
+    the round (e.g. a future season's pages)."""
     try:
         html = _fetch(f"{BASE}/en/race/{race_slug}")
     except httpx.HTTPError:
-        return None
-    m = _TRACK_RE.search(html)
-    return BASE + m.group() if m else None
+        return None, None
+    track = _TRACK_RE.search(html)
+    poster = _POSTER_RE.search(html)
+    return (
+        BASE + track.group() if track else None,
+        BASE + poster.group() if poster else None,
+    )
 
 
 def ingest_fiawec_assets(
@@ -187,25 +198,44 @@ def ingest_fiawec_assets(
         cm.image_url = url
         updated_cars += 1
 
+    updated_posters = 0
     for country, race_slug in RACE_SLUG_BY_COUNTRY.items():
-        url = _scrape_track(race_slug)
-        if url is None:
-            continue
-        circuit = (
-            db.query(models.Circuit)
-            .filter(models.Circuit.country == country)
-            .first()
-        )
-        if circuit is None or circuit.layout_image == url:
-            continue
-        circuit.layout_image = url
-        updated_circuits += 1
+        track_url, poster_url = _scrape_race_assets(race_slug)
+        if track_url is not None:
+            circuit = (
+                db.query(models.Circuit)
+                .filter(models.Circuit.country == country)
+                .first()
+            )
+            if circuit is not None and circuit.layout_image != track_url:
+                circuit.layout_image = track_url
+                updated_circuits += 1
+        if poster_url is not None:
+            # Posters are per-event (per round), not per-circuit. Find
+            # the matching event by country + the year embedded in the
+            # race slug — race slugs end with the season year.
+            ev_year_m = re.search(r"-(\d{4})$", race_slug)
+            if ev_year_m is None:
+                continue
+            ev_year = int(ev_year_m.group(1))
+            event = (
+                db.query(models.Event)
+                .join(models.Season, models.Event.season_id == models.Season.id)
+                .join(models.Circuit, models.Event.circuit_id == models.Circuit.id)
+                .filter(models.Season.year == ev_year)
+                .filter(models.Circuit.country == country)
+                .first()
+            )
+            if event is not None and event.poster_url != poster_url:
+                event.poster_url = poster_url
+                updated_posters += 1
 
-    if updated_mfr or updated_cars or updated_circuits:
+    if updated_mfr or updated_cars or updated_circuits or updated_posters:
         db.commit()
 
     return {
         "manufacturer_logos": updated_mfr,
         "car_renders": updated_cars,
         "circuits": updated_circuits,
+        "posters": updated_posters,
     }

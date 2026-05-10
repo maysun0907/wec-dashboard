@@ -60,6 +60,9 @@ class Event(Base):
     date_start: Mapped[date]
     date_end: Mapped[date]
     format: Mapped[str | None] = mapped_column(String(50), default=None)
+    # FIA-published official race poster (transparent-bg PNG). Pulled
+    # from `fiawec.com/en/race/{slug}` by `app.ingest.fiawec_assets`.
+    poster_url: Mapped[str | None] = mapped_column(default=None)
 
     season: Mapped["Season"] = relationship()
     circuit: Mapped["Circuit"] = relationship()
