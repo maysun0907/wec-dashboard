@@ -70,9 +70,12 @@ MANUFACTURER_LINKS: dict[str, ManufacturerLinks] = {
         "instagram_url": "https://www.instagram.com/fordperformance/",
     },
     "Genesis": {
-        "website_url": "https://www.genesis.com/worldwide/en/magma/motorsports/genesis-motorsports-wec.html",
-        # New 2026 entry — channels still spinning up; leave socials
-        # blank rather than guess.
+        # Genesis Magma Racing — South Korean Hypercar entrant from
+        # 2026 (in partnership with Oreca Motorsport).
+        "website_url": "https://www.genesis.com/worldwide/en/magma/motorsports/genesismagmaracing.html",
+        "youtube_url": "https://www.youtube.com/@GenesisMagmaRacing",
+        "x_url": "https://x.com/MagmaRacing",
+        "instagram_url": "https://www.instagram.com/genesismagmaracing/",
     },
     "Lexus": {
         "website_url": "https://discoverlexus.com/stories/lexus-motorsport/world-endurance-championship/",
