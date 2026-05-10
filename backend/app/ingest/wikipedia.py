@@ -1865,6 +1865,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             fiawec_assets = {
                 "manufacturer_logos": 0,
                 "car_renders": 0,
+                "per_car_renders": 0,
                 "circuits": 0,
                 "posters": 0,
             }
@@ -1886,6 +1887,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             "alkamel_race_rows": alkamel_race_n,
             "fiawec_manufacturer_logos": fiawec_assets["manufacturer_logos"],
             "fiawec_car_renders": fiawec_assets["car_renders"],
+            "fiawec_per_car_renders": fiawec_assets["per_car_renders"],
             "fiawec_circuits": fiawec_assets["circuits"],
             "fiawec_posters": fiawec_assets["posters"],
         }

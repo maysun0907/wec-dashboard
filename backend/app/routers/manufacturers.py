@@ -203,6 +203,10 @@ def get_manufacturer(
                 team_name=team.name,
                 model=car.model,
                 car_model_slug=car.car_model.slug if car.car_model else None,
+                image_url=car.image_url,
+                car_model_image_url=(
+                    car.car_model.image_url if car.car_model else None
+                ),
                 drivers=[
                     schemas.DriverRef(
                         id=d.id,

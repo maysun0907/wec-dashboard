@@ -122,32 +122,51 @@ def _fetch(url: str) -> str:
     return r.text
 
 
-def _scrape_grid(year: int) -> tuple[dict[str, str], dict[str, str]]:
-    """Returns ``(mfr_logos_by_fia_slug, car_renders_by_fia_model_slug)``.
-    Multiple cars of the same model resolve to the first PNG seen on
-    the page (each model only has one render in the dashboard)."""
-    try:
-        html = _fetch(f"{BASE}/en/page/grid")
-    except httpx.HTTPError:
-        return {}, {}
-    candidates = list(
-        dict.fromkeys(
+def _scrape_grid(
+    year: int,
+) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    """Walk every uploaded asset on the season's grid page. Returns
+    three dicts:
+
+    1. ``mfr_logos`` — ``{fia_slug: url}`` — one logo per brand.
+    2. ``car_renders_by_model`` — ``{fia_model_slug: url}`` — first
+       render of each model (back-compat fallback for cars that don't
+       have a per-number entry yet).
+    3. ``car_renders_by_number`` — ``{car_number: url}`` — every
+       per-entry livery PNG, keyed by the number on the actual car.
+       Powers Genesis #17 vs #19, Ferrari #50/#51/#83 etc.
+
+    Falls back to grid + /car/{year} pages — some entries (Toyota in
+    particular) only show on /car/{year} not /page/grid.
+    """
+    candidates: list[str] = []
+    for path in (f"/en/page/grid", f"/en/car/{year}"):
+        try:
+            html = _fetch(f"{BASE}{path}")
+        except httpx.HTTPError:
+            continue
+        candidates.extend(
             re.findall(r'<img[^>]+src="(/uploads/[^"]+)"', html)
         )
-    )
+    candidates = list(dict.fromkeys(candidates))
+
     mfr_logos: dict[str, str] = {}
-    car_renders: dict[str, str] = {}
+    car_renders_by_model: dict[str, str] = {}
+    car_renders_by_number: dict[str, str] = {}
     skip_logo_slugs = {"wec-logo", "manufacturers-logos-couleur-rvb-footer"}
     for u in candidates:
         full = BASE + u
         m = _CAR_RE.search(u)
         if m and m.group(1) == str(year):
-            car_renders.setdefault(m.group(3), full)
+            number = m.group(2)
+            model_slug = m.group(3)
+            car_renders_by_model.setdefault(model_slug, full)
+            car_renders_by_number.setdefault(number, full)
             continue
         m = _LOGO_RE.search(u)
         if m and m.group(1) not in skip_logo_slugs:
             mfr_logos.setdefault(m.group(1), full)
-    return mfr_logos, car_renders
+    return mfr_logos, car_renders_by_model, car_renders_by_number
 
 
 def _resolve_race_slugs(year: int) -> dict[str, str]:
@@ -198,14 +217,17 @@ def ingest_fiawec_assets(
     """Refresh manufacturer / car-render / circuit URLs from the
     fiawec.com grid + race pages. Idempotent — only writes when the
     URL has actually changed."""
-    mfr_logos, car_renders = _scrape_grid(year)
+    mfr_logos, car_renders_by_model, car_renders_by_number = _scrape_grid(year)
     if verbose:
         print(
-            f"  grid: {len(mfr_logos)} mfr logos, {len(car_renders)} car renders"
+            f"  grid: {len(mfr_logos)} mfr logos, "
+            f"{len(car_renders_by_model)} car-model renders, "
+            f"{len(car_renders_by_number)} per-car-number renders"
         )
     updated_mfr = 0
     updated_cars = 0
     updated_circuits = 0
+    updated_per_car = 0
 
     for fia_slug, url in mfr_logos.items():
         name = MFR_NAME_BY_FIA_SLUG.get(fia_slug)
@@ -221,7 +243,7 @@ def ingest_fiawec_assets(
         mfr.logo_url = url
         updated_mfr += 1
 
-    for fia_model_slug, url in car_renders.items():
+    for fia_model_slug, url in car_renders_by_model.items():
         our_slug = CAR_MODEL_SLUG_BY_FIA.get(fia_model_slug)
         if our_slug is None:
             continue
@@ -234,6 +256,29 @@ def ingest_fiawec_assets(
             continue
         cm.image_url = url
         updated_cars += 1
+
+    # Per-car renders — match by (year-season, car number). Each
+    # entry's actual livery (Genesis #17 vs #19, Ferrari #50 vs #51 vs
+    # #83). Falls through to the per-model render at API read time
+    # when null.
+    season = (
+        db.query(models.Season).filter(models.Season.year == year).first()
+    )
+    if season is not None:
+        cars_in_season = (
+            db.query(models.Car)
+            .filter(models.Car.season_id == season.id)
+            .all()
+        )
+        car_by_number = {c.number: c for c in cars_in_season}
+        for car_number, url in car_renders_by_number.items():
+            car = car_by_number.get(car_number)
+            if car is None or car.image_url == url:
+                continue
+            car.image_url = url
+            updated_per_car += 1
+        if verbose:
+            print(f"  per-car renders updated: {updated_per_car}")
 
     updated_posters = 0
     race_slugs = _resolve_race_slugs(year)
@@ -270,12 +315,19 @@ def ingest_fiawec_assets(
                 event.poster_url = poster_url
                 updated_posters += 1
 
-    if updated_mfr or updated_cars or updated_circuits or updated_posters:
+    if (
+        updated_mfr
+        or updated_cars
+        or updated_per_car
+        or updated_circuits
+        or updated_posters
+    ):
         db.commit()
 
     return {
         "manufacturer_logos": updated_mfr,
         "car_renders": updated_cars,
+        "per_car_renders": updated_per_car,
         "circuits": updated_circuits,
         "posters": updated_posters,
     }

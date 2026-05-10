@@ -151,11 +151,11 @@ export default async function TeamDetailPage({
                   <ClassBadge raceClass={c.raceClass} />
                 </div>
               </CardHeader>
-              {c.carModelImageUrl && (
+              {(c.imageUrl ?? c.carModelImageUrl) && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={c.carModelImageUrl}
-                  alt={c.model ?? `#${c.number}`}
+                  src={c.imageUrl ?? c.carModelImageUrl ?? undefined}
+                  alt={`#${c.number} ${c.model ?? ""}`}
                   className="mx-auto h-24 w-auto px-4"
                   loading="lazy"
                 />

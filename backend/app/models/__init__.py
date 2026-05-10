@@ -135,6 +135,12 @@ class Car(Base):
     race_class_id: Mapped[int] = mapped_column(ForeignKey("race_classes.id"))
     # String — cars like Aston Martin Valkyrie use "007"/"009" as their actual number.
     number: Mapped[str] = mapped_column(String(10))
+    # FIA-published per-car render (transparent-bg PNG, actual livery
+    # for *this* entry's number). When a model has multiple entries
+    # in different liveries (Ferrari #50/#51/#83) FIA ships one PNG
+    # per number — we mirror them here. Falls back to
+    # CarModel.image_url when null. Pulled by app.ingest.fiawec_assets.
+    image_url: Mapped[str | None] = mapped_column(default=None)
     # Free-text model name kept for back-compat / when CarModel row is
     # missing. car_model_id is the canonical link once populated.
     model: Mapped[str | None] = mapped_column(String(100), default=None)

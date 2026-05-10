@@ -125,16 +125,19 @@ export default async function RaceDetailPage({
 
       <Card className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:gap-6">
         {event.posterUrl && (
-          // FIA-published round poster (transparent-bg PNG). Sits to
-          // the left of the title block at sm+, stacks on top of it
-          // on phones.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={event.posterUrl}
-            alt={`${event.name} round poster`}
-            className="h-28 w-28 shrink-0 self-center object-contain sm:h-32 sm:w-32"
-            loading="lazy"
-          />
+          // FIA-published round logo (transparent-bg PNG). Mostly
+          // navy / blue ink, so we set a light backdrop to give the
+          // dark-themed page enough contrast — at 200 px the WEC
+          // brand + event title actually read.
+          <span className="flex h-44 w-44 shrink-0 items-center justify-center self-center rounded-lg bg-white p-3 sm:h-48 sm:w-48">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={event.posterUrl}
+              alt={`${event.name} round poster`}
+              className="size-full object-contain"
+              loading="lazy"
+            />
+          </span>
         )}
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-3 text-xs font-semibold tracking-widest text-muted-foreground uppercase">

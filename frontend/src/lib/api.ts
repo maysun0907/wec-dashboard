@@ -188,6 +188,9 @@ export type TeamCar = {
   raceClass: RaceClass;
   model: string | null;
   carModelSlug: string | null;
+  /** Per-entry livery PNG (FIA renders one per car number). Falls
+   *  back to `carModelImageUrl` when null. */
+  imageUrl: string | null;
   carModelImageUrl: string | null;
   manufacturerId: number | null;
   drivers: DriverRef[];
@@ -236,6 +239,8 @@ export type ManufacturerCar = {
   teamName: string;
   model: string | null;
   carModelSlug: string | null;
+  imageUrl: string | null;
+  carModelImageUrl: string | null;
   drivers: DriverRef[];
 };
 

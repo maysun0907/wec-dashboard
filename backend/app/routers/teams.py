@@ -209,6 +209,7 @@ def get_team(
                 race_class=c.race_class.name,
                 model=c.model,
                 car_model_slug=c.car_model.slug if c.car_model else None,
+                image_url=c.image_url,
                 car_model_image_url=(
                     c.car_model.image_url if c.car_model else None
                 ),

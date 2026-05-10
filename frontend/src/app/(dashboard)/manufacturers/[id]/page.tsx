@@ -161,6 +161,15 @@ export default async function ManufacturerDetailPage({
                 )}
               </CardDescription>
             </CardHeader>
+            {(c.imageUrl ?? c.carModelImageUrl) && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={c.imageUrl ?? c.carModelImageUrl ?? undefined}
+                alt={`#${c.carNumber} ${c.model ?? ""}`}
+                className="mx-auto h-24 w-auto px-4"
+                loading="lazy"
+              />
+            )}
             <CardContent>
               {c.drivers.length === 0 ? (
                 <p className="text-sm text-muted-foreground">

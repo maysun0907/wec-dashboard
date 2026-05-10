@@ -276,7 +276,11 @@ class TeamCarOut(_BaseSchema):
     race_class: str
     model: str | None = None
     car_model_slug: str | None = None  # for /cars/{slug} links
-    car_model_image_url: str | None = None  # FIA cutout PNG
+    # Livery-specific render for *this* entry's number (FIA publishes
+    # one PNG per car number, not per model — Ferrari #50 differs
+    # from #51 / #83). Falls back to `car_model_image_url` when null.
+    image_url: str | None = None
+    car_model_image_url: str | None = None
     manufacturer_id: int | None = None  # link to /manufacturers/{id}
     drivers: list[DriverRef] = []
 
@@ -328,6 +332,9 @@ class ManufacturerCarOut(_BaseSchema):
     team_name: str
     model: str | None = None
     car_model_slug: str | None = None
+    # Per-entry livery PNG; falls back to model render if null.
+    image_url: str | None = None
+    car_model_image_url: str | None = None
     drivers: list[DriverRef] = []
 
 
