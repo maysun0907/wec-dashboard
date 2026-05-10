@@ -226,6 +226,13 @@ export type TeamDetail = {
   manufacturer: string | null;
   manufacturerId: number | null;
   manufacturerLogoUrl: string | null;
+  /** External links inherited from the team's manufacturer (curated
+   *  per-brand server-side). Empty when the manufacturer has no
+   *  curated links — keep the section hidden in that case. */
+  websiteUrl: string | null;
+  youtubeUrl: string | null;
+  xUrl: string | null;
+  instagramUrl: string | null;
   cars: TeamCar[];
   results: TeamResult[];
   seasons: TeamSeason[];

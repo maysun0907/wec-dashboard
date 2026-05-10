@@ -194,6 +194,12 @@ def get_team(
             .all()
         )
 
+    from app.data.manufacturer_links import MANUFACTURER_LINKS
+
+    links: dict[str, str] = {}
+    if team.manufacturer is not None:
+        links = dict(MANUFACTURER_LINKS.get(team.manufacturer.name, {}))
+
     return schemas.TeamDetailOut(
         id=team.id,
         name=team.name,
@@ -202,6 +208,10 @@ def get_team(
         manufacturer_logo_url=(
             team.manufacturer.logo_url if team.manufacturer else None
         ),
+        website_url=links.get("website_url"),
+        youtube_url=links.get("youtube_url"),
+        x_url=links.get("x_url"),
+        instagram_url=links.get("instagram_url"),
         cars=[
             schemas.TeamCarOut(
                 car_id=c.id,

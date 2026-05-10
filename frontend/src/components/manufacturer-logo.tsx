@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 type Props = {
   src: string | null | undefined;
   name: string | null | undefined;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 };
 
@@ -11,12 +11,14 @@ const SIZE: Record<NonNullable<Props["size"]>, string> = {
   sm: "size-5",
   md: "size-8",
   lg: "size-12",
+  xl: "size-20",
 };
 
 const PADDING: Record<NonNullable<Props["size"]>, string> = {
   sm: "p-0.5",
   md: "p-1",
   lg: "p-1.5",
+  xl: "p-2",
 };
 
 /** Renders a manufacturer logo with a name-initial fallback for missing

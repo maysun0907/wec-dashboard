@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { Globe, Instagram, Twitter, Youtube } from "lucide-react";
+import { notFound, redirect } from "next/navigation";
+import { BrandLinkPills } from "@/components/brand-link-pills";
 import {
   Card,
   CardContent,
@@ -70,6 +69,20 @@ export default async function ManufacturerDetailPage({
   const manufacturer = await fetchManufacturer(id, year);
   if (manufacturer === null) notFound();
 
+  // Single-team brands (Genesis Magma Racing, Alpine Endurance Team,
+  // etc.) — the manufacturer page would just be a near-duplicate of
+  // the team page, so jump straight to the team. Multi-team brands
+  // (Ferrari with AF Corse + Vista AF Corse + Ferrari AF Corse, BMW
+  // with M Team WRT + Team WRT, ...) keep their own page since it
+  // unifies entries across teams.
+  const teamIds = new Set(manufacturer.cars.map((c) => c.teamId));
+  if (teamIds.size === 1) {
+    const onlyTeamId = manufacturer.cars[0]?.teamId;
+    if (onlyTeamId !== undefined) {
+      redirect(`/teams/${onlyTeamId}`);
+    }
+  }
+
   const totalCars = manufacturer.cars.length;
   const totalDrivers = new Set(
     manufacturer.cars.flatMap((c) => c.drivers.map((d) => d.id)),
@@ -97,7 +110,7 @@ export default async function ManufacturerDetailPage({
           <ManufacturerLogo
             src={manufacturer.logoUrl}
             name={manufacturer.name}
-            size="lg"
+            size="xl"
           />
           <div className="min-w-0 flex-1 space-y-1">
             <CardTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl sm:text-3xl">
@@ -393,58 +406,17 @@ function ManufacturerLinks({
 }: {
   manufacturer: ManufacturerDetail;
 }) {
-  type Item = {
-    label: string;
-    href: string;
-    icon: ReactNode;
-  };
-  const items: Item[] = [];
-  if (manufacturer.websiteUrl)
-    items.push({
-      label: "Official racing site",
-      href: manufacturer.websiteUrl,
-      icon: <Globe className="size-4" />,
-    });
-  if (manufacturer.youtubeUrl)
-    items.push({
-      label: "YouTube",
-      href: manufacturer.youtubeUrl,
-      icon: <Youtube className="size-4" />,
-    });
-  if (manufacturer.xUrl)
-    items.push({
-      label: "X",
-      href: manufacturer.xUrl,
-      icon: <Twitter className="size-4" />,
-    });
-  if (manufacturer.instagramUrl)
-    items.push({
-      label: "Instagram",
-      href: manufacturer.instagramUrl,
-      icon: <Instagram className="size-4" />,
-    });
-  if (items.length === 0) return null;
+  if (
+    !manufacturer.websiteUrl &&
+    !manufacturer.youtubeUrl &&
+    !manufacturer.xUrl &&
+    !manufacturer.instagramUrl
+  ) {
+    return null;
+  }
   return (
     <CardContent className="border-t border-border/40">
-      <div className="flex flex-wrap gap-2 text-sm">
-        {items.map((it) => (
-          <a
-            key={it.href}
-            href={it.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 rounded-md border border-border bg-secondary/30 px-3 py-1.5 transition-colors hover:bg-secondary/60 hover:text-foreground"
-          >
-            <span aria-hidden className="inline-flex w-4 justify-center">
-              {it.icon}
-            </span>
-            <span>{it.label}</span>
-            <span aria-hidden className="text-xs text-muted-foreground">
-              ↗
-            </span>
-          </a>
-        ))}
-      </div>
+      <BrandLinkPills brand={manufacturer} />
     </CardContent>
   );
 }

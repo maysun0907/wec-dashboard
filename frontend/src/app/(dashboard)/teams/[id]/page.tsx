@@ -21,6 +21,7 @@ import { ClassBadge } from "@/components/class-badge";
 import { CarModelLink, Dash } from "@/components/entity-link";
 import { DriverPhoto } from "@/components/driver-photo";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import { BrandLinkPills } from "@/components/brand-link-pills";
 import {
   describeRounds,
   getTeam,
@@ -77,25 +78,15 @@ export default async function TeamDetailPage({
 
       <Card>
         <CardHeader className="flex flex-row items-center gap-4 space-y-0">
-          {team.manufacturerId !== null ? (
-            <Link
-              href={`/manufacturers/${team.manufacturerId}`}
-              className="shrink-0"
-              aria-label={`${team.manufacturer ?? "Manufacturer"} page`}
-            >
-              <ManufacturerLogo
-                src={team.manufacturerLogoUrl}
-                name={team.manufacturer}
-                size="lg"
-              />
-            </Link>
-          ) : (
-            <ManufacturerLogo
-              src={team.manufacturerLogoUrl}
-              name={team.manufacturer}
-              size="lg"
-            />
-          )}
+          {/* Logo isn't a link any more — single-team brands like
+              Genesis would land you on the manufacturer page that
+              just redirects right back here. The brand name in the
+              description is enough wayfinding. */}
+          <ManufacturerLogo
+            src={team.manufacturerLogoUrl}
+            name={team.manufacturer}
+            size="xl"
+          />
           <div className="space-y-1">
             <CardTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl sm:text-3xl">
               <span>{team.name}</span>
@@ -107,22 +98,21 @@ export default async function TeamDetailPage({
               />
             </CardTitle>
             <CardDescription>
-              {team.manufacturerId !== null && team.manufacturer ? (
-                <Link
-                  href={`/manufacturers/${team.manufacturerId}`}
-                  className="hover:text-foreground"
-                >
-                  {team.manufacturer}
-                </Link>
-              ) : (
-                team.manufacturer ?? "Independent"
-              )}
+              {team.manufacturer ?? "Independent"}
               {" · "}
               {team.cars.length}{" "}
               {team.cars.length === 1 ? "car" : "cars"} this season
             </CardDescription>
           </div>
         </CardHeader>
+        {(team.websiteUrl ||
+          team.youtubeUrl ||
+          team.xUrl ||
+          team.instagramUrl) && (
+          <div className="border-t border-border/40 px-6 py-4">
+            <BrandLinkPills brand={team} />
+          </div>
+        )}
       </Card>
 
       <section className="space-y-6">

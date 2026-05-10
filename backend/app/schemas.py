@@ -319,6 +319,15 @@ class TeamDetailOut(_BaseSchema):
     manufacturer: str | None = None
     manufacturer_id: int | None = None  # for /manufacturers/{id} link
     manufacturer_logo_url: str | None = None
+    # External links curated per-manufacturer in
+    # `app/data/manufacturer_links.py`. Surfaced on team pages so a
+    # fan looking at e.g. "Genesis Magma Racing" can jump straight
+    # to the Genesis racing site / YouTube / X / Instagram without
+    # bouncing through a separate manufacturer page.
+    website_url: str | None = None
+    youtube_url: str | None = None
+    x_url: str | None = None
+    instagram_url: str | None = None
     cars: list[TeamCarOut] = []
     results: list[TeamResultOut] = []
     seasons: list[TeamSeasonOut] = []
