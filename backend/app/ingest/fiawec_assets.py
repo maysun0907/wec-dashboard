@@ -187,12 +187,16 @@ def _scrape_race_assets(race_slug: str) -> tuple[str | None, str | None]:
 
 
 def ingest_fiawec_assets(
-    db: Session, year: int = 2026
+    db: Session, year: int = 2026, *, verbose: bool = False
 ) -> dict[str, int]:
     """Refresh manufacturer / car-render / circuit URLs from the
     fiawec.com grid + race pages. Idempotent — only writes when the
     URL has actually changed."""
     mfr_logos, car_renders = _scrape_grid(year)
+    if verbose:
+        print(
+            f"  grid: {len(mfr_logos)} mfr logos, {len(car_renders)} car renders"
+        )
     updated_mfr = 0
     updated_cars = 0
     updated_circuits = 0
@@ -227,8 +231,17 @@ def ingest_fiawec_assets(
 
     updated_posters = 0
     race_slugs = _resolve_race_slugs(year)
+    if verbose:
+        print(f"  race-slug resolver: {len(race_slugs)} resolved")
+        for country, slug in race_slugs.items():
+            print(f"    {country} -> {slug}")
     for country, race_slug in race_slugs.items():
         track_url, poster_url = _scrape_race_assets(race_slug)
+        if verbose:
+            print(
+                f"  {country}: track={'ok' if track_url else 'no'}, "
+                f"poster={'ok' if poster_url else 'no'}"
+            )
         if track_url is not None:
             circuit = (
                 db.query(models.Circuit)
@@ -260,3 +273,26 @@ def ingest_fiawec_assets(
         "circuits": updated_circuits,
         "posters": updated_posters,
     }
+
+
+def main() -> None:
+    """Standalone trigger for manual debug from the Railway shell.
+    Usage: ``python -m app.ingest.fiawec_assets [year]`` (defaults to
+    2026). Prints per-step diagnostics."""
+    import argparse
+
+    from app.db import SessionLocal
+
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("year", nargs="?", type=int, default=2026)
+    args = parser.parse_args()
+    db = SessionLocal()
+    try:
+        report = ingest_fiawec_assets(db, args.year, verbose=True)
+        print(report)
+    finally:
+        db.close()
+
+
+if __name__ == "__main__":
+    main()
