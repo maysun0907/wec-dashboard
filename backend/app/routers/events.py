@@ -332,25 +332,39 @@ def session_lap_chart(
         raise HTTPException(status_code=404, detail="No timing data available")
 
     # Look up per-car metadata from our DB so the chart picks up the
-    # team / class names the rest of the app uses.
-    results = (
-        db.query(models.SessionResult)
-        .options(
-            joinedload(models.SessionResult.car).joinedload(models.Car.team),
-            joinedload(models.SessionResult.car).joinedload(
-                models.Car.race_class
-            ),
-        )
-        .filter(models.SessionResult.session_id == session_id)
+    # team / class names the rest of the app uses. Use the season-wide
+    # Car list (not SessionResult) so the chart still labels every
+    # car when Wikipedia hasn't published the per-round classification
+    # yet — SessionResult rows might be missing for non-winner cars
+    # right after a race.
+    season_id = (
+        db.query(models.Event.season_id)
+        .filter(models.Event.id == session.event_id)
+        .scalar()
+    )
+    cars = (
+        db.query(models.Car)
+        .options(joinedload(models.Car.team), joinedload(models.Car.race_class))
+        .filter(models.Car.season_id == season_id)
         .all()
     )
+    drivers_by_number: dict[str, str] = {
+        r.car.number: (r.drivers or "")
+        for r in (
+            db.query(models.SessionResult)
+            .options(joinedload(models.SessionResult.car))
+            .filter(models.SessionResult.session_id == session_id)
+            .all()
+        )
+        if r.drivers
+    }
     by_number = {
-        r.car.number: {
-            "team": r.car.team.name,
-            "race_class": r.car.race_class.name,
-            "drivers": r.drivers or "",
+        c.number: {
+            "team": c.team.name,
+            "race_class": c.race_class.name,
+            "drivers": drivers_by_number.get(c.number, ""),
         }
-        for r in results
+        for c in cars
     }
 
     # Group laps by car. Compute cumulative elapsed in milliseconds so we
