@@ -276,6 +276,8 @@ class TeamCarOut(_BaseSchema):
     race_class: str
     model: str | None = None
     car_model_slug: str | None = None  # for /cars/{slug} links
+    car_model_image_url: str | None = None  # FIA cutout PNG
+    manufacturer_id: int | None = None  # link to /manufacturers/{id}
     drivers: list[DriverRef] = []
 
 
@@ -311,6 +313,7 @@ class TeamDetailOut(_BaseSchema):
     id: int
     name: str
     manufacturer: str | None = None
+    manufacturer_id: int | None = None  # for /manufacturers/{id} link
     manufacturer_logo_url: str | None = None
     cars: list[TeamCarOut] = []
     results: list[TeamResultOut] = []

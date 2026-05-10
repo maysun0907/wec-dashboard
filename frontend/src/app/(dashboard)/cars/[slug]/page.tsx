@@ -46,7 +46,11 @@ export default async function CarDetailPage({
 
   const primaryClass: RaceClass | null =
     car.teams.length > 0 ? car.teams[0].raceClass : null;
-  const imageUrl = localCarImage(slug) ?? car.imageUrl;
+  // Prefer the FIA-published cutout (transparent-bg side profile in
+  // the actual race livery). Local files in `public/cars/` act as a
+  // fallback for cars FIA hasn't rendered yet — drop a file to
+  // override.
+  const imageUrl = car.imageUrl ?? localCarImage(slug);
 
   return (
     <div className="space-y-6">

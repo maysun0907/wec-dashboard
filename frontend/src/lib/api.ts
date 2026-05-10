@@ -188,6 +188,8 @@ export type TeamCar = {
   raceClass: RaceClass;
   model: string | null;
   carModelSlug: string | null;
+  carModelImageUrl: string | null;
+  manufacturerId: number | null;
   drivers: DriverRef[];
 };
 
@@ -219,6 +221,7 @@ export type TeamDetail = {
   id: number;
   name: string;
   manufacturer: string | null;
+  manufacturerId: number | null;
   manufacturerLogoUrl: string | null;
   cars: TeamCar[];
   results: TeamResult[];

@@ -77,11 +77,25 @@ export default async function TeamDetailPage({
 
       <Card>
         <CardHeader className="flex flex-row items-center gap-4 space-y-0">
-          <ManufacturerLogo
-            src={team.manufacturerLogoUrl}
-            name={team.manufacturer}
-            size="lg"
-          />
+          {team.manufacturerId !== null ? (
+            <Link
+              href={`/manufacturers/${team.manufacturerId}`}
+              className="shrink-0"
+              aria-label={`${team.manufacturer ?? "Manufacturer"} page`}
+            >
+              <ManufacturerLogo
+                src={team.manufacturerLogoUrl}
+                name={team.manufacturer}
+                size="lg"
+              />
+            </Link>
+          ) : (
+            <ManufacturerLogo
+              src={team.manufacturerLogoUrl}
+              name={team.manufacturer}
+              size="lg"
+            />
+          )}
           <div className="space-y-1">
             <CardTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl sm:text-3xl">
               <span>{team.name}</span>
@@ -93,7 +107,18 @@ export default async function TeamDetailPage({
               />
             </CardTitle>
             <CardDescription>
-              {team.manufacturer ?? "Independent"} · {team.cars.length}{" "}
+              {team.manufacturerId !== null && team.manufacturer ? (
+                <Link
+                  href={`/manufacturers/${team.manufacturerId}`}
+                  className="hover:text-foreground"
+                >
+                  {team.manufacturer}
+                </Link>
+              ) : (
+                team.manufacturer ?? "Independent"
+              )}
+              {" · "}
+              {team.cars.length}{" "}
               {team.cars.length === 1 ? "car" : "cars"} this season
             </CardDescription>
           </div>
@@ -126,6 +151,15 @@ export default async function TeamDetailPage({
                   <ClassBadge raceClass={c.raceClass} />
                 </div>
               </CardHeader>
+              {c.carModelImageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={c.carModelImageUrl}
+                  alt={c.model ?? `#${c.number}`}
+                  className="mx-auto h-24 w-auto px-4"
+                  loading="lazy"
+                />
+              )}
               <CardContent>
                 {c.drivers.length === 0 ? (
                   <p className="text-sm text-muted-foreground">

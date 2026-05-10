@@ -198,6 +198,7 @@ def get_team(
         id=team.id,
         name=team.name,
         manufacturer=team.manufacturer.name if team.manufacturer else None,
+        manufacturer_id=team.manufacturer.id if team.manufacturer else None,
         manufacturer_logo_url=(
             team.manufacturer.logo_url if team.manufacturer else None
         ),
@@ -208,6 +209,12 @@ def get_team(
                 race_class=c.race_class.name,
                 model=c.model,
                 car_model_slug=c.car_model.slug if c.car_model else None,
+                car_model_image_url=(
+                    c.car_model.image_url if c.car_model else None
+                ),
+                manufacturer_id=(
+                    team.manufacturer.id if team.manufacturer else None
+                ),
                 drivers=[
                     schemas.DriverRef(
                         id=d.id,
