@@ -1841,6 +1841,18 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             alkamel_practice_n = 0
             alkamel_race_n = 0
 
+        # Self-compute the season standings from the (now-up-to-date)
+        # SessionResults. Replaces whatever Wikipedia wrote so the
+        # day-after-race window doesn't show stale points. Best-effort
+        # — failures here shouldn't block the rest of the commit.
+        try:
+            from app.standings_compute import compute_self_standings
+
+            self_standings = compute_self_standings(db, season.id, year)
+        except Exception as exc:  # pragma: no cover
+            print(f"  self-computed standings skipped: {exc}")
+            self_standings = {"drivers": 0, "teams": 0, "manufacturers": 0}
+
         db.commit()
         summary = {
             "events": events_n,
@@ -1849,9 +1861,9 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             "winners": winners_n,
             "classified_rounds": len(classified),
             "classified_total": sum(classified.values()),
-            "standings_drivers": standings_counts["drivers"],
-            "standings_manufacturers": standings_counts["manufacturers"],
-            "standings_teams": standings_counts["teams"],
+            "standings_drivers": self_standings["drivers"],
+            "standings_manufacturers": self_standings["manufacturers"],
+            "standings_teams": self_standings["teams"],
             "fiawec_schedule_filled": fiawec_filled,
             "alkamel_qualifying_drivers": alkamel_drivers_n,
             "alkamel_practice_rows": alkamel_practice_n,
