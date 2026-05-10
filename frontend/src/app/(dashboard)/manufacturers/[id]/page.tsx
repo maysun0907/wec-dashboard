@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Globe, Instagram, Twitter, Youtube } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -135,7 +137,7 @@ export default async function ManufacturerDetailPage({
         <ManufacturerLinks manufacturer={manufacturer} />
       </Card>
 
-      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+      <section className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(20rem,1fr))]">
         {manufacturer.cars.map((c) => (
           <Card key={c.carId}>
             <CardHeader className="space-y-1">
@@ -382,26 +384,35 @@ function ManufacturerLinks({
 }: {
   manufacturer: ManufacturerDetail;
 }) {
-  const items: { label: string; href: string; icon: string }[] = [];
+  type Item = {
+    label: string;
+    href: string;
+    icon: ReactNode;
+  };
+  const items: Item[] = [];
   if (manufacturer.websiteUrl)
     items.push({
       label: "Official racing site",
       href: manufacturer.websiteUrl,
-      icon: "🏁",
+      icon: <Globe className="size-4" />,
     });
   if (manufacturer.youtubeUrl)
     items.push({
       label: "YouTube",
       href: manufacturer.youtubeUrl,
-      icon: "▶",
+      icon: <Youtube className="size-4" />,
     });
   if (manufacturer.xUrl)
-    items.push({ label: "X", href: manufacturer.xUrl, icon: "𝕏" });
+    items.push({
+      label: "X",
+      href: manufacturer.xUrl,
+      icon: <Twitter className="size-4" />,
+    });
   if (manufacturer.instagramUrl)
     items.push({
       label: "Instagram",
       href: manufacturer.instagramUrl,
-      icon: "◉",
+      icon: <Instagram className="size-4" />,
     });
   if (items.length === 0) return null;
   return (
@@ -415,7 +426,7 @@ function ManufacturerLinks({
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 rounded-md border border-border bg-secondary/30 px-3 py-1.5 transition-colors hover:bg-secondary/60 hover:text-foreground"
           >
-            <span aria-hidden className="text-base">
+            <span aria-hidden className="inline-flex w-4 justify-center">
               {it.icon}
             </span>
             <span>{it.label}</span>
