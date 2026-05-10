@@ -1,6 +1,7 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
@@ -20,6 +21,21 @@ def _class_filter(query, model, race_class: str | None):
     if race_class is None:
         return query
     return query.filter(model.race_class.has(name=race_class.upper()))
+
+
+def _latest_after_event(
+    db: Session, model, season_id: int
+) -> int | None:
+    """Pick the most recent `after_event_id` snapshot for a season.
+    `compute_self_standings` writes one set of rows per completed
+    event so the championship-progression chart can read history;
+    the "current standings" endpoints want only the latest snapshot.
+    Returns None when no rows exist for the season."""
+    return (
+        db.query(func.max(model.after_event_id))
+        .filter(model.season_id == season_id)
+        .scalar()
+    )
 
 
 @router.get("/drivers", response_model=list[schemas.StandingDriverOut])
@@ -54,6 +70,9 @@ def driver_standings(
         .options(joinedload(models.StandingDriver.race_class))
         .filter(models.StandingDriver.season_id == season_id)
     )
+    latest = _latest_after_event(db, models.StandingDriver, season_id)
+    if latest is not None:
+        q = q.filter(models.StandingDriver.after_event_id == latest)
     q = _class_filter(q, models.StandingDriver, race_class)
     rows = q.order_by(models.StandingDriver.position).all()
 
@@ -97,6 +116,9 @@ def team_standings(
         )
         .filter(models.StandingTeam.season_id == season.id)
     )
+    latest = _latest_after_event(db, models.StandingTeam, season.id)
+    if latest is not None:
+        q = q.filter(models.StandingTeam.after_event_id == latest)
     q = _class_filter(q, models.StandingTeam, race_class)
     rows = q.order_by(models.StandingTeam.position).all()
     return [
@@ -574,6 +596,11 @@ def manufacturer_standings(
         )
         .filter(models.StandingManufacturer.season_id == season.id)
     )
+    latest = _latest_after_event(
+        db, models.StandingManufacturer, season.id
+    )
+    if latest is not None:
+        q = q.filter(models.StandingManufacturer.after_event_id == latest)
     q = _class_filter(q, models.StandingManufacturer, race_class)
     rows = q.order_by(models.StandingManufacturer.position).all()
     return [
