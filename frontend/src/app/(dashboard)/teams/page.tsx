@@ -114,7 +114,7 @@ function TeamCard({ entry }: { entry: TeamCardEntry }) {
         <ManufacturerLogo
           src={entry.manufacturerLogoUrl}
           name={entry.manufacturer ?? entry.name}
-          size="md"
+          size="lg"
         />
         <div className="min-w-0 flex-1 space-y-1">
           <CardTitle className="truncate">{entry.name}</CardTitle>

@@ -120,7 +120,7 @@ function ModelCard({ entry }: { entry: CarModelEntry }) {
         <ManufacturerLogo
           src={entry.manufacturerLogoUrl}
           name={entry.manufacturer ?? entry.model}
-          size="md"
+          size="lg"
         />
         <div className="min-w-0 flex-1 space-y-1">
           <CardTitle className="truncate">
