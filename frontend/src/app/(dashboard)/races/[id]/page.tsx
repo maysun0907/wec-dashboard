@@ -163,7 +163,11 @@ export default async function RaceDetailPage({
             sessionsWithResults[sessionsWithResults.length - 1].type
           }
         >
-          <TabsList className="flex w-full max-w-full overflow-x-auto sm:w-fit">
+          {/* overflow-y-hidden suppresses the vertical scrollbar
+              Windows Chrome auto-renders next to the active tab when
+              text rendering is a hair taller than the 32-px TabsList
+              height. macOS/Linux don't trip it; Windows does. */}
+          <TabsList className="flex w-full max-w-full overflow-x-auto overflow-y-hidden sm:w-fit">
             {sessionsWithResults.map((s) => (
               <TabsTrigger key={s.id} value={s.type}>
                 <span className="sm:hidden">
