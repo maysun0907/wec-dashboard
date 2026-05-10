@@ -74,18 +74,19 @@ CAR_MODEL_SLUG_BY_FIA: dict[str, str] = {
     "porsche-911-gt3-r": "porsche-911-gt3-r-992-2",
 }
 
-# Our Circuit.country (ISO-3) → FIA's race-page slug for the round
-# at that circuit. The FIA only has 8 WEC races a year, all in
-# unique countries, so country is a clean key.
-RACE_SLUG_BY_COUNTRY: dict[str, str] = {
-    "QAT": "qatar-1812km-2026",
-    "ITA": "imola-2026",
-    "BEL": "spa-francorchamps-2026",
-    "FRA": "24-hours-of-le-mans-2026",
-    "BRA": "6-hours-of-sao-paulo-2026",
-    "USA": "lone-star-le-mans-2026",
-    "JPN": "6-hours-of-fuji-2026",
-    "BHR": "8-hours-of-bahrain-2026",
+# Distinguishing substring per country to look up an FIA race page
+# slug. Slugs change year-on-year because of title sponsors
+# (totalenergies-, rolex-, bapco-energies-), so we resolve them
+# dynamically from the homepage rather than hard-coding.
+RACE_SLUG_HINT_BY_COUNTRY: dict[str, str] = {
+    "QAT": "qatar",
+    "ITA": "imola",
+    "BEL": "spa-francorchamps",
+    "FRA": "24-hours-of-le-mans",
+    "BRA": "sao-paulo",
+    "USA": "lone-star",
+    "JPN": "fuji",
+    "BHR": "bahrain",
 }
 
 # Manufacturer-logo URL pattern: `/uploads/{slug}[-{hash6}]-{hashlong}.png`.
@@ -141,6 +142,30 @@ def _scrape_grid(year: int) -> tuple[dict[str, str], dict[str, str]]:
         if m and m.group(1) not in skip_logo_slugs:
             mfr_logos.setdefault(m.group(1), full)
     return mfr_logos, car_renders
+
+
+def _resolve_race_slugs(year: int) -> dict[str, str]:
+    """Walk the FIA homepage and return ``{country: race_page_slug}``
+    for every round in the given season. The home page lists each
+    race link as ``/en/race/<slug>-<year>``."""
+    try:
+        html = _fetch(f"{BASE}/en")
+    except httpx.HTTPError:
+        return {}
+    out: dict[str, str] = {}
+    # Find every /en/race/<slug>-<year> link on the page first, then
+    # match per-country. Skip prologue listings — those are pre-season
+    # test days, not the actual round.
+    candidates = [
+        m
+        for m in re.findall(rf'/en/race/([a-z0-9-]+-{year})\b', html)
+        if "prologue" not in m
+    ]
+    for country, hint in RACE_SLUG_HINT_BY_COUNTRY.items():
+        match = next((c for c in candidates if hint in c), None)
+        if match is not None:
+            out[country] = match
+    return out
 
 
 def _scrape_race_assets(race_slug: str) -> tuple[str | None, str | None]:
@@ -199,7 +224,8 @@ def ingest_fiawec_assets(
         updated_cars += 1
 
     updated_posters = 0
-    for country, race_slug in RACE_SLUG_BY_COUNTRY.items():
+    race_slugs = _resolve_race_slugs(year)
+    for country, race_slug in race_slugs.items():
         track_url, poster_url = _scrape_race_assets(race_slug)
         if track_url is not None:
             circuit = (
@@ -211,18 +237,11 @@ def ingest_fiawec_assets(
                 circuit.layout_image = track_url
                 updated_circuits += 1
         if poster_url is not None:
-            # Posters are per-event (per round), not per-circuit. Find
-            # the matching event by country + the year embedded in the
-            # race slug — race slugs end with the season year.
-            ev_year_m = re.search(r"-(\d{4})$", race_slug)
-            if ev_year_m is None:
-                continue
-            ev_year = int(ev_year_m.group(1))
             event = (
                 db.query(models.Event)
                 .join(models.Season, models.Event.season_id == models.Season.id)
                 .join(models.Circuit, models.Event.circuit_id == models.Circuit.id)
-                .filter(models.Season.year == ev_year)
+                .filter(models.Season.year == year)
                 .filter(models.Circuit.country == country)
                 .first()
             )
