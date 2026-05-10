@@ -10,27 +10,11 @@ from app.season import YearParam, resolve_season
 
 router = APIRouter(tags=["events"])
 
-# In-process caches for the Al Kamel CSV-derived views. CSVs are
-# 200KB-2MB each and the per-render compute is cheap, so caching the
-# parsed result per session_id makes a huge difference. Note: we only
-# cache *non-empty* results — empty payloads usually mean the CSV
-# hasn't been published yet (e.g. mid-race-weekend), and we want to
-# retry on the next request rather than freeze the UI in a "no data"
-# state for the rest of the process lifetime.
+# Lap chart still does an Al Kamel CSV fetch per session because the
+# per-lap rank computation isn't worth persisting. V-max + Q sectors
+# used to do the same — they're now stored on `SessionResult` columns
+# at ingest time so the request path is pure DB.
 _LAP_CHART_CACHE: dict[int, "schemas.LapChart"] = {}
-_TOP_SPEED_CACHE: dict[int, dict[str, float]] = {}
-_QUAL_SECTORS_CACHE: dict[int, dict[str, tuple[str, str, str]]] = {}
-
-
-def _pole_sectors_for_car(
-    qual_sectors: dict[str, tuple[str, str, str]], car_number: str
-) -> list[str] | None:
-    """Convert the cached qualifying-sector tuple into the API
-    response shape, or None when this car has no Q lap recorded."""
-    triple = qual_sectors.get(car_number)
-    if triple is None:
-        return None
-    return list(triple)
 
 
 def _resolve_alkamel_for_session(
@@ -48,60 +32,6 @@ def _resolve_alkamel_for_session(
     if season is None:
         raise HTTPException(status_code=404, detail="Season not found")
     return alkamel.resolve_event_params(season.year, event.round)
-
-
-def _get_qual_sectors_by_car(
-    session_id: int, db: Session
-) -> dict[str, tuple[str, str, str]]:
-    """For a Q session, return {car_number: (s1, s2, s3)} for each
-    car's fastest Q (or Hyperpole) lap. {} for non-Q sessions or when
-    the analysis CSV hasn't been published yet."""
-    cached = _QUAL_SECTORS_CACHE.get(session_id)
-    if cached is not None:
-        return cached
-    session = db.get(models.Session, session_id)
-    if session is None or session.type != "Q":
-        return {}
-    params = _resolve_alkamel_for_session(session, db)
-    if params is None:
-        return {}
-    sectors = alkamel.fetch_qualifying_sectors(*params)
-    if sectors:
-        _QUAL_SECTORS_CACHE[session_id] = sectors
-    return sectors
-
-
-def _get_top_speeds_by_car(
-    session_id: int, db: Session
-) -> dict[str, float]:
-    """Return {car_number: max TOP_SPEED across the race}. {} for
-    non-race sessions or before the CSV is published."""
-    cached = _TOP_SPEED_CACHE.get(session_id)
-    if cached is not None:
-        return cached
-    session = db.get(models.Session, session_id)
-    if session is None or session.type != "RACE":
-        return {}
-    params = _resolve_alkamel_for_session(session, db)
-    if params is None:
-        return {}
-    laps = alkamel.fetch_race_lap_data(*params)
-    out: dict[str, float] = {}
-    for r in laps:
-        raw = r.get("top_speed") or ""
-        try:
-            v = float(raw)
-        except ValueError:
-            continue
-        if v <= 0:
-            continue
-        num = r["number"]
-        prev = out.get(num)
-        if prev is None or v > prev:
-            out[num] = v
-    if out:
-        _TOP_SPEED_CACHE[session_id] = out
-    return out
 
 _SESSION_ORDER = {"FP1": 1, "FP2": 2, "FP3": 3, "Q": 4, "RACE": 5}
 
@@ -206,20 +136,6 @@ def session_results(
             driver_refs_by_car.setdefault(cd.car_id, []).append((d.id, d.name))
             name_to_id[d.name] = d.id
 
-    # Race-only V-max lookup. Empty dict for non-race sessions or when
-    # the CSV hasn't been published yet — falls through as None per car.
-    top_speeds = (
-        _get_top_speeds_by_car(session_id, db)
-        if session.type == "RACE"
-        else {}
-    )
-    # Q-only sector breakdown of the pole lap.
-    qual_sectors = (
-        _get_qual_sectors_by_car(session_id, db)
-        if session.type == "Q"
-        else {}
-    )
-
     out: list[schemas.SessionResultOut] = []
     for r in results:
         cp = class_position_for(
@@ -264,8 +180,12 @@ def session_results(
                 qualifying_driver=r.qualifying_driver,
                 hyperpole_driver=r.hyperpole_driver,
                 pit_stops=r.pit_stops,
-                top_speed_kph=top_speeds.get(r.car.number),
-                pole_sectors=_pole_sectors_for_car(qual_sectors, r.car.number),
+                top_speed_kph=r.top_speed_kph,
+                pole_sectors=(
+                    [r.s1_time, r.s2_time, r.s3_time]
+                    if r.s1_time and r.s2_time and r.s3_time
+                    else None
+                ),
             )
         )
     return out

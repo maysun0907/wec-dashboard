@@ -812,11 +812,31 @@ def enrich_qualifying_drivers(
             if not classification:
                 continue
             analysis: dict[str, list[tuple[str, str]]] = {}
+            # Sectors of each car's best lap — same source CSV as the
+            # driver attribution, computed inline so we only fetch
+            # once. Stored to DB so the API doesn't need to refetch.
+            sectors_by_car: dict[str, tuple[str, str, str]] = {}
             if analysis_url:
                 try:
-                    analysis = _parse_analysis_drivers(_fetch(analysis_url))
+                    analysis_text = _fetch(analysis_url)
                 except httpx.HTTPError:
-                    analysis = {}
+                    analysis_text = ""
+                if analysis_text:
+                    analysis = _parse_analysis_drivers(analysis_text)
+                    best_ms_by_car: dict[str, int] = {}
+                    for lap in _parse_lap_analysis(analysis_text):
+                        lt_ms = _hms_to_ms(lap.get("lap_time") or "")
+                        if lt_ms is None or lt_ms <= 0:
+                            continue
+                        s1 = lap.get("s1") or ""
+                        s2 = lap.get("s2") or ""
+                        s3 = lap.get("s3") or ""
+                        if not (s1 and s2 and s3):
+                            continue
+                        num = lap["number"]
+                        if num not in best_ms_by_car or lt_ms < best_ms_by_car[num]:
+                            best_ms_by_car[num] = lt_ms
+                            sectors_by_car[num] = (s1, s2, s3)
             drivers = _drivers_for_session(classification, analysis)
             lap_field = "hyperpole_lap" if kind == "HP" else "qualifying_lap"
             drv_field = "hyperpole_driver" if kind == "HP" else "qualifying_driver"
@@ -850,6 +870,16 @@ def enrich_qualifying_drivers(
                 if drv_name and getattr(row, drv_field) != drv_name:
                     setattr(row, drv_field, drv_name)
                     changed = True
+                # HP sectors override Q sectors (same precedence as
+                # best_lap above).
+                triple = sectors_by_car.get(car_no)
+                if triple is not None:
+                    s1, s2, s3 = triple
+                    if row.s1_time != s1 or row.s2_time != s2 or row.s3_time != s3:
+                        row.s1_time = s1
+                        row.s2_time = s2
+                        row.s3_time = s3
+                        changed = True
                 if changed:
                     updated += 1
 
@@ -1099,16 +1129,34 @@ def enrich_race_results(
 
         pit_counts: dict[str, int] = {}
         pit_events: list[dict] = []
+        top_speed_by_car: dict[str, float] = {}
         if analysis_url:
             try:
-                pit_events = _parse_pit_events(_fetch(analysis_url))
+                analysis_text = _fetch(analysis_url)
+            except httpx.HTTPError:
+                analysis_text = ""
+            if analysis_text:
+                pit_events = _parse_pit_events(analysis_text)
                 for ev_row in pit_events:
                     pit_counts[ev_row["number"]] = (
                         pit_counts.get(ev_row["number"], 0) + 1
                     )
-            except httpx.HTTPError:
-                pit_counts = {}
-                pit_events = []
+                # Walk every lap row and keep the per-car peak
+                # TOP_SPEED reading. Same source as the V-max API
+                # response — but stored to DB so the request path
+                # doesn't have to refetch a 1-2 MB CSV.
+                for lap in _parse_lap_analysis(analysis_text):
+                    raw = lap.get("top_speed") or ""
+                    try:
+                        v = float(raw)
+                    except ValueError:
+                        continue
+                    if v <= 0:
+                        continue
+                    num = lap["number"]
+                    prev = top_speed_by_car.get(num)
+                    if prev is None or v > prev:
+                        top_speed_by_car[num] = v
 
         # Replace pit_stop_events for this session — idempotent on
         # re-ingest. Resolve car_id via the season-wide Car map so we
@@ -1162,6 +1210,7 @@ def enrich_race_results(
                     best_lap=r["best_lap"] or None,
                     status=r["status"] or None,
                     pit_stops=pit_counts.get(r["number"]),
+                    top_speed_kph=top_speed_by_car.get(r["number"]),
                 )
                 db.add(row)
                 by_car_number[r["number"]] = row
@@ -1186,6 +1235,10 @@ def enrich_race_results(
             stops = pit_counts.get(r["number"])
             if stops is not None and row.pit_stops != stops:
                 row.pit_stops = stops
+                changed = True
+            ts = top_speed_by_car.get(r["number"])
+            if ts is not None and row.top_speed_kph != ts:
+                row.top_speed_kph = ts
                 changed = True
             if changed:
                 updated += 1

@@ -201,6 +201,16 @@ class SessionResult(Base):
     # Pit stop count per car for race sessions, derived from Al Kamel
     # lap analysis (laps with a non-empty PIT_TIME).
     pit_stops: Mapped[int | None] = mapped_column(default=None)
+    # V-max — peak TOP_SPEED across all the car's race laps. Race
+    # rows only; null on practice / qualifying. Populated at ingest
+    # time from Al Kamel's race-analysis CSV so the API doesn't have
+    # to refetch on every page hit.
+    top_speed_kph: Mapped[float | None] = mapped_column(default=None)
+    # Sector breakdown of the car's best Q (or HP) lap — raw "MM:SS.xxx"
+    # strings as Al Kamel publishes them. Q rows only.
+    s1_time: Mapped[str | None] = mapped_column(String(20), default=None)
+    s2_time: Mapped[str | None] = mapped_column(String(20), default=None)
+    s3_time: Mapped[str | None] = mapped_column(String(20), default=None)
     status: Mapped[str | None] = mapped_column(String(50), default=None)
     # Slash-joined names of drivers who actually raced this car in this
     # session. Populated from race-page classification when available;
