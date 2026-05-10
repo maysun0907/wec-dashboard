@@ -104,6 +104,10 @@ def get_manufacturer(
 
     career = _manufacturer_career(db, manufacturer_id)
 
+    from app.data.manufacturer_links import MANUFACTURER_LINKS
+
+    links = MANUFACTURER_LINKS.get(manuf.name, {})
+
     season = resolve_season(db, year)
     if season is None:
         return schemas.ManufacturerDetailOut(
@@ -111,6 +115,10 @@ def get_manufacturer(
             name=manuf.name,
             country=manuf.country,
             logo_url=manuf.logo_url,
+            website_url=links.get("website_url"),
+            youtube_url=links.get("youtube_url"),
+            x_url=links.get("x_url"),
+            instagram_url=links.get("instagram_url"),
             seasons=career,
         )
 
@@ -182,6 +190,10 @@ def get_manufacturer(
         name=manuf.name,
         country=manuf.country,
         logo_url=manuf.logo_url,
+        website_url=links.get("website_url"),
+        youtube_url=links.get("youtube_url"),
+        x_url=links.get("x_url"),
+        instagram_url=links.get("instagram_url"),
         cars=[
             schemas.ManufacturerCarOut(
                 car_id=car.id,

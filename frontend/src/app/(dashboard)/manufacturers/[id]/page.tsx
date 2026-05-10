@@ -132,6 +132,7 @@ export default async function ManufacturerDetailPage({
             </div>
           </CardContent>
         )}
+        <ManufacturerLinks manufacturer={manufacturer} />
       </Card>
 
       <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
@@ -373,5 +374,57 @@ function Stat({ label, value }: { label: string; value: string }) {
         {value}
       </span>
     </div>
+  );
+}
+
+function ManufacturerLinks({
+  manufacturer,
+}: {
+  manufacturer: ManufacturerDetail;
+}) {
+  const items: { label: string; href: string; icon: string }[] = [];
+  if (manufacturer.websiteUrl)
+    items.push({
+      label: "Official racing site",
+      href: manufacturer.websiteUrl,
+      icon: "🏁",
+    });
+  if (manufacturer.youtubeUrl)
+    items.push({
+      label: "YouTube",
+      href: manufacturer.youtubeUrl,
+      icon: "▶",
+    });
+  if (manufacturer.xUrl)
+    items.push({ label: "X", href: manufacturer.xUrl, icon: "𝕏" });
+  if (manufacturer.instagramUrl)
+    items.push({
+      label: "Instagram",
+      href: manufacturer.instagramUrl,
+      icon: "◉",
+    });
+  if (items.length === 0) return null;
+  return (
+    <CardContent className="border-t border-border/40">
+      <div className="flex flex-wrap gap-2 text-sm">
+        {items.map((it) => (
+          <a
+            key={it.href}
+            href={it.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-secondary/30 px-3 py-1.5 transition-colors hover:bg-secondary/60 hover:text-foreground"
+          >
+            <span aria-hidden className="text-base">
+              {it.icon}
+            </span>
+            <span>{it.label}</span>
+            <span aria-hidden className="text-xs text-muted-foreground">
+              ↗
+            </span>
+          </a>
+        ))}
+      </div>
+    </CardContent>
   );
 }

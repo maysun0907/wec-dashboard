@@ -270,6 +270,12 @@ export type ManufacturerDetail = {
   name: string;
   country: string | null;
   logoUrl: string | null;
+  /** Brand's official racing-arm presence — null when we don't have
+   *  a confirmed handle for the slot. Curated server-side. */
+  websiteUrl: string | null;
+  youtubeUrl: string | null;
+  xUrl: string | null;
+  instagramUrl: string | null;
   cars: ManufacturerCar[];
   results: ManufacturerResult[];
   standings: ManufacturerStandingItem[];

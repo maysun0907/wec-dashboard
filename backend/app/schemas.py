@@ -370,6 +370,13 @@ class ManufacturerDetailOut(_BaseSchema):
     name: str
     country: str | None = None
     logo_url: str | None = None
+    # External links curated in `app/data/manufacturer_links.py`.
+    # Each is the brand's official racing-arm presence; null when we
+    # don't have a confirmed handle.
+    website_url: str | None = None
+    youtube_url: str | None = None
+    x_url: str | None = None
+    instagram_url: str | None = None
     cars: list[ManufacturerCarOut] = []
     results: list[ManufacturerResultOut] = []
     standings: list[ManufacturerStandingItem] = []
