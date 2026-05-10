@@ -1044,8 +1044,48 @@ def enrich_race_results(
 
         for r in classification_rows:
             row = by_car_number.get(r["number"])
+
+            # ---- Create the SessionResult row when Wikipedia hasn't
+            # populated the per-round classification table yet. Look
+            # up the car by (number, season) so we don't accidentally
+            # match a different season's #20 entry.
+            # class_position and points_awarded aren't stored on the
+            # model — the API layer computes them on read from the
+            # overall position + race_class. ----
             if row is None:
+                car = (
+                    db.query(models.Car)
+                    .filter(
+                        models.Car.season_id == season_id,
+                        models.Car.number == r["number"],
+                    )
+                    .first()
+                )
+                if car is None:
+                    continue
+                try:
+                    pos_int = int(r["position"])
+                except ValueError:
+                    continue
+                try:
+                    laps_int = int(r["laps"]) if r["laps"] else None
+                except ValueError:
+                    laps_int = None
+                row = models.SessionResult(
+                    session_id=race_session.id,
+                    car_id=car.id,
+                    position=pos_int,
+                    laps=laps_int,
+                    gap=r["gap"] or None,
+                    best_lap=r["best_lap"] or None,
+                    status=r["status"] or None,
+                    pit_stops=pit_counts.get(r["number"]),
+                )
+                db.add(row)
+                by_car_number[r["number"]] = row
+                updated += 1
                 continue
+
             changed = False
             if r["best_lap"] and row.best_lap != r["best_lap"]:
                 row.best_lap = r["best_lap"]
