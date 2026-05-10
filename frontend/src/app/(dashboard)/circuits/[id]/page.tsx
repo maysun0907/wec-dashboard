@@ -46,7 +46,10 @@ export default async function CircuitDetailPage({
   const circuit = await fetchCircuit(id);
   if (circuit === null) notFound();
 
-  const layoutSvg = localCircuitLayout(circuit.country);
+  // Local SVG override (Wikimedia line art) wins because it's
+  // styled to fit our dark theme; fall back to the FIA-published
+  // PNG layout when no override is on disk.
+  const layoutSvg = localCircuitLayout(circuit.country) ?? circuit.layoutImage;
 
   return (
     <div className="space-y-6">

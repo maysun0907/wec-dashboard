@@ -43,6 +43,7 @@ export type Circuit = {
   country: string;
   lengthKm: number;
   lapRecord: string | null;
+  layoutImage: string | null;
 };
 
 export type Event = {
@@ -298,6 +299,7 @@ export type CircuitDetail = {
   country: string;
   lengthKm: number;
   lapRecord: string | null;
+  layoutImage: string | null;
   events: CircuitEventEntry[];
 };
 

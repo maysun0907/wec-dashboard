@@ -98,5 +98,6 @@ def get_circuit(
         country=circuit.country,
         length_km=circuit.length_km,
         lap_record=circuit.lap_record,
+        layout_image=circuit.layout_image,
         events=events_out,
     )

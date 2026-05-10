@@ -1853,6 +1853,21 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             print(f"  self-computed standings skipped: {exc}")
             self_standings = {"drivers": 0, "teams": 0, "manufacturers": 0}
 
+        # Mirror FIA-blessed asset URLs (manufacturer logos, car
+        # renders, circuit maps) into the DB. Pure URL refresh — no
+        # downloads, no migrations.
+        try:
+            from app.ingest.fiawec_assets import ingest_fiawec_assets
+
+            fiawec_assets = ingest_fiawec_assets(db, year)
+        except Exception as exc:  # pragma: no cover
+            print(f"  fiawec asset refresh skipped: {exc}")
+            fiawec_assets = {
+                "manufacturer_logos": 0,
+                "car_renders": 0,
+                "circuits": 0,
+            }
+
         db.commit()
         summary = {
             "events": events_n,
@@ -1868,6 +1883,9 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             "alkamel_qualifying_drivers": alkamel_drivers_n,
             "alkamel_practice_rows": alkamel_practice_n,
             "alkamel_race_rows": alkamel_race_n,
+            "fiawec_manufacturer_logos": fiawec_assets["manufacturer_logos"],
+            "fiawec_car_renders": fiawec_assets["car_renders"],
+            "fiawec_circuits": fiawec_assets["circuits"],
         }
         log.info("ingest_completed", **summary)
         return summary

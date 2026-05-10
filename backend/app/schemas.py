@@ -45,6 +45,7 @@ class CircuitOut(_OrmBase):
     country: str
     length_km: float
     lap_record: str | None = None
+    layout_image: str | None = None  # FIA-published track-map PNG
 
 
 class RaceClassOut(_OrmBase):
@@ -398,6 +399,7 @@ class CircuitDetailOut(_BaseSchema):
     country: str
     length_km: float
     lap_record: str | None = None
+    layout_image: str | None = None  # FIA-published track-map PNG
     events: list[CircuitEventOut] = []
 
 
