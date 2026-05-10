@@ -994,9 +994,18 @@ def enrich_race_results(
             .filter(models.SessionResult.session_id == race_session.id)
             .all()
         )
-        if not results:
-            continue
+        # `results` may be partial when Wikipedia's per-round article
+        # is still a stub right after the race — only winners present.
+        # Pre-fetch every Car for this season so pit-events and
+        # classification-row creation can resolve a car_id without
+        # depending on a pre-existing SessionResult row.
         by_car_number = {r.car.number: r for r in results}
+        season_cars = (
+            db.query(models.Car)
+            .filter(models.Car.season_id == season_id)
+            .all()
+        )
+        car_by_number = {c.number: c for c in season_cars}
 
         race_csvs = _list_race_csvs(season_param, evvent_param)
         if race_csvs is None:
@@ -1024,19 +1033,22 @@ def enrich_race_results(
                 pit_counts = {}
                 pit_events = []
 
-        # Replace pit_stop_events for this session — idempotent on re-ingest.
+        # Replace pit_stop_events for this session — idempotent on
+        # re-ingest. Resolve car_id via the season-wide Car map so we
+        # capture stops for every car, not just those that already
+        # have a SessionResult row.
         if pit_events:
             db.query(models.PitStopEvent).filter(
                 models.PitStopEvent.session_id == race_session.id
             ).delete(synchronize_session=False)
             for ev_row in pit_events:
-                row = by_car_number.get(ev_row["number"])
-                if row is None:
+                car = car_by_number.get(ev_row["number"])
+                if car is None:
                     continue
                 db.add(
                     models.PitStopEvent(
                         session_id=race_session.id,
-                        car_id=row.car_id,
+                        car_id=car.id,
                         lap_number=ev_row["lap"],
                         duration_ms=ev_row["duration_ms"],
                     )
@@ -1053,14 +1065,7 @@ def enrich_race_results(
             # model — the API layer computes them on read from the
             # overall position + race_class. ----
             if row is None:
-                car = (
-                    db.query(models.Car)
-                    .filter(
-                        models.Car.season_id == season_id,
-                        models.Car.number == r["number"],
-                    )
-                    .first()
-                )
+                car = car_by_number.get(r["number"])
                 if car is None:
                     continue
                 try:
