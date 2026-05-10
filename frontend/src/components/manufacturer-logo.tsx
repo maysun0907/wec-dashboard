@@ -14,11 +14,15 @@ const SIZE: Record<NonNullable<Props["size"]>, string> = {
   xl: "size-20",
 };
 
+// Logos arrive from FIA with their own internal whitespace baked in.
+// Keep CSS padding minimal so brand marks with thin glyphs (Peugeot
+// lion, BMW round badge, Toyota oval) don't shrink to nothing inside
+// the white pill.
 const PADDING: Record<NonNullable<Props["size"]>, string> = {
   sm: "p-0.5",
-  md: "p-1",
-  lg: "p-1.5",
-  xl: "p-2",
+  md: "p-0.5",
+  lg: "p-1",
+  xl: "p-1.5",
 };
 
 /** Renders a manufacturer logo with a name-initial fallback for missing
