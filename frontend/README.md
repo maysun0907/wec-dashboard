@@ -84,10 +84,14 @@ curl https://wec-dashboard-production.up.railway.app/api/v1/cars?year=2026 \
 - **Server components by default.** Only add `"use client"` when you
   need state, hover, or browser APIs.
 - **API client is typed.** Add new endpoints to `lib/api.ts` with a
-  matching `type` and the appropriate `revalidate` hint:
-  - 5–10 min for live race weekend data,
-  - 10 min for standings,
-  - 1 hour for entries / circuits / car models.
+  matching `type` and a `revalidate` hint scoped to data freshness:
+  - 60 s for race-weekend data that the cron updates hourly
+    (events, results, standings, podiums, progression),
+  - 300 s for derived per-session data (lap chart, pit stops,
+    weather, sectors),
+  - 600 s for semi-static rosters (drivers / teams / cars),
+  - 3600 s for static reference data (seasons, circuits, BoP,
+    all-time stats).
 - **camelCase everywhere.** Backend serializes via Pydantic alias
   generator; never type a snake_case field on the frontend.
 - **Tailwind 4 + shadcn/ui.** Use `cn()` from `lib/utils.ts` for

@@ -92,8 +92,10 @@ RACE_SLUG_HINT_BY_COUNTRY: dict[str, str] = {
 # Manufacturer-logo URL pattern: `/uploads/{slug}[-{hash6}]-{hashlong}.png`.
 _LOGO_RE = re.compile(r"/uploads/([a-z]+(?:-[a-z]+)*?)-[a-f0-9-]{16,}\.png$")
 # Car-render URL pattern: `/uploads/{year}-wec-{number}-{model}-droit[e]-{hash}.png`.
+# Numbers run 1-3 digits — Toyota's #7 / #8 entries match the lower
+# bound, Aston's #007 / #009 the upper.
 _CAR_RE = re.compile(
-    r"/uploads/(\d{4})-wec-(\d{2,3})-([a-z0-9-]+?)-droite?-[a-f0-9]+\.png$"
+    r"/uploads/(\d{4})-wec-(\d{1,3})-([a-z0-9-]+?)-droite?-[a-f0-9]+\.png$"
 )
 # Track-map URL pattern: `/uploads/{year}-tracks-rvb-{slug}-{hash}.png`.
 _TRACK_RE = re.compile(

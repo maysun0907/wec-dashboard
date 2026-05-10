@@ -60,26 +60,33 @@ gets data-migration order wrong. The existing migrations in
 
 ## Ingest
 
-Production data comes from three sources:
+The Railway "cron" service calls one entry point — `python -m
+app.ingest.wikipedia 2026` — that fans out into the full pipeline:
+
+1. **Wikipedia** — entries, calendar, race-results summary (winners),
+   per-round classification subarticles when published.
+2. **Al Kamel** — full race classification rows from
+   `03_Classification_Race`, pit-stop log from `23_Analysis_Race`,
+   FP1-3 + Q (and Hyperpole) sessions and per-car results from the
+   timing-portal CSVs.
+3. **fiawec.com schedule** — session start times for upcoming rounds
+   whose Wikipedia article is still a stub.
+4. **Self-computed standings** (`app.standings_compute`) — drivers /
+   teams / manufacturers per-class, with pole bonuses and per-event
+   progression snapshots. Replaces whatever Wikipedia wrote so the
+   day-after-race window doesn't show stale points.
+5. **fiawec.com asset URLs** (`app.ingest.fiawec_assets`) — official
+   manufacturer logos, car-render PNGs, circuit-layout PNGs and round
+   posters from the FIA's grid + per-race pages.
+
+Each step is idempotent and best-effort — if the Al Kamel CSV hasn't
+been published yet, the rest of the pipeline still commits.
+
+Manual one-shot for a backfill:
 
 ```sh
-# Pull entries, calendar, classifications, and standings from
-# Wikipedia's "{year} FIA World Endurance Championship" page.
 python -m app.ingest.wikipedia 2026
-
-# Backfill best-lap, pit-stop counts/timeline, and Q/Hyperpole driver
-# attribution from Al Kamel CSVs (called automatically as part of the
-# wikipedia ingest above).
-python -m app.ingest.alkamel
-
-# Pull session start times from fiawec.com when Wikipedia hasn't
-# published them yet.
-python -m app.ingest.fiawec_schedule
 ```
-
-Ingest is idempotent — safe to re-run. The Railway "cron" service
-calls `python -m app.ingest.wikipedia` on a schedule so the
-production DB tracks the season automatically.
 
 ## Curation
 
