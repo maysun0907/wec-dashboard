@@ -722,8 +722,11 @@ def enrich_qualifying_drivers(
     db: Session, season_id: int, year: int
 ) -> int:
     """For every Q SessionResult in the given season, look up the Al
-    Kamel timing folder and write qualifying_driver / hyperpole_driver
-    where we can match. Returns the number of rows updated."""
+    Kamel timing folder. Creates the Q Session row and per-car
+    SessionResult rows when Wikipedia hasn't published the qualifying
+    table yet (e.g. the day after a race), and stamps qualifying_lap
+    / hyperpole_lap / qualifying_driver / hyperpole_driver onto each
+    row. Returns the number of rows touched."""
     season_param = _season_param_for_year(year)
     if season_param is None:
         return 0
@@ -732,7 +735,6 @@ def enrich_qualifying_drivers(
         return 0
     by_round: dict[int, str] = {r: ev for r, ev in events}
 
-    # Load events + their Q sessions + results in one shot.
     db_events = (
         db.query(models.Event)
         .filter(models.Event.season_id == season_id)
@@ -743,6 +745,32 @@ def enrich_qualifying_drivers(
         evvent_param = by_round.get(ev.round)
         if evvent_param is None:
             continue
+
+        # Walk every Q + HP CSV per class. We need the listing once
+        # to know whether to spin up a Q Session row before any rows
+        # land, so collect first.
+        csvs = [
+            entry
+            for entry in _list_session_csvs(season_param, evvent_param)
+            if entry[0] in ("Q", "HP")
+        ]
+        if not csvs:
+            continue
+
+        # Reuse season-wide Car list so we can resolve cars that have
+        # no SessionResult yet (post-race-only winners case).
+        season_cars = (
+            db.query(models.Car)
+            .filter(models.Car.season_id == season_id)
+            .all()
+        )
+        if not season_cars:
+            continue
+        car_by_number = {c.number: c for c in season_cars}
+
+        # Ensure the Q Session row exists. Use the earliest Q
+        # timestamp from Al Kamel as start_time; HP slots in later
+        # but folds into the same Session in our schema.
         q_session = (
             db.query(models.Session)
             .filter(
@@ -751,23 +779,31 @@ def enrich_qualifying_drivers(
             )
             .first()
         )
+        circuit_tz = (
+            tz_for_circuit(ev.circuit.name) if ev.circuit else None
+        )
         if q_session is None:
-            continue
+            q_timestamps = [
+                ts for kind, _cls, _cl, _an, ts in csvs if kind == "Q"
+            ]
+            stamp = min(q_timestamps) if q_timestamps else csvs[0][4]
+            q_session = models.Session(
+                event_id=ev.id,
+                type="Q",
+                start_time=_timestamp_to_utc(stamp, circuit_tz),
+            )
+            db.add(q_session)
+            db.flush()
+
         results = (
             db.query(models.SessionResult)
             .options(joinedload(models.SessionResult.car))
             .filter(models.SessionResult.session_id == q_session.id)
             .all()
         )
-        if not results:
-            continue
         by_car_number = {r.car.number: r for r in results}
 
-        for kind, _cls, classification_url, analysis_url, _ts in _list_session_csvs(
-            season_param, evvent_param
-        ):
-            if kind not in ("Q", "HP"):
-                continue
+        for kind, _cls, classification_url, analysis_url, _ts in csvs:
             try:
                 cl_csv = _fetch(classification_url)
             except httpx.HTTPError:
@@ -782,14 +818,55 @@ def enrich_qualifying_drivers(
                 except httpx.HTTPError:
                     analysis = {}
             drivers = _drivers_for_session(classification, analysis)
-            field = "hyperpole_driver" if kind == "HP" else "qualifying_driver"
-            for car_no, name in drivers.items():
+            lap_field = "hyperpole_lap" if kind == "HP" else "qualifying_lap"
+            drv_field = "hyperpole_driver" if kind == "HP" else "qualifying_driver"
+
+            for car_no, lap_time in classification.items():
                 row = by_car_number.get(car_no)
                 if row is None:
-                    continue
-                if getattr(row, field) != name:
-                    setattr(row, field, name)
+                    car = car_by_number.get(car_no)
+                    if car is None:
+                        continue
+                    row = models.SessionResult(
+                        session_id=q_session.id,
+                        car_id=car.id,
+                        position=0,  # finalized after the loops below
+                    )
+                    db.add(row)
+                    by_car_number[car_no] = row
                     updated += 1
+                changed = False
+                normalized = _normalize_lap_time(lap_time)
+                if normalized and getattr(row, lap_field) != normalized:
+                    setattr(row, lap_field, normalized)
+                    changed = True
+                preferred = (
+                    row.hyperpole_lap or row.qualifying_lap or normalized
+                )
+                if preferred and row.best_lap != preferred:
+                    row.best_lap = preferred
+                    changed = True
+                drv_name = drivers.get(car_no)
+                if drv_name and getattr(row, drv_field) != drv_name:
+                    setattr(row, drv_field, drv_name)
+                    changed = True
+                if changed:
+                    updated += 1
+
+        # Re-rank Q SessionResult overall positions by best_lap ms
+        # so the API layer's class_position_for derives sensible
+        # per-class ranks. Rows without a parseable best_lap go to
+        # the back.
+        ranked = sorted(
+            by_car_number.values(),
+            key=lambda r: (
+                _lap_to_ms(r.best_lap or "") or 10**12,
+            ),
+        )
+        for i, r in enumerate(ranked, start=1):
+            if r.position != i:
+                r.position = i
+                updated += 1
     if updated:
         db.commit()
     return updated
