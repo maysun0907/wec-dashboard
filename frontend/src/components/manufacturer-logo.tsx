@@ -26,17 +26,11 @@ const IMG_SIZES: Record<NonNullable<Props["size"]>, string> = {
   xl: "80px",
 };
 
-// Logos arrive from FIA with their own internal whitespace baked in,
-// so CSS padding should be ~0 — otherwise marks like the BMW roundel
-// or Alpine A end up as tiny glyphs floating in a white sea. The
-// `object-contain` on the image already preserves the brand-mark's
-// own breathing room.
-const PADDING: Record<NonNullable<Props["size"]>, string> = {
-  sm: "p-0",
-  md: "p-0",
-  lg: "p-0",
-  xl: "p-0",
-};
+// FIA's brand PNGs ship with a generous transparent margin baked in,
+// so the mark itself only occupies ~50-60 % of the file. Counter that
+// with a CSS scale on the image element — the pill stays the chosen
+// size, the brand mark blows up to fill it. overflow-hidden on the
+// parent clips any sliver that crosses the rounded corners.
 
 /** Renders a manufacturer logo with a name-initial fallback for missing
  *  images. Sits on a white pill so brand colors render naturally on the
@@ -73,7 +67,7 @@ export function ManufacturerLogo({ src, name, size = "sm", className }: Props) {
         alt={name ?? ""}
         fill
         sizes={IMG_SIZES[size]}
-        className={cn("object-contain", PADDING[size])}
+        className="object-contain scale-[1.5]"
         loading="lazy"
       />
     </span>
