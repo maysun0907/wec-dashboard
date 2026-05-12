@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -11,13 +12,14 @@ import { PageHeader } from "@/components/page-header";
 
 export const metadata = { title: "Rules" };
 
-export default function RulesPage() {
+export default async function RulesPage() {
+  const t = await getTranslations("rules");
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="2026 Season"
-        title="Rules"
-        description="Class definitions, regulation envelopes, scoring, and the bits that change year over year. Everything below is from public FIA / ACO documentation."
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={t("description")}
       />
 
       <Card>

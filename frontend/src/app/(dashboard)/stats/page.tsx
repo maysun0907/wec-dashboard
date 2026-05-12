@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Trophy } from "lucide-react";
 import {
   Card,
@@ -31,30 +33,31 @@ export const metadata = { title: "All-time stats" };
 
 export default async function StatsPage() {
   const stats = await getAllTimeStats();
+  const t = await getTranslations("stats");
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Records"
-        title="All-time stats"
-        description="Aggregates across every ingested season — championship titles, race-win counts, and Le Mans winner history."
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={t("description")}
       />
 
       <div className="space-y-2">
-        <p className="eyebrow">Championships</p>
+        <p className="eyebrow">{t("championships")}</p>
         <section className="grid gap-6 lg:grid-cols-3">
           <TitlesCard
-            title="Drivers · most titles"
+            title={t("driversMostTitles")}
             rows={stats.driverTitles}
             hrefBase="/drivers"
           />
           <TitlesCard
-            title="Manufacturers · most titles"
+            title={t("manufacturersMostTitles")}
             rows={stats.manufacturerTitles}
             hrefBase="/manufacturers"
           />
           <TitlesCard
-            title="Teams · most titles"
+            title={t("teamsMostTitles")}
             rows={stats.teamTitles}
             hrefBase="/teams"
           />
@@ -62,30 +65,30 @@ export default async function StatsPage() {
       </div>
 
       <div className="space-y-2">
-        <p className="eyebrow">Race finishes</p>
+        <p className="eyebrow">{t("raceFinishes")}</p>
         <section className="grid gap-6 lg:grid-cols-2">
           <WinsCard
-            title="Drivers · most race wins"
+            title={t("driversMostWins")}
             rows={stats.driverWins}
-            countLabel="wins"
+            countLabel={t("wins")}
             countOf={(d) => d.wins}
           />
           <WinsCard
-            title="Drivers · most podiums"
+            title={t("driversMostPodiums")}
             rows={stats.driverPodiums}
-            countLabel="podiums"
+            countLabel={t("podiums")}
             countOf={(d) => d.podiums}
           />
         </section>
       </div>
 
       <div className="space-y-2">
-        <p className="eyebrow">Le Mans</p>
+        <p className="eyebrow">{t("leMans")}</p>
         <Card>
           <CardHeader>
-            <CardTitle>Overall winners</CardTitle>
+            <CardTitle>{t("overallWinners")}</CardTitle>
             <CardDescription>
-              Outright winners of the 24 Hours of Le Mans, year by year.
+              {t("leMansSubtitle")}
             </CardDescription>
           </CardHeader>
           <CardContent className="px-0">
@@ -106,6 +109,7 @@ function TitlesCard({
   rows: StatRow[];
   hrefBase: string;
 }) {
+  const t = useTranslations("stats");
   return (
     <Card>
       <CardHeader>
@@ -114,7 +118,7 @@ function TitlesCard({
       <CardContent className="px-0">
         {rows.length === 0 ? (
           <p className="px-4 pb-4 text-sm text-muted-foreground">
-            No champions yet.
+            {t("noChampionsYet")}
           </p>
         ) : (
           <ul className="divide-y divide-border">
@@ -197,15 +201,16 @@ function WinsCard<T extends DriverStat | DriverPodiumStat>({
 }
 
 function LeMansTable({ rows }: { rows: LeMansWinner[] }) {
+  const t = useTranslations("stats");
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-16 pl-4">Year</TableHead>
-          <TableHead className="w-12">#</TableHead>
-          <TableHead>Team</TableHead>
-          <TableHead>Drivers</TableHead>
-          <TableHead className="hidden pr-4 sm:table-cell">Manuf.</TableHead>
+          <TableHead className="w-16 pl-4">{t("colYear")}</TableHead>
+          <TableHead className="w-12">{t("colCar")}</TableHead>
+          <TableHead>{t("colTeam")}</TableHead>
+          <TableHead>{t("colDrivers")}</TableHead>
+          <TableHead className="hidden pr-4 sm:table-cell">{t("colManufacturer")}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

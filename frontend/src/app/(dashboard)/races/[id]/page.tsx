@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { format, parseISO } from "date-fns";
 import {
   Card,
@@ -114,6 +116,8 @@ export default async function RaceDetailPage({
   const sessionsWithResults = sessions.filter(
     (s) => (resultMap.get(s.id)?.length ?? 0) > 0,
   );
+  const t = await getTranslations("raceDetail");
+  const tStatus = await getTranslations("eventStatus");
 
   return (
     <div className="space-y-6">
@@ -121,7 +125,7 @@ export default async function RaceDetailPage({
         href="/races"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
-        ← Schedule
+        {t("back")}
       </Link>
 
       <Card className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:gap-6">
@@ -143,9 +147,9 @@ export default async function RaceDetailPage({
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-3 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
             <span>
-              Round {event.round} · {parseISO(event.dateStart).getFullYear()}
+              {`Round ${event.round} · ${parseISO(event.dateStart).getFullYear()}`}
             </span>
-            <StatusBadge status={status} />
+            <StatusBadge status={status} label={tStatus(status)} />
           </div>
           <CardTitle className="flex items-center gap-2 text-2xl sm:text-3xl">
             <Flag code={event.circuit.country} flagOnly className="text-2xl" />
@@ -244,11 +248,11 @@ export default async function RaceDetailPage({
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle>Results not yet available</CardTitle>
+            <CardTitle>{t("resultsNotYet")}</CardTitle>
             <CardDescription>
               {status === "upcoming"
-                ? "Session times and results will appear here once the weekend begins."
-                : "No timing data has been published for this event yet."}
+                ? t("resultsUpcoming")
+                : t("resultsNoData")}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -257,10 +261,10 @@ export default async function RaceDetailPage({
   );
 }
 
-function StatusBadge({ status }: { status: EventStatus }) {
-  if (status === "live") return <Badge variant="destructive">Live</Badge>;
-  if (status === "completed") return <Badge variant="outline">Completed</Badge>;
-  return <Badge variant="default">Upcoming</Badge>;
+function StatusBadge({ status, label }: { status: EventStatus; label: string }) {
+  const variant: "destructive" | "outline" | "default" =
+    status === "live" ? "destructive" : status === "completed" ? "outline" : "default";
+  return <Badge variant={variant}>{label}</Badge>;
 }
 
 function SessionWinnersCard({
@@ -270,6 +274,7 @@ function SessionWinnersCard({
   type: string;
   rows: SessionResult[];
 }) {
+  const t = useTranslations("raceDetail");
   const isQuali = type === "Q";
   const isRace = type === "RACE";
   if (!isQuali && !isRace) return null;
@@ -289,10 +294,8 @@ function SessionWinnersCard({
   const winners = Array.from(topByClass.values());
   if (winners.length === 0) return null;
 
-  const heading = isQuali ? "Pole positions" : "Race winners";
-  const sub = isQuali
-    ? "Pole sitters per class — best lap from Hyperpole."
-    : "Class winners.";
+  const heading = isQuali ? t("polePositions") : t("raceWinners");
+  const sub = isQuali ? t("poleSubtitle") : t("winnersSubtitle");
 
   return (
     <Card>
@@ -390,19 +393,19 @@ function PracticeFastestCard({
   label: string;
   rows: SessionResult[];
 }) {
+  const t = useTranslations("raceDetail");
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{label} · session fastest</CardTitle>
+        <CardTitle>{t("sessionFastestSuffix", { label })}</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Wikipedia only publishes the fastest car per class for free
-          practice. Full timesheets are on the WEC results portal.
+          {t("wikiFastestNote")}
         </p>
       </CardHeader>
       <CardContent>
         {rows.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            No fastest-lap data published.
+            {t("noFastestLap")}
           </p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
@@ -450,57 +453,55 @@ function ResultsCard({
   type: string;
   rows: SessionResult[];
 }) {
+  const t = useTranslations("raceDetail");
   const isPractice = type === "FP1" || type === "FP2" || type === "FP3";
   const isRace = type === "RACE";
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{label} results</CardTitle>
+        <CardTitle>{t("resultsSuffix", { label })}</CardTitle>
       </CardHeader>
       <CardContent className="px-0">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12 pl-4">Pos</TableHead>
+              <TableHead className="w-12 pl-4">{t("colPos")}</TableHead>
               {isRace && (
-                <TableHead
-                  className="hidden w-14 sm:table-cell"
-                  title="Position within class"
-                >
-                  Cls #
+                <TableHead className="hidden w-14 sm:table-cell">
+                  {t("colClassPos")}
                 </TableHead>
               )}
-              <TableHead className="w-12">#</TableHead>
-              <TableHead>Team</TableHead>
-              <TableHead className="hidden md:table-cell">Drivers</TableHead>
-              <TableHead className="w-16">Class</TableHead>
+              <TableHead className="w-12">{t("colCar")}</TableHead>
+              <TableHead>{t("colTeam")}</TableHead>
+              <TableHead className="hidden md:table-cell">{t("colDrivers")}</TableHead>
+              <TableHead className="w-16">{t("colRaceClass")}</TableHead>
               {isPractice && (
                 <>
                   <TableHead className="hidden w-24 text-right sm:table-cell">
-                    Best lap
+                    {t("colBestLap")}
                   </TableHead>
-                  <TableHead className="pr-4 w-20 text-right">Gap</TableHead>
+                  <TableHead className="pr-4 w-20 text-right">{t("colGap")}</TableHead>
                 </>
               )}
               {isRace && (
                 <>
                   <TableHead className="hidden w-14 text-right lg:table-cell">
-                    Laps
+                    {t("colLaps")}
                   </TableHead>
                   <TableHead className="hidden w-24 text-right lg:table-cell">
-                    Best lap
+                    {t("colBestLap")}
                   </TableHead>
                   <TableHead className="hidden w-16 text-right xl:table-cell">
-                    V-max
+                    {t("colTopSpeed")}
                   </TableHead>
                   <TableHead className="hidden w-12 text-right md:table-cell">
-                    Pit
+                    {t("colPit")}
                   </TableHead>
                   <TableHead className="hidden w-12 text-right sm:table-cell">
-                    Pts
+                    {t("colPts")}
                   </TableHead>
-                  <TableHead className="pr-4 text-right">Gap</TableHead>
+                  <TableHead className="pr-4 text-right">{t("colGap")}</TableHead>
                 </>
               )}
             </TableRow>

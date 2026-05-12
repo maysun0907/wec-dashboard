@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -35,28 +36,33 @@ export default async function RacesPage() {
   const year = await getSelectedSeason();
   const events = await getEvents(year);
   const today = new Date();
+  const t = await getTranslations("races");
+  const tStatus = await getTranslations("eventStatus");
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Calendar"
-        title="Schedule"
-        description={`${year ?? 2026} season · ${events.length} rounds`}
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={t("description", {
+          year: year ?? 2026,
+          count: events.length,
+        })}
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>All rounds</CardTitle>
+          <CardTitle>{t("allRounds")}</CardTitle>
         </CardHeader>
         <CardContent className="px-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-14 pl-4">Rd</TableHead>
-                <TableHead>Event</TableHead>
-                <TableHead className="hidden md:table-cell">Circuit</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="pr-4 text-right">Status</TableHead>
+                <TableHead className="w-14 pl-4">{t("round")}</TableHead>
+                <TableHead>{t("event")}</TableHead>
+                <TableHead className="hidden md:table-cell">{t("circuit")}</TableHead>
+                <TableHead>{t("date")}</TableHead>
+                <TableHead className="pr-4 text-right">{t("status")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -90,11 +96,8 @@ export default async function RacesPage() {
                       {format(parseISO(e.dateStart), "MMM d, yyyy")}
                     </TableCell>
                     <TableCell className="pr-4 text-right">
-                      <Badge
-                        variant={STATUS_VARIANT[status]}
-                        className="capitalize"
-                      >
-                        {status}
+                      <Badge variant={STATUS_VARIANT[status]}>
+                        {tStatus(status)}
                       </Badge>
                     </TableCell>
                   </TableRow>

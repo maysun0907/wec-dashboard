@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -67,6 +68,7 @@ export default async function TeamDetailPage({
   const year = await getSelectedSeason();
   const team = await fetchTeam(id, year);
   if (team === null) notFound();
+  const t = await getTranslations("teams");
 
   return (
     <div className="space-y-6">
@@ -74,7 +76,7 @@ export default async function TeamDetailPage({
         href="/teams"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
-        ← Teams
+        ← {t("title")}
       </Link>
 
       <Card>
@@ -99,10 +101,9 @@ export default async function TeamDetailPage({
               />
             </CardTitle>
             <CardDescription>
-              {team.manufacturer ?? "Independent"}
+              {team.manufacturer ?? t("independent")}
               {" · "}
-              {team.cars.length}{" "}
-              {team.cars.length === 1 ? "car" : "cars"} this season
+              {t("carsThisSeason", { count: team.cars.length })}
             </CardDescription>
           </div>
         </CardHeader>
@@ -118,7 +119,7 @@ export default async function TeamDetailPage({
 
       <section className="space-y-6">
         <h2 className="text-sm font-semibold tracking-widest uppercase text-muted-foreground">
-          Entries
+          {t("entries")}
         </h2>
         <div className="grid gap-6 lg:grid-cols-2">
           {team.cars.map((c) => (
@@ -136,7 +137,7 @@ export default async function TeamDetailPage({
                       </CarModelLink>
                     </CardTitle>
                     <CardDescription>
-                      {c.drivers.length} drivers
+                      {t("driversN", { count: c.drivers.length })}
                     </CardDescription>
                   </div>
                   <ClassBadge raceClass={c.raceClass} />
@@ -157,7 +158,7 @@ export default async function TeamDetailPage({
               <CardContent>
                 {c.drivers.length === 0 ? (
                   <p className="text-sm text-muted-foreground">
-                    No drivers listed yet.
+                    {t("noDriversListed")}
                   </p>
                 ) : (
                   <ul className="space-y-2 text-sm">
@@ -191,7 +192,7 @@ export default async function TeamDetailPage({
       {team.seasons.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Career</CardTitle>
+            <CardTitle>{t("career")}</CardTitle>
             <CardDescription>{teamCareerSummary(team.seasons)}</CardDescription>
           </CardHeader>
           <CardContent className="px-0">
@@ -202,11 +203,11 @@ export default async function TeamDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Race results</CardTitle>
+          <CardTitle>{t("raceResults")}</CardTitle>
           <CardDescription>
             {team.results.length === 0
-              ? "No completed races yet this season."
-              : "Across all team cars, sorted by round."}
+              ? t("noCompletedRaces")
+              : t("resultsSubtitle")}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-0">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Card,
   CardContent,
@@ -22,10 +23,10 @@ import { type SessionResult } from "@/lib/api";
 
 type SortMode = "grid" | "q" | "hyperpole";
 
-const SORT_OPTIONS: Array<{ mode: SortMode; label: string }> = [
-  { mode: "grid", label: "Grid" },
-  { mode: "q", label: "Q lap" },
-  { mode: "hyperpole", label: "Hyperpole" },
+const SORT_OPTIONS: Array<{ mode: SortMode; tKey: "sortGrid" | "sortQ" | "sortHyperpole" }> = [
+  { mode: "grid", tKey: "sortGrid" },
+  { mode: "q", tKey: "sortQ" },
+  { mode: "hyperpole", tKey: "sortHyperpole" },
 ];
 
 function lapMs(lap: string | null | undefined): number | null {
@@ -133,10 +134,11 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
     });
   }, [visible]);
 
+  const t = useTranslations("raceDetail");
   return (
     <Card>
       <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
-        <CardTitle>Qualifying results</CardTitle>
+        <CardTitle>{t("qualifyingResults")}</CardTitle>
         <div className="inline-flex rounded-md border border-border bg-secondary/40 p-0.5 text-xs">
           {SORT_OPTIONS.map((o) => (
             <button
@@ -150,7 +152,7 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
                   : "text-muted-foreground hover:text-foreground")
               }
             >
-              {o.label}
+              {t(o.tKey)}
             </button>
           ))}
         </div>
@@ -160,21 +162,21 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
           <TableHeader>
             <TableRow>
               <TableHead className="w-12 pl-4">
-                {sort === "grid" ? "Grid" : "#"}
+                {sort === "grid" ? t("colGrid") : t("colCar")}
               </TableHead>
-              <TableHead className="w-12">Car</TableHead>
-              <TableHead>Team</TableHead>
-              <TableHead className="hidden md:table-cell">Drivers</TableHead>
-              <TableHead className="w-16">Class</TableHead>
+              <TableHead className="w-12">{t("colCar2")}</TableHead>
+              <TableHead>{t("colTeam")}</TableHead>
+              <TableHead className="hidden md:table-cell">{t("colDrivers")}</TableHead>
+              <TableHead className="w-16">{t("colRaceClass")}</TableHead>
               {sort === "grid" && (
-                <TableHead className="pr-4 w-24 text-right">Time</TableHead>
+                <TableHead className="pr-4 w-24 text-right">{t("colTime")}</TableHead>
               )}
               {sort === "q" && (
-                <TableHead className="pr-4 w-24 text-right">Q lap</TableHead>
+                <TableHead className="pr-4 w-24 text-right">{t("colQLap")}</TableHead>
               )}
               {sort === "hyperpole" && (
                 <TableHead className="pr-4 w-24 text-right">
-                  Hyperpole
+                  {t("colHyperpole")}
                 </TableHead>
               )}
             </TableRow>

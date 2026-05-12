@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -69,6 +70,7 @@ export default async function DriverDetailPage({
   const year = await getSelectedSeason();
   const driver = await fetchDriver(id, year);
   if (driver === null) notFound();
+  const t = await getTranslations("drivers");
 
   return (
     <div className="space-y-6">
@@ -76,7 +78,7 @@ export default async function DriverDetailPage({
         href="/drivers"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
-        ← Drivers
+        ← {t("title")}
       </Link>
 
       <Card className="relative overflow-hidden">
@@ -133,35 +135,32 @@ export default async function DriverDetailPage({
             {driver.standing && (
               <>
                 <Stat
-                  label="Championship pos."
+                  label={t("championshipPos")}
                   value={`P${driver.standing.position}`}
                 />
                 <Stat
-                  label="Points"
+                  label={t("points")}
                   value={driver.standing.points.toString()}
                 />
               </>
             )}
             <Stat
-              label="Races finished"
+              label={t("racesFinished")}
               value={driver.results.length.toString()}
             />
             {driver.results.length > 0 && (
               <>
                 <Stat
-                  label="Best class result"
+                  label={t("bestClassResult")}
                   value={`P${bestClassPosition(driver.results)}`}
                 />
                 <Stat
-                  label="Avg class result"
+                  label={t("avgClassResult")}
                   value={averageClassPosition(driver.results).toFixed(1)}
                 />
-                {/* Hide redundant "Points scored" when the driver already
-                    has a standing — `standing.points` is the canonical
-                    figure and matches what we'd compute here anyway. */}
                 {!driver.standing && (
                   <Stat
-                    label="Points scored"
+                    label={t("pointsScored")}
                     value={pointsScored(driver.results).toString()}
                   />
                 )}
@@ -174,9 +173,9 @@ export default async function DriverDetailPage({
       {driver.results.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Form</CardTitle>
+            <CardTitle>{t("form")}</CardTitle>
             <CardDescription>
-              Class finishing position by round (P1 at the top).
+              {t("formSubtitle")}
             </CardDescription>
           </CardHeader>
           <CardContent className="pb-4">
@@ -193,7 +192,7 @@ export default async function DriverDetailPage({
       {driver.seasons.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Career</CardTitle>
+            <CardTitle>{t("career")}</CardTitle>
             <CardDescription>
               {careerSummary(driver.seasons)}
             </CardDescription>
@@ -207,15 +206,15 @@ export default async function DriverDetailPage({
       <section className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Co-drivers</CardTitle>
+            <CardTitle>{t("coDrivers")}</CardTitle>
             <CardDescription>
-              Same car, this season ({driver.coDrivers.length})
+              {t("coDriversSubtitle", { count: driver.coDrivers.length })}
             </CardDescription>
           </CardHeader>
           <CardContent>
             {driver.coDrivers.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                No co-drivers listed.
+                {t("noCoDrivers")}
               </p>
             ) : (
               <ul className="space-y-2 text-sm">

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
+import { getTranslations } from "next-intl/server";
 import { Check, ExternalLink, Trophy } from "lucide-react";
 import {
   Card,
@@ -134,17 +135,18 @@ export default async function LivePage() {
   );
   const next = live ?? getNextEvent(events, new Date(now)) ?? null;
 
+  const t = await getTranslations("live");
   if (next === null) {
     return (
       <div className="space-y-6">
         <PageHeader
-          eyebrow="Race Weekend"
-          title="Live"
-          description="Race-weekend hub. Times shown in the circuit’s timezone and your browser’s local timezone."
+          eyebrow={t("eyebrow")}
+          title={t("title")}
+          description={t("description")}
         />
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            No more sessions on this season&rsquo;s calendar.
+            {t("noMoreSessions")}
           </CardContent>
         </Card>
       </div>
@@ -186,9 +188,9 @@ export default async function LivePage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Race Weekend"
-        title="Live"
-        description="Race-weekend hub. Times shown in the circuit’s timezone and your browser’s local timezone."
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={t("description")}
       />
 
       <Card className="relative overflow-hidden">
@@ -213,13 +215,15 @@ export default async function LivePage() {
             {liveSession ? (
               <>
                 <span className="size-1.5 animate-pulse rounded-full bg-[var(--racing-red)]" />
-                {SESSION_LABEL[liveSession.type] ?? liveSession.type} live ·
-                Round {next.round}
+                {t("liveRound", {
+                  type: SESSION_LABEL[liveSession.type] ?? liveSession.type,
+                  round: next.round,
+                })}
               </>
             ) : live ? (
-              <>Race weekend · Round {next.round}</>
+              <>{t("raceWeekendRound", { round: next.round })}</>
             ) : (
-              <>Next race weekend · Round {next.round}</>
+              <>{t("nextRaceWeekendRound", { round: next.round })}</>
             )}
           </div>
           <CardTitle className="mt-2 flex items-center gap-2 text-2xl sm:text-3xl">
@@ -255,28 +259,27 @@ export default async function LivePage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Next: Free Practice 1
+                  {t("nextFp1")}
                   <span className="ml-2 normal-case text-muted-foreground/70">
-                    (estimated)
+                    {t("estimated")}
                   </span>
                 </div>
                 <RaceCountdown targetIso={estimatedFp1Iso} />
               </div>
               <div className="space-y-2">
                 <div className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Estimated start
+                  {t("estimatedStart")}
                 </div>
                 <SessionTime iso={estimatedFp1Iso} circuitTz={tz} />
                 <p className="text-[10px] text-muted-foreground">
-                  Schedule not yet on Wikipedia — falls back to 09:00
-                  circuit local on day 1.
+                  {t("scheduleFallback")}
                 </p>
               </div>
             </div>
           )}
           {!liveSession && !upNext && !estimatedFp1Iso && sessions.length > 0 && (
             <p className="text-sm text-muted-foreground">
-              All sessions for this weekend are done.
+              {t("allSessionsDone")}
             </p>
           )}
         </CardContent>
@@ -285,9 +288,9 @@ export default async function LivePage() {
       {sessions.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Weekend schedule</CardTitle>
+            <CardTitle>{t("weekendSchedule")}</CardTitle>
             <CardDescription>
-              Status of every session on the program.
+              {t("weekendScheduleSubtitle")}
             </CardDescription>
           </CardHeader>
           <CardContent className="px-0">
@@ -310,14 +313,16 @@ export default async function LivePage() {
         <Card>
           <CardHeader>
             <CardTitle>
-              Latest result · {SESSION_LABEL[lastDone.type] ?? lastDone.type}
+              {t("latestResult", {
+                type: SESSION_LABEL[lastDone.type] ?? lastDone.type,
+              })}
             </CardTitle>
             <CardDescription>
               {lastDone.type === "Q"
-                ? "Qualifying classification — pole sitter highlighted."
+                ? t("qualifyingClassification")
                 : lastDone.type === "RACE"
-                  ? "Final race classification, top 5 per class."
-                  : "Session-fastest car per class."}
+                  ? t("finalClassification")
+                  : t("sessionFastest")}
             </CardDescription>
           </CardHeader>
           <CardContent className="px-0">
@@ -328,26 +333,26 @@ export default async function LivePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Where to watch</CardTitle>
+          <CardTitle>{t("whereToWatch")}</CardTitle>
           <CardDescription>
-            Official streaming, broadcasters, and live updates.
+            {t("whereToWatchSubtitle")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-1">
           <ExternalLinkRow
             href={FIAWEC_TV_URL}
-            label="WEC TV"
-            detail="Live streaming subscription"
+            label={t("wecTvLabel")}
+            detail={t("wecTvDetail")}
           />
           <ExternalLinkRow
             href={FIAWEC_URL}
-            label="fiawec.com"
-            detail="Official site, regional broadcasters"
+            label={t("fiawecLabel")}
+            detail={t("fiawecDetail")}
           />
           <ExternalLinkRow
             href={TWITTER_URL}
-            label="@FIAWEC on X"
-            detail="Live updates during sessions"
+            label={t("twitterLabel")}
+            detail={t("twitterDetail")}
           />
         </CardContent>
       </Card>

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -31,6 +32,8 @@ function matches(d: DriverEntry, q: string): boolean {
 
 export function DriversTableFilter({ drivers }: { drivers: DriverEntry[] }) {
   const [q, setQ] = useState("");
+  const t = useTranslations("drivers");
+  const tc = useTranslations("common");
   const filtered = useMemo(
     () => drivers.filter((d) => matches(d, q)),
     [drivers, q],
@@ -39,7 +42,7 @@ export function DriversTableFilter({ drivers }: { drivers: DriverEntry[] }) {
   if (drivers.length === 0) {
     return (
       <p className="px-4 pb-4 text-sm text-muted-foreground">
-        No drivers in this class.
+        {tc("notAvailable")}
       </p>
     );
   }
@@ -51,28 +54,28 @@ export function DriversTableFilter({ drivers }: { drivers: DriverEntry[] }) {
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Search by name, team, # or nationality"
+          placeholder={t("searchPlaceholder")}
           className="h-9 pl-8"
         />
         {q && (
           <span className="mt-1 block px-1 text-xs text-muted-foreground">
-            {filtered.length} of {drivers.length}
+            {filtered.length} {tc("of")} {drivers.length}
           </span>
         )}
       </div>
       {filtered.length === 0 ? (
         <p className="px-4 pb-4 text-sm text-muted-foreground">
-          No drivers match &ldquo;{q}&rdquo;.
+          —
         </p>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12 pl-4">#</TableHead>
-              <TableHead>Driver</TableHead>
-              <TableHead className="hidden md:table-cell">Team</TableHead>
-              <TableHead className="hidden sm:table-cell">Nat.</TableHead>
-              <TableHead className="pr-4">Class</TableHead>
+              <TableHead className="w-12 pl-4">{t("colNumber")}</TableHead>
+              <TableHead>{t("colDriver")}</TableHead>
+              <TableHead className="hidden md:table-cell">{t("colTeam")}</TableHead>
+              <TableHead className="hidden sm:table-cell">{t("colNat")}</TableHead>
+              <TableHead className="pr-4">{t("colClass")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>

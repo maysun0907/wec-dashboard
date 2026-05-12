@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -28,13 +29,14 @@ export default async function CircuitsPage() {
   // One round per circuit per season — index for O(1) card lookups.
   const roundByCircuit = new Map(events.map((e) => [e.circuit.id, e]));
   const today = new Date();
+  const t = await getTranslations("circuits");
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Calendar"
-        title="Circuits"
-        description={`${circuits.length} circuits on the calendar`}
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={t("description", { count: circuits.length })}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -76,7 +78,7 @@ export default async function CircuitsPage() {
                   <dl className="grid grid-cols-2 gap-x-2 gap-y-2 text-sm">
                     {c.lengthKm > 0 && (
                       <>
-                        <dt className="text-muted-foreground">Length</dt>
+                        <dt className="text-muted-foreground">{t("length")}</dt>
                         <dd className="text-right font-mono tabular-nums">
                           {c.lengthKm.toFixed(3)} km
                         </dd>
@@ -84,7 +86,7 @@ export default async function CircuitsPage() {
                     )}
                     {c.lapRecord && (
                       <>
-                        <dt className="text-muted-foreground">Lap record</dt>
+                        <dt className="text-muted-foreground">{t("lapRecord")}</dt>
                         <dd className="text-right font-mono tabular-nums">
                           {c.lapRecord}
                         </dd>
@@ -92,7 +94,7 @@ export default async function CircuitsPage() {
                     )}
                     {ev && (
                       <>
-                        <dt className="text-muted-foreground">Race day</dt>
+                        <dt className="text-muted-foreground">{t("raceDay")}</dt>
                         <dd className="text-right font-mono tabular-nums">
                           {format(parseISO(ev.dateStart), "MMM d, yyyy")}
                         </dd>

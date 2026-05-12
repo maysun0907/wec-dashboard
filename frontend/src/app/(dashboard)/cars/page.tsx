@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -61,13 +63,14 @@ export default async function CarsPage() {
   const year = await getSelectedSeason();
   const teams = await getTeams(year);
   const all = groupByModel(teams);
+  const t = await getTranslations("cars");
 
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow={`${year ?? 2026} Grid`}
-        title="Cars"
-        description={`${all.length} car models`}
+        eyebrow={t("eyebrow", { year: year ?? 2026 })}
+        title={t("title")}
+        description={t("description", { count: all.length })}
       />
 
       {(() => {
@@ -91,7 +94,7 @@ export default async function CarsPage() {
             <TabsContent key={c} value={c} className="mt-4">
               {models.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No cars in this class.
+                  {t("noCarsInClass")}
                 </p>
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -114,6 +117,7 @@ export default async function CarsPage() {
 }
 
 function ModelCard({ entry }: { entry: CarModelEntry }) {
+  const t = useTranslations("cars");
   return (
     <Card>
       <CardHeader className="flex flex-row items-center gap-3 space-y-0">
@@ -136,14 +140,14 @@ function ModelCard({ entry }: { entry: CarModelEntry }) {
             )}
           </CardTitle>
           <CardDescription>
-            {entry.manufacturer ?? "Independent"}
+            {entry.manufacturer ?? t("independent")}
           </CardDescription>
         </div>
         <ClassBadge raceClass={entry.raceClass} />
       </CardHeader>
       <CardContent>
         <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
-          Entries · {entry.cars.length}
+          {t("entriesCount", { count: entry.cars.length })}
         </p>
         <ul className="space-y-1 text-sm">
           {entry.cars

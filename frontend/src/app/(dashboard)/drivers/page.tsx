@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -49,20 +50,21 @@ export default async function DriversPage() {
   const byClass = groupByClass(drivers);
   const presentClasses = RACE_CLASSES.filter((c) => byClass[c].length > 0);
   const defaultTab = presentClasses[0] ?? "HYPERCAR";
+  const t = await getTranslations("drivers");
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <PageHeader
-          eyebrow={`${year ?? 2026} Roster`}
-          title="Drivers"
-          description={`${drivers.length} entries`}
+          eyebrow={t("eyebrow", { year: year ?? 2026 })}
+          title={t("title")}
+          description={t("description", { count: drivers.length })}
         />
         <Link
           href="/drivers/compare"
           className="inline-flex items-center rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-medium hover:bg-secondary"
         >
-          Compare →
+          {t("compare")} →
         </Link>
       </div>
 
@@ -78,7 +80,7 @@ export default async function DriversPage() {
           <TabsContent key={c} value={c} className="mt-4">
             <Card>
               <CardHeader>
-                <CardTitle>Entries</CardTitle>
+                <CardTitle>{t("entriesHeading")}</CardTitle>
               </CardHeader>
               <CardContent className="px-0">
                 <DriversTableFilter drivers={byClass[c]} />

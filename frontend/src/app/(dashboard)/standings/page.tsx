@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -110,9 +112,11 @@ export default async function StandingsPage() {
   const isPastSeason =
     events.length > 0 &&
     events.every((e) => e.dateEnd < today);
+  const tStandings = await getTranslations("standings");
+  const tCommon = await getTranslations("common");
   const headerDescription = isPastSeason
-    ? `Final · ${completedRounds} rounds`
-    : `After R${completedRounds}`;
+    ? tStandings("final", { count: completedRounds })
+    : tCommon("afterRound", { round: completedRounds });
 
   const driversByClass = groupByClass(drivers);
   const teamsByClass = groupByClass(teams);
@@ -122,8 +126,8 @@ export default async function StandingsPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <PageHeader
-          eyebrow="Championship"
-          title="Standings"
+          eyebrow={tStandings("eyebrow")}
+          title={tStandings("title")}
           description={headerDescription}
         />
         <div className="flex items-center gap-4 text-sm">
@@ -131,14 +135,14 @@ export default async function StandingsPage() {
             href="/seasons/compare"
             className="text-muted-foreground hover:text-foreground"
           >
-            Compare seasons →
+            {tStandings("compareSeasons")} →
           </Link>
           {!isPastSeason && (
             <Link
               href="/standings/simulator"
               className="text-muted-foreground hover:text-foreground"
             >
-              Open simulator →
+              {tStandings("openSimulator")} →
             </Link>
           )}
         </div>
@@ -202,9 +206,9 @@ export default async function StandingsPage() {
               {driverSeries.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Drivers&rsquo; championship · Top 5</CardTitle>
+                    <CardTitle>{tStandings("driversChampionshipTop5")}</CardTitle>
                     <CardDescription>
-                      Cumulative points by round.
+                      {tStandings("cumulativeByRound")}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pb-4">
@@ -215,9 +219,9 @@ export default async function StandingsPage() {
               {manufacturerSeries.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Manufacturers&rsquo; championship</CardTitle>
+                    <CardTitle>{tStandings("manufacturersChampionship")}</CardTitle>
                     <CardDescription>
-                      Cumulative points by round.
+                      {tStandings("cumulativeByRound")}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pb-4">
@@ -228,9 +232,9 @@ export default async function StandingsPage() {
               {teamSeries.length > 0 && (
                 <Card>
                   <CardHeader>
-                    <CardTitle>Teams&rsquo; trophy</CardTitle>
+                    <CardTitle>{tStandings("teamsTrophy")}</CardTitle>
                     <CardDescription>
-                      Cumulative points by round (per car).
+                      {tStandings("cumulativeByRoundPerCar")}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pb-4">
@@ -241,7 +245,8 @@ export default async function StandingsPage() {
               <div className={gridClass}>
                 {d.length > 0 && (
                   <StandingsTable
-                    title="Drivers"
+                    title={tStandings("driversHeading")}
+                    titleKey="drivers"
                     raceClass={c}
                     rows={d.map((r) => ({
                       key: `d-${r.driverId}`,
@@ -257,7 +262,8 @@ export default async function StandingsPage() {
                 )}
                 {t.length > 0 && (
                   <StandingsTable
-                    title="Teams"
+                    title={tStandings("teamsHeading")}
+                    titleKey="teams"
                     raceClass={c}
                     rows={t.map((r) => ({
                       key: `t-${r.teamId}`,
@@ -272,7 +278,8 @@ export default async function StandingsPage() {
                 )}
                 {m.length > 0 && (
                   <StandingsTable
-                    title="Manufacturers"
+                    title={tStandings("manufacturersHeading")}
+                    titleKey="manufacturers"
                     raceClass={c}
                     rows={m.map((r) => ({
                       key: `m-${r.manufacturerId}`,
@@ -309,22 +316,25 @@ type Row = {
 
 function StandingsTable({
   title,
+  titleKey,
   raceClass,
   rows,
   emptyMessage,
 }: {
   title: string;
+  titleKey: "drivers" | "teams" | "manufacturers";
   raceClass: RaceClass;
   rows: Row[];
   emptyMessage: string;
 }) {
+  const t = useTranslations("standings");
   // The 2014-2020 LMP1 era had no overall Teams' World Championship —
   // factory teams competed for the Manufacturers' Cup, and only
   // privateers had a Teams trophy. Tagging the table avoids confusion
   // when the LMP1 Teams card looks short.
   const note =
-    title === "Teams" && raceClass === "LMP1"
-      ? "Privateer Trophy only — factory teams competed for the Manufacturers' Cup."
+    titleKey === "teams" && raceClass === "LMP1"
+      ? t("lmp1TeamsNote")
       : null;
   return (
     <Card>
@@ -346,9 +356,9 @@ function StandingsTable({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-12 pl-4">Pos</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead className="pr-4 text-right">Pts</TableHead>
+                <TableHead className="w-12 pl-4">{t("colPos")}</TableHead>
+                <TableHead>{t("colName")}</TableHead>
+                <TableHead className="pr-4 text-right">{t("colPoints")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

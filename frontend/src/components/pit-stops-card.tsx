@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -45,26 +46,25 @@ export async function PitStopsCard({ sessionId }: { sessionId: number }) {
     return null;
   }
   if (stops.length === 0) return null;
+  const t = await getTranslations("raceDetail");
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Pit stops</CardTitle>
+        <CardTitle>{t("pitStops")}</CardTitle>
         <CardDescription>
-          {stops.length} stops, sorted chronologically by lap. A normal
-          WEC stop is 1m 10s – 1m 35s; longer rows are typically repairs
-          or red-flag holds.
+          {t("pitStopsSubtitle", { count: stops.length })}
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-12 pl-4">Lap</TableHead>
-              <TableHead className="w-12">#</TableHead>
-              <TableHead>Team</TableHead>
-              <TableHead>Class</TableHead>
-              <TableHead className="pr-4 text-right">Duration</TableHead>
+              <TableHead className="w-12 pl-4">{t("colLap")}</TableHead>
+              <TableHead className="w-12">{t("colCar")}</TableHead>
+              <TableHead>{t("colTeam")}</TableHead>
+              <TableHead>{t("colRaceClass")}</TableHead>
+              <TableHead className="pr-4 text-right">{t("colDuration")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
