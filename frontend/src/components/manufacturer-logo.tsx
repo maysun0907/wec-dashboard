@@ -16,21 +16,21 @@ const SIZE: Record<NonNullable<Props["size"]>, string> = {
   xl: "size-20",
 };
 
-// next/image hint for which optimized variant to request — matches
-// the rendered pixel size so we don't pull an 80 px asset for a 20 px
-// table cell.
+// next/image variant hint. Generous (2x the pill) so the upscaled
+// asset under `scale-[1.3]` + retina pixels stays sharp instead of
+// pulling a 32 px variant and CSS-zooming it to ~50 px (which is
+// what made Porsche / Audi / Aston read as blurry).
 const IMG_SIZES: Record<NonNullable<Props["size"]>, string> = {
-  sm: "20px",
-  md: "32px",
-  lg: "48px",
-  xl: "80px",
+  sm: "40px",
+  md: "64px",
+  lg: "96px",
+  xl: "160px",
 };
 
-// FIA's brand PNGs ship with a generous transparent margin baked in,
-// so the mark itself only occupies ~50-60 % of the file. Counter that
-// with a CSS scale on the image element — the pill stays the chosen
-// size, the brand mark blows up to fill it. overflow-hidden on the
-// parent clips any sliver that crosses the rounded corners.
+// FIA's brand PNGs ship with a transparent margin baked in. Scale
+// 1.3 strips most of that margin without clipping the wider marks
+// (Aston Martin wings, Audi rings, Porsche crest with its outer
+// shield) — 1.5 was eating their horizontal extent.
 
 /** Renders a manufacturer logo with a name-initial fallback for missing
  *  images. Sits on a white pill so brand colors render naturally on the
@@ -67,7 +67,7 @@ export function ManufacturerLogo({ src, name, size = "sm", className }: Props) {
         alt={name ?? ""}
         fill
         sizes={IMG_SIZES[size]}
-        className="object-contain scale-[1.5]"
+        className="object-contain scale-[1.3]"
         loading="lazy"
       />
     </span>
