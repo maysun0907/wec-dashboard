@@ -97,6 +97,7 @@ export function DriversTableFilter({ drivers }: { drivers: DriverEntry[] }) {
                     <ManufacturerLogo
                       src={d.manufacturerLogoUrl}
                       name={d.team}
+                      size="md"
                     />
                     {d.team}
                   </span>

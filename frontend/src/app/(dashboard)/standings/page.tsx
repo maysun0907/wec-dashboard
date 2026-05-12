@@ -363,6 +363,7 @@ function StandingsTable({
                         <ManufacturerLogo
                           src={r.logoUrl}
                           name={r.name}
+                          size="md"
                         />
                       )}
                       <div className="min-w-0">

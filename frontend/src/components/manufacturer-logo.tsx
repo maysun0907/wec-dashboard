@@ -16,6 +16,16 @@ const SIZE: Record<NonNullable<Props["size"]>, string> = {
   xl: "size-20",
 };
 
+// next/image hint for which optimized variant to request — matches
+// the rendered pixel size so we don't pull an 80 px asset for a 20 px
+// table cell.
+const IMG_SIZES: Record<NonNullable<Props["size"]>, string> = {
+  sm: "20px",
+  md: "32px",
+  lg: "48px",
+  xl: "80px",
+};
+
 // Logos arrive from FIA with their own internal whitespace baked in,
 // so CSS padding should be ~0 — otherwise marks like the BMW roundel
 // or Alpine A end up as tiny glyphs floating in a white sea. The
@@ -62,7 +72,7 @@ export function ManufacturerLogo({ src, name, size = "sm", className }: Props) {
         src={src}
         alt={name ?? ""}
         fill
-        sizes="80px"
+        sizes={IMG_SIZES[size]}
         className={cn("object-contain", PADDING[size])}
         loading="lazy"
       />
