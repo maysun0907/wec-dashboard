@@ -1242,7 +1242,27 @@ def enrich_race_results(
                 changed = True
             if changed:
                 updated += 1
+
+        # ---- Pre-compute the lap chart payload for /lap-chart so the
+        # endpoint never has to refetch + reparse the analysis CSV at
+        # request time. Done after SessionResult rows are settled (the
+        # chart pulls driver names from r.drivers). Local import keeps
+        # alkamel.py free of an app-level cyclic dep on app.lap_chart
+        # (which itself imports alkamel for the parser helpers). ----
+        from app.lap_chart import compute_lap_chart
+
+        try:
+            chart = compute_lap_chart(db, race_session)
+        except Exception:  # noqa: BLE001 — one bad race shouldn't kill the whole season ingest
+            chart = None
+        if chart is not None:
+            race_session.lap_chart_json = chart.model_dump_json(by_alias=False)
+
     if updated:
+        db.commit()
+    else:
+        # Lap-chart writes happen even when no SessionResult rows
+        # changed — flush them so they survive the function call.
         db.commit()
     return updated
 
@@ -1259,4 +1279,79 @@ def enrich_race_seasons(
         if season is None:
             continue
         out[y] = enrich_race_results(db, season.id, y)
+    return out
+
+
+def enrich_session_weather(
+    db: Session, season_id: int, year: int
+) -> int:
+    """Walk every Session for the season, locate its 26_Weather CSV
+    and stash the median air/track temps + humidity + wind + a rain
+    flag onto the Session row. Returns the number of session rows
+    updated. Idempotent — re-runs overwrite stale readings."""
+    season_param = _season_param_for_year(year)
+    if season_param is None:
+        return 0
+    events = _event_options_for_season(season_param)
+    if not events:
+        return 0
+    by_round = {r: ev for r, ev in events}
+
+    updated = 0
+    for ev in (
+        db.query(models.Event)
+        .filter(models.Event.season_id == season_id)
+        .all()
+    ):
+        evvent_param = by_round.get(ev.round)
+        if evvent_param is None:
+            continue
+        sessions = (
+            db.query(models.Session)
+            .filter(models.Session.event_id == ev.id)
+            .all()
+        )
+        for s in sessions:
+            try:
+                summary = fetch_session_weather(season_param, evvent_param, s.type)
+            except httpx.HTTPError:
+                summary = None
+            if summary is None:
+                continue
+            air = summary.get("air_temp_c")
+            track = summary.get("track_temp_c")
+            hum = summary.get("humidity_pct")
+            wind = summary.get("wind_kph")
+            rain = bool(summary.get("rain"))
+            if (
+                s.air_temp_c == air
+                and s.track_temp_c == track
+                and s.humidity_pct == hum
+                and s.wind_kph == wind
+                and bool(s.rain) == rain
+            ):
+                continue
+            s.air_temp_c = air
+            s.track_temp_c = track
+            s.humidity_pct = hum
+            s.wind_kph = wind
+            s.rain = rain
+            updated += 1
+    if updated:
+        db.commit()
+    return updated
+
+
+def enrich_weather_seasons(
+    db: Session, years: Iterable[int]
+) -> dict[int, int]:
+    """Bulk weather-enrichment helper — {year: rows_updated}."""
+    out: dict[int, int] = {}
+    for y in years:
+        season = (
+            db.query(models.Season).filter(models.Season.year == y).first()
+        )
+        if season is None:
+            continue
+        out[y] = enrich_session_weather(db, season.id, y)
     return out

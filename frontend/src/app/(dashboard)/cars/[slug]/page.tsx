@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -191,12 +192,14 @@ function Spec({
 function CarImage({ src, alt }: { src: string | null; alt: string }) {
   if (src) {
     return (
-      <span className="flex h-32 w-48 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white sm:h-40 sm:w-64">
-        <img
+      <span className="relative flex h-32 w-48 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white sm:h-40 sm:w-64">
+        <Image
           src={src}
           alt={alt}
-          className="size-full object-contain p-2"
-          loading="eager"
+          fill
+          sizes="(max-width: 640px) 192px, 256px"
+          className="object-contain p-2"
+          priority
         />
       </span>
     );

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format, parseISO } from "date-fns";
@@ -129,13 +130,13 @@ export default async function RaceDetailPage({
           // navy / blue ink, so we set a light backdrop to give the
           // dark-themed page enough contrast — at 200 px the WEC
           // brand + event title actually read.
-          <span className="flex h-44 w-44 shrink-0 items-center justify-center self-center rounded-lg bg-white p-3 sm:h-48 sm:w-48">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+          <span className="relative flex h-44 w-44 shrink-0 items-center justify-center self-center rounded-lg bg-white p-3 sm:h-48 sm:w-48">
+            <Image
               src={event.posterUrl}
               alt={`${event.name} round poster`}
-              className="size-full object-contain"
-              loading="lazy"
+              fill
+              sizes="192px"
+              className="object-contain p-3"
             />
           </span>
         )}

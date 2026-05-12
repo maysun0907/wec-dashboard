@@ -1825,6 +1825,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             from app.ingest.alkamel import (
                 enrich_qualifying_drivers,
                 enrich_race_results,
+                enrich_session_weather,
                 ingest_practice_results,
             )
 
@@ -1835,11 +1836,13 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
                 db, season.id, year
             )
             alkamel_race_n = enrich_race_results(db, season.id, year)
+            alkamel_weather_n = enrich_session_weather(db, season.id, year)
         except Exception as exc:  # pragma: no cover - network
             print(f"  alkamel enrichment skipped: {exc}")
             alkamel_drivers_n = 0
             alkamel_practice_n = 0
             alkamel_race_n = 0
+            alkamel_weather_n = 0
 
         # Self-compute the season standings from the (now-up-to-date)
         # SessionResults. Replaces whatever Wikipedia wrote so the
@@ -1885,6 +1888,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             "alkamel_qualifying_drivers": alkamel_drivers_n,
             "alkamel_practice_rows": alkamel_practice_n,
             "alkamel_race_rows": alkamel_race_n,
+            "alkamel_weather_sessions": alkamel_weather_n,
             "fiawec_manufacturer_logos": fiawec_assets["manufacturer_logos"],
             "fiawec_car_renders": fiawec_assets["car_renders"],
             "fiawec_per_car_renders": fiawec_assets["per_car_renders"],

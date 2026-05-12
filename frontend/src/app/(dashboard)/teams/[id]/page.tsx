@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -142,13 +143,16 @@ export default async function TeamDetailPage({
                 </div>
               </CardHeader>
               {(c.imageUrl ?? c.carModelImageUrl) && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={c.imageUrl ?? c.carModelImageUrl ?? undefined}
-                  alt={`#${c.number} ${c.model ?? ""}`}
-                  className="mx-auto h-24 w-auto px-4"
-                  loading="lazy"
-                />
+                <span className="relative mx-auto block h-24 w-full px-4">
+                  <Image
+                    src={(c.imageUrl ?? c.carModelImageUrl)!}
+                    alt={`#${c.number} ${c.model ?? ""}`}
+                    fill
+                    sizes="(max-width: 640px) 100vw, 320px"
+                    className="object-contain"
+                    loading="lazy"
+                  />
+                </span>
               )}
               <CardContent>
                 {c.drivers.length === 0 ? (

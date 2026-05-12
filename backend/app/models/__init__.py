@@ -99,6 +99,18 @@ class Session(Base):
     type: Mapped[str] = mapped_column(String(10))  # FP1/FP2/FP3/Q/RACE
     start_time: Mapped[datetime | None] = mapped_column(default=None)
     weather: Mapped[str | None] = mapped_column(String(50), default=None)
+    # Pre-computed weather summary (median across the session). Pulled
+    # by app.ingest.alkamel from the 26_Weather CSV so /weather is a
+    # pure DB read.
+    air_temp_c: Mapped[float | None] = mapped_column(default=None)
+    track_temp_c: Mapped[float | None] = mapped_column(default=None)
+    humidity_pct: Mapped[float | None] = mapped_column(default=None)
+    wind_kph: Mapped[float | None] = mapped_column(default=None)
+    rain: Mapped[bool | None] = mapped_column(default=None)
+    # Pre-computed per-car race lap chart (race sessions only). JSON
+    # blob of `schemas.LapChart` so the API doesn't have to refetch +
+    # reparse the 2 MB Al Kamel race-analysis CSV per page hit.
+    lap_chart_json: Mapped[str | None] = mapped_column(default=None)
 
     event: Mapped["Event"] = relationship()
 

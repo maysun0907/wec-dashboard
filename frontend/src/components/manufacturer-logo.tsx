@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -50,15 +52,17 @@ export function ManufacturerLogo({ src, name, size = "sm", className }: Props) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded bg-white",
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded bg-white",
         SIZE[size],
         className,
       )}
     >
-      <img
+      <Image
         src={src}
         alt={name ?? ""}
-        className={cn("size-full object-contain", PADDING[size])}
+        fill
+        sizes="80px"
+        className={cn("object-contain", PADDING[size])}
         loading="lazy"
       />
     </span>

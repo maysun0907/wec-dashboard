@@ -5,7 +5,6 @@ points table and class-rank logic.
 """
 import re
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app import models
@@ -27,17 +26,31 @@ def points_for(event_name: str, class_position: int) -> float:
 def class_position_for(
     db: Session, session_id: int, race_class_id: int, overall_position: int
 ) -> int:
-    """Rank within the given race class. Counts session_results in the same
-    class with a better overall position, plus one."""
-    better = (
-        db.query(func.count(models.SessionResult.id))
-        .join(models.Car, models.SessionResult.car_id == models.Car.id)
-        .filter(
-            models.SessionResult.session_id == session_id,
-            models.Car.race_class_id == race_class_id,
-            models.SessionResult.position < overall_position,
-        )
-        .scalar()
-        or 0
+    """Rank within the given race class. Memoized per (DB session,
+    session_id) so callers in a per-result loop don't fire N queries —
+    the first hit pulls every (position, race_class_id) row for that
+    timing session and bins them in Python. Subsequent calls are a
+    pure dict lookup. The cache lives on `db.info`, scoped to the
+    request, so it can never go stale relative to the data that
+    populated it."""
+    all_caches: dict[int, dict[tuple[int, int], int]] = db.info.setdefault(
+        "_class_positions", {}
     )
-    return int(better) + 1
+    cache = all_caches.get(session_id)
+    if cache is None:
+        rows = (
+            db.query(models.SessionResult.position, models.Car.race_class_id)
+            .join(models.Car, models.SessionResult.car_id == models.Car.id)
+            .filter(models.SessionResult.session_id == session_id)
+            .all()
+        )
+        by_class: dict[int, list[int]] = {}
+        for pos, rcid in rows:
+            by_class.setdefault(rcid, []).append(pos)
+        cache = {}
+        for rcid, positions in by_class.items():
+            positions.sort()
+            for i, p in enumerate(positions, start=1):
+                cache[(rcid, p)] = i
+        all_caches[session_id] = cache
+    return cache.get((race_class_id, overall_position), 1)

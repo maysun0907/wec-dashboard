@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -46,15 +48,17 @@ export function DriverPhoto({ src, name, size = "sm", className }: Props) {
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary/40",
+        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-secondary/40",
         SIZE[size],
         className,
       )}
     >
-      <img
+      <Image
         src={src}
         alt={name ?? ""}
-        className="size-full object-cover"
+        fill
+        sizes="96px"
+        className="object-cover"
         loading="lazy"
       />
     </span>

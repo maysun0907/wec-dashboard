@@ -4,17 +4,12 @@ from sqlalchemy.orm import Session, joinedload
 from app import models, schemas
 from app.db import get_db
 from app.ingest import alkamel
+from app.lap_chart import compute_lap_chart
 from app.rounds import driver_in_round
-from app.scoring import class_position_for, points_for
+from app.scoring import points_for
 from app.season import YearParam, resolve_season
 
 router = APIRouter(tags=["events"])
-
-# Lap chart still does an Al Kamel CSV fetch per session because the
-# per-lap rank computation isn't worth persisting. V-max + Q sectors
-# used to do the same — they're now stored on `SessionResult` columns
-# at ingest time so the request path is pure DB.
-_LAP_CHART_CACHE: dict[int, "schemas.LapChart"] = {}
 
 
 def _resolve_alkamel_for_session(
@@ -136,11 +131,22 @@ def session_results(
             driver_refs_by_car.setdefault(cd.car_id, []).append((d.id, d.name))
             name_to_id[d.name] = d.id
 
+    # Compute class positions in Python from the already-loaded result
+    # set rather than running one count() per result. The previous
+    # `class_position_for` call hit the DB N times per session — Spa
+    # (~37 cars × 5 sessions) was firing ~185 round-trips per page hit.
+    class_pos_by_id: dict[int, int] = {}
+    by_class: dict[int, list[models.SessionResult]] = {}
+    for r in results:
+        by_class.setdefault(r.car.race_class_id, []).append(r)
+    for rows_in_class in by_class.values():
+        rows_in_class.sort(key=lambda r: r.position)
+        for i, r in enumerate(rows_in_class, start=1):
+            class_pos_by_id[r.id] = i
+
     out: list[schemas.SessionResultOut] = []
     for r in results:
-        cp = class_position_for(
-            db, session_id, r.car.race_class_id, r.position
-        )
+        cp = class_pos_by_id[r.id]
         # Only race sessions award championship points.
         pts = (
             points_for(event.name, cp)
@@ -191,7 +197,6 @@ def session_results(
     return out
 
 
-_WEATHER_CACHE: dict[int, schemas.SessionWeather] = {}
 _EMPTY_WEATHER = schemas.SessionWeather()
 
 
@@ -203,25 +208,24 @@ def session_weather(
     session_id: int, db: Session = Depends(get_db)
 ) -> schemas.SessionWeather:
     """Median air/track temps, humidity, wind, and a rain flag for one
-    session. Returns an empty (all-null) summary when the Al Kamel
-    weather CSV hasn't been published — the frontend just hides the
-    badge in that case. Empty payloads are *not* cached so we retry
-    the upstream fetch on the next request."""
-    cached = _WEATHER_CACHE.get(session_id)
-    if cached is not None:
-        return cached
+    session. Pure DB read from pre-computed Session columns — the cron
+    job's `enrich_session_weather` pass populates them. Returns an
+    empty payload when those columns are still NULL so the frontend
+    hides the badge; we deliberately do *not* trigger a live CSV
+    fetch here because the race-detail page renders five of these in
+    parallel and any single 1-3 s upstream call drags the whole tab."""
     session = db.get(models.Session, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
-    params = _resolve_alkamel_for_session(session, db)
-    if params is None:
+    if session.air_temp_c is None and session.track_temp_c is None and not session.rain:
         return _EMPTY_WEATHER
-    summary = alkamel.fetch_session_weather(*params, session.type)
-    if summary is None:
-        return _EMPTY_WEATHER
-    out = schemas.SessionWeather(**summary)
-    _WEATHER_CACHE[session_id] = out
-    return out
+    return schemas.SessionWeather(
+        air_temp_c=session.air_temp_c,
+        track_temp_c=session.track_temp_c,
+        humidity_pct=session.humidity_pct,
+        wind_kph=session.wind_kph,
+        rain=bool(session.rain),
+    )
 
 
 @router.get(
@@ -231,12 +235,11 @@ def session_weather(
 def session_lap_chart(
     session_id: int, db: Session = Depends(get_db)
 ) -> schemas.LapChart:
-    """Per-lap position trajectories for a race session, derived from
-    Al Kamel's lap-by-lap analysis CSV (cumulative ELAPSED time)."""
-    cached = _LAP_CHART_CACHE.get(session_id)
-    if cached is not None:
-        return cached
-
+    """Per-lap position trajectories for a race session. Reads from
+    `Session.lap_chart_json` (computed at ingest from Al Kamel's
+    analysis CSV). Falls back to a live compute when the column is
+    still NULL — that result is then persisted so subsequent requests
+    are pure DB reads."""
     session = db.get(models.Session, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -244,122 +247,15 @@ def session_lap_chart(
         raise HTTPException(
             status_code=400, detail="Lap chart is only available for races"
         )
-    params = _resolve_alkamel_for_session(session, db)
-    if params is None:
+
+    if session.lap_chart_json:
+        return schemas.LapChart.model_validate_json(session.lap_chart_json)
+
+    chart = compute_lap_chart(db, session)
+    if chart is None:
         raise HTTPException(status_code=404, detail="No timing data available")
-
-    laps = alkamel.fetch_race_lap_data(*params)
-    if not laps:
-        raise HTTPException(status_code=404, detail="No timing data available")
-
-    # Look up per-car metadata from our DB so the chart picks up the
-    # team / class names the rest of the app uses. Use the season-wide
-    # Car list (not SessionResult) so the chart still labels every
-    # car when Wikipedia hasn't published the per-round classification
-    # yet — SessionResult rows might be missing for non-winner cars
-    # right after a race.
-    season_id = (
-        db.query(models.Event.season_id)
-        .filter(models.Event.id == session.event_id)
-        .scalar()
-    )
-    cars = (
-        db.query(models.Car)
-        .options(joinedload(models.Car.team), joinedload(models.Car.race_class))
-        .filter(models.Car.season_id == season_id)
-        .all()
-    )
-    drivers_by_number: dict[str, str] = {
-        r.car.number: (r.drivers or "")
-        for r in (
-            db.query(models.SessionResult)
-            .options(joinedload(models.SessionResult.car))
-            .filter(models.SessionResult.session_id == session_id)
-            .all()
-        )
-        if r.drivers
-    }
-    by_number = {
-        c.number: {
-            "team": c.team.name,
-            "race_class": c.race_class.name,
-            "drivers": drivers_by_number.get(c.number, ""),
-        }
-        for c in cars
-    }
-
-    # Group laps by car. Compute cumulative elapsed in milliseconds so we
-    # can sort cars at each lap by who reached it first.
-    by_car: dict[str, list[tuple[int, int]]] = {}  # number -> [(lap, elapsed_ms)]
-    for r in laps:
-        try:
-            lap_n = int(r["lap"])
-        except ValueError:
-            continue
-        elapsed = alkamel._hms_to_ms(r["elapsed"])
-        if elapsed is None:
-            continue
-        by_car.setdefault(r["number"], []).append((lap_n, elapsed))
-
-    if not by_car:
-        raise HTTPException(status_code=404, detail="No timing data available")
-
-    total_laps = max(max(l for l, _ in laps_) for laps_ in by_car.values())
-
-    # For each lap N, rank cars by their elapsed time at that lap (or
-    # the most recent earlier lap for cars that have already retired).
-    overall_pos: dict[str, list[tuple[int, int]]] = {n: [] for n in by_car}
-    class_pos: dict[str, list[tuple[int, int]]] = {n: [] for n in by_car}
-    car_class = {n: by_number.get(n, {}).get("race_class", "") for n in by_car}
-
-    for lap_n in range(1, total_laps + 1):
-        ranked: list[tuple[int, str]] = []  # (elapsed_ms, number)
-        for car_n, points in by_car.items():
-            here = next((e for l, e in points if l == lap_n), None)
-            if here is None:
-                continue
-            ranked.append((here, car_n))
-        if not ranked:
-            continue
-        ranked.sort()
-        # Overall positions.
-        for i, (_, num) in enumerate(ranked):
-            overall_pos[num].append((lap_n, i + 1))
-        # Class-internal positions.
-        per_class_seen: dict[str, int] = {}
-        for _, num in ranked:
-            cls = car_class.get(num) or "?"
-            per_class_seen[cls] = per_class_seen.get(cls, 0) + 1
-            class_pos[num].append((lap_n, per_class_seen[cls]))
-
-    cars_out: list[schemas.LapChartCar] = []
-    for num in sorted(
-        by_car, key=lambda n: overall_pos[n][-1][1] if overall_pos[n] else 99
-    ):
-        meta = by_number.get(num, {"team": "", "race_class": "?", "drivers": ""})
-        ov = overall_pos[num]
-        cl = class_pos[num]
-        cars_out.append(
-            schemas.LapChartCar(
-                car_number=num,
-                team=meta["team"],
-                race_class=meta["race_class"],
-                drivers=meta["drivers"],
-                lap_numbers=[l for l, _ in ov],
-                positions=[p for _, p in ov],
-                class_positions=[p for _, p in cl],
-            )
-        )
-
-    # Safety-car / FCY periods would go here, but we don't surface
-    # heuristic guesses — Al Kamel doesn't publish a race-control feed
-    # publicly. The schema field stays in place for a future manual
-    # curation pipeline (race_incidents table + curate script) so the
-    # frontend overlay code keeps working when real data lands.
-    chart = schemas.LapChart(
-        cars=cars_out, total_laps=total_laps, incidents=[]
-    )
-    _LAP_CHART_CACHE[session_id] = chart
+    session.lap_chart_json = chart.model_dump_json(by_alias=False)
+    db.commit()
     return chart
 
 

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import {
@@ -220,12 +221,13 @@ function ChampionSlot({
   const inner = (
     <div className="flex h-full items-center gap-3 rounded-md border border-border/40 bg-background/40 p-3 transition-colors hover:bg-background/70">
       {value.photo ? (
-        <div className="size-10 shrink-0 overflow-hidden rounded-full bg-secondary/40">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
+        <div className="relative size-10 shrink-0 overflow-hidden rounded-full bg-secondary/40">
+          <Image
             src={value.photo}
             alt={value.primary}
-            className="size-full object-cover"
+            fill
+            sizes="40px"
+            className="object-cover"
             loading="lazy"
           />
         </div>
