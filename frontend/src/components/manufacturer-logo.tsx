@@ -28,9 +28,9 @@ const IMG_SIZES: Record<NonNullable<Props["size"]>, string> = {
 };
 
 // FIA's brand PNGs ship with a transparent margin baked in. Scale
-// 1.3 strips most of that margin without clipping the wider marks
-// (Aston Martin wings, Audi rings, Porsche crest with its outer
-// shield) — 1.5 was eating their horizontal extent.
+// 1.2 trims that margin while staying inside the pill's clip radius
+// for the widest marks (Aston Martin wings, Audi rings, Alpine A).
+// Going higher started eating their horizontal extent.
 
 /** Renders a manufacturer logo with a name-initial fallback for missing
  *  images. Sits on a white pill so brand colors render naturally on the
@@ -67,7 +67,7 @@ export function ManufacturerLogo({ src, name, size = "sm", className }: Props) {
         alt={name ?? ""}
         fill
         sizes={IMG_SIZES[size]}
-        className="object-contain scale-[1.3]"
+        className="object-contain scale-[1.2]"
         loading="lazy"
       />
     </span>
