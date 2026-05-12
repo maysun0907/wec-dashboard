@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Menu, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,18 +14,20 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
+// hrefs are static; labels resolve through the `nav` namespace at
+// render time so the language switcher updates the menu live.
 export const NAV_LINKS = [
-  { href: "/", label: "Home" },
-  { href: "/races", label: "Races" },
-  { href: "/live", label: "Live" },
-  { href: "/standings", label: "Standings" },
-  { href: "/drivers", label: "Drivers" },
-  { href: "/teams", label: "Teams" },
-  { href: "/cars", label: "Cars" },
-  { href: "/rules", label: "Rules" },
-  { href: "/circuits", label: "Circuits" },
-  { href: "/stats", label: "Stats" },
-];
+  { href: "/", key: "home" },
+  { href: "/races", key: "races" },
+  { href: "/live", key: "live" },
+  { href: "/standings", key: "standings" },
+  { href: "/drivers", key: "drivers" },
+  { href: "/teams", key: "teams" },
+  { href: "/cars", key: "cars" },
+  { href: "/rules", key: "rules" },
+  { href: "/circuits", key: "circuits" },
+  { href: "/stats", key: "stats" },
+] as const;
 
 function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -33,9 +36,10 @@ function isActive(pathname: string, href: string) {
 /** Desktop horizontal nav. Hidden below md; on mobile use <MobileMenu />. */
 export function SiteNav() {
   const pathname = usePathname();
+  const t = useTranslations("nav");
   return (
     <nav className="hidden flex-1 items-center gap-1 overflow-x-auto text-sm scrollbar-none md:flex">
-      {NAV_LINKS.map(({ href, label }) => {
+      {NAV_LINKS.map(({ href, key }) => {
         const active = isActive(pathname, href);
         return (
           <Link
@@ -48,7 +52,7 @@ export function SiteNav() {
                 : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
             )}
           >
-            {label}
+            {t(key)}
           </Link>
         );
       })}
@@ -61,6 +65,7 @@ export function SiteNav() {
  *  layout. */
 export function MobileMenu() {
   const pathname = usePathname();
+  const t = useTranslations("nav");
   const [open, setOpen] = useState(false);
 
   return (
@@ -70,13 +75,13 @@ export function MobileMenu() {
           variant="ghost"
           size="icon"
           className="md:hidden"
-          aria-label="Open menu"
+          aria-label={t("openMenu")}
         >
           <Menu className="size-5" />
         </Button>
       </SheetTrigger>
       <SheetContent side="right" className="w-72">
-        <SheetTitle className="sr-only">Navigation</SheetTitle>
+        <SheetTitle className="sr-only">{t("navigation")}</SheetTitle>
         <nav className="flex flex-col gap-1 p-4 pt-12">
           <button
             type="button"
@@ -92,9 +97,9 @@ export function MobileMenu() {
             className="mb-2 flex items-center gap-2 rounded-md border border-border bg-secondary/40 px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <Search className="size-4" />
-            <span>Search…</span>
+            <span>{t("search")}</span>
           </button>
-          {NAV_LINKS.map(({ href, label }) => {
+          {NAV_LINKS.map(({ href, key }) => {
             const active = isActive(pathname, href);
             return (
               <Link
@@ -108,7 +113,7 @@ export function MobileMenu() {
                     : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
                 )}
               >
-                {label}
+                {t(key)}
               </Link>
             );
           })}

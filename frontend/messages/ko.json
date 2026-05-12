@@ -1,0 +1,32 @@
+{
+  "nav": {
+    "home": "홈",
+    "races": "경기",
+    "live": "라이브",
+    "standings": "순위",
+    "drivers": "드라이버",
+    "teams": "팀",
+    "cars": "차량",
+    "rules": "규정",
+    "circuits": "서킷",
+    "stats": "통계",
+    "dashboard": "대시보드",
+    "search": "검색…",
+    "navigation": "메뉴",
+    "openMenu": "메뉴 열기"
+  },
+  "common": {
+    "schedule": "일정",
+    "standings": "순위",
+    "manufacturers": "매뉴팩처",
+    "drivers": "드라이버",
+    "teams": "팀",
+    "fullStandings": "전체 순위",
+    "afterRound": "R{round} 이후",
+    "fromLeader": "선두까지",
+    "language": "언어",
+    "topN": "{title} · 상위 {n}",
+    "noStandingsYet": "이번 시즌 순위가 아직 없습니다.",
+    "gapFromLeader": "선두까지 −{gap}"
+  }
+}

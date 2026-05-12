@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
+import { LocaleSwitcher } from "./locale-switcher";
 import { SeasonSwitcher } from "./season-switcher";
 import { MobileMenu, SiteNav } from "./site-nav";
 import { SiteSearch } from "./site-search";
@@ -7,9 +9,10 @@ import { getSelectedSeason } from "@/lib/season";
 
 export async function SiteHeader() {
   // Best-effort — the API may be cold or down. Header should still render.
-  const [seasons, selected] = await Promise.all([
+  const [seasons, selected, t] = await Promise.all([
     getSeasons().catch(() => [] as Season[]),
     getSelectedSeason(),
+    getTranslations("nav"),
   ]);
 
   return (
@@ -30,11 +33,12 @@ export async function SiteHeader() {
             className="h-8 w-auto transition-opacity group-hover:opacity-80"
           />
           <span className="hidden font-heading text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground sm:inline">
-            Dashboard
+            {t("dashboard")}
           </span>
         </Link>
         <SiteNav />
         <div className="ml-auto flex items-center gap-2">
+          <LocaleSwitcher />
           <SeasonSwitcher seasons={seasons} selected={selected} />
           <SiteSearch />
           <MobileMenu />

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -56,6 +58,7 @@ import {
 
 export default async function HomePage() {
   const year = await getSelectedSeason();
+  const t = await getTranslations("common");
   const [
     events,
     hypercarStandings,
@@ -196,14 +199,14 @@ export default async function HomePage() {
 
       {remaining.length > 0 && (
         <div className="space-y-2">
-          <p className="eyebrow">Schedule</p>
+          <p className="eyebrow">{t("schedule")}</p>
           <UpcomingCard events={remaining} />
         </div>
       )}
 
       {!isPastSeason && (
         <div className="space-y-2">
-          <p className="eyebrow">Standings</p>
+          <p className="eyebrow">{t("standings")}</p>
           <section className="grid items-stretch gap-6 lg:grid-cols-2">
             <DriversPodium
               classes={[
@@ -213,7 +216,7 @@ export default async function HomePage() {
               rounds={completedRounds}
             />
             <StandingsCard
-              title="Manufacturers"
+              title={t("manufacturers")}
               rows={mfrStandings.slice(0, 5)}
               rowKey={(r) => `m-${r.manufacturerId}`}
               rowName={(r) => r.manufacturerName}
@@ -538,21 +541,22 @@ function StandingsCard<T extends { position: number; points: number }>({
   rowHref?: (r: T) => string;
   rounds: number;
 }) {
+  const t = useTranslations("common");
   const leader = rows[0]?.points ?? 1;
   return (
     <Card className="flex h-full flex-col">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>{title} · Top 5</CardTitle>
+          <CardTitle>{t("topN", { title, n: 5 })}</CardTitle>
           <Badge variant="outline" className="text-[10px]">
-            After R{rounds}
+            {t("afterRound", { round: rounds })}
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col">
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No standings yet for this season.
+            {t("noStandingsYet")}
           </p>
         ) : (
           <ul className="flex flex-1 flex-col justify-between gap-2">
@@ -609,7 +613,7 @@ function StandingsCard<T extends { position: number; points: number }>({
                       ) : (
                         !isLeader && (
                           <div className="truncate text-sm text-muted-foreground">
-                            −{gap} from leader
+                            {t("gapFromLeader", { gap })}
                           </div>
                         )
                       )}
@@ -649,7 +653,7 @@ function StandingsCard<T extends { position: number; points: number }>({
           href="/standings"
           className="font-medium text-muted-foreground hover:text-foreground"
         >
-          Full standings →
+          {t("fullStandings")} →
         </Link>
       </div>
     </Card>

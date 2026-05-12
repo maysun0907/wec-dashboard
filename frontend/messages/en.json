@@ -1,0 +1,32 @@
+{
+  "nav": {
+    "home": "Home",
+    "races": "Races",
+    "live": "Live",
+    "standings": "Standings",
+    "drivers": "Drivers",
+    "teams": "Teams",
+    "cars": "Cars",
+    "rules": "Rules",
+    "circuits": "Circuits",
+    "stats": "Stats",
+    "dashboard": "Dashboard",
+    "search": "Search…",
+    "navigation": "Navigation",
+    "openMenu": "Open menu"
+  },
+  "common": {
+    "schedule": "Schedule",
+    "standings": "Standings",
+    "manufacturers": "Manufacturers",
+    "drivers": "Drivers",
+    "teams": "Teams",
+    "fullStandings": "Full standings",
+    "afterRound": "After R{round}",
+    "fromLeader": "from leader",
+    "language": "Language",
+    "topN": "{title} · Top {n}",
+    "noStandingsYet": "No standings yet for this season.",
+    "gapFromLeader": "−{gap} from leader"
+  }
+}
