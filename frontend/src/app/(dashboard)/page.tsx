@@ -592,7 +592,7 @@ function StandingsCard<T extends { position: number; points: number }>({
                       <ManufacturerLogo
                         src={logo}
                         name={rowName(row)}
-                        size="lg"
+                        size="xl"
                       />
                     )}
                     <div className="min-w-0 flex-1">
@@ -614,7 +614,13 @@ function StandingsCard<T extends { position: number; points: number }>({
                         )
                       )}
                     </div>
-                    <span className="font-heading inline-block min-w-[3.5ch] shrink-0 text-right text-4xl font-extrabold tabular-nums">
+                    {/* Geist Mono for the points — Saira Condensed
+                        (font-heading) is narrow and even with
+                        tabular-nums the slim "1" and the curved "9"
+                        read as slightly off-axis next to a flat "5".
+                        Mono fixes the alignment perception and reads
+                        more like a data-board readout. */}
+                    <span className="font-mono inline-block min-w-[3ch] shrink-0 text-right text-4xl font-bold tabular-nums">
                       {row.points}
                     </span>
                   </div>
