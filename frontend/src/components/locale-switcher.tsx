@@ -6,34 +6,50 @@ import { useLocale } from "next-intl";
 import { setLocale } from "@/i18n/actions";
 import { cn } from "@/lib/utils";
 
-/** Compact single-button locale toggle. Shows the *other* language as
- *  the click target — clicking flips it. Tiny footprint so it doesn't
- *  steal space from the desktop nav, but still discoverable since the
- *  visible glyph is itself the call to action ("KO" when you're on EN
- *  reads as "switch to Korean"). */
+const OPTIONS = [
+  { code: "en", label: "EN" },
+  { code: "ko", label: "KO" },
+] as const;
+
+/** Segmented EN / KO toggle for the header. Visible affordance (both
+ *  labels shown) so users who don't read either language can still
+ *  recognise it as a language switcher. Writes the chosen locale into
+ *  a cookie via a server action; next-intl re-renders the tree on the
+ *  response. */
 export function LocaleSwitcher() {
   const current = useLocale();
   const [pending, startTransition] = useTransition();
-  const target = current === "ko" ? "en" : "ko";
-  const label = target.toUpperCase();
+
   return (
-    <button
-      type="button"
-      disabled={pending}
-      onClick={() =>
-        startTransition(async () => {
-          await setLocale(target);
-        })
-      }
-      aria-label={`Switch language to ${label}`}
-      title={`Switch language to ${label}`}
-      className={cn(
-        "inline-flex h-8 items-center rounded-md border border-border bg-secondary/40 px-2 text-xs font-semibold",
-        "text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground",
-        pending && "opacity-50",
-      )}
+    <div
+      className="inline-flex h-8 items-center overflow-hidden rounded-md border border-border bg-secondary/40 text-[11px] font-semibold"
+      aria-label="Language"
     >
-      {label}
-    </button>
+      {OPTIONS.map((opt) => {
+        const active = current === opt.code;
+        return (
+          <button
+            key={opt.code}
+            type="button"
+            disabled={pending || active}
+            onClick={() =>
+              startTransition(async () => {
+                await setLocale(opt.code);
+              })
+            }
+            aria-pressed={active}
+            className={cn(
+              "h-full px-2 transition-colors",
+              active
+                ? "bg-foreground text-background"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+              pending && !active && "opacity-50",
+            )}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

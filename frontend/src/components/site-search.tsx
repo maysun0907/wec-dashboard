@@ -89,14 +89,11 @@ export function SiteSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex h-8 shrink-0 items-center gap-2 rounded-md border border-border bg-secondary/40 px-2.5 text-xs text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-secondary/40 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
         aria-label="Search drivers, teams, circuits"
+        title="Search (⌘K)"
       >
-        <Search className="size-3.5" />
-        <span className="hidden sm:inline">Search…</span>
-        <kbd className="hidden rounded bg-background px-1 font-mono text-[10px] sm:inline">
-          ⌘K
-        </kbd>
+        <Search className="size-4" />
       </button>
 
       <CommandDialog
