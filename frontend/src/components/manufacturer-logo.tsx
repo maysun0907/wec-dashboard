@@ -27,10 +27,28 @@ const IMG_SIZES: Record<NonNullable<Props["size"]>, string> = {
   xl: "160px",
 };
 
-// FIA's brand PNGs ship with a transparent margin baked in. Scale
-// 1.2 trims that margin while staying inside the pill's clip radius
-// for the widest marks (Aston Martin wings, Audi rings, Alpine A).
-// Going higher started eating their horizontal extent.
+// FIA's brand PNGs ship with a transparent margin baked in, but the
+// amount varies per file. 1.2 is the safe baseline; a handful of
+// brands need an explicit override either because their PNG has
+// almost no margin (Aston Martin wings + Genesis wings already touch
+// the bounding box, so 1.2 starts clipping the tips) or because the
+// mark sits inside a lot of extra whitespace (BMW roundel reads tiny
+// at 1.2). Matched by substring on the `name` prop — works for both
+// "BMW" (manufacturer name) and "BMW M Team WRT" (team name).
+const BRAND_SCALE_OVERRIDES: Array<{ match: RegExp; scale: number }> = [
+  { match: /bmw/i, scale: 1.5 },
+  { match: /aston\s*martin/i, scale: 1.0 },
+  { match: /genesis/i, scale: 1.0 },
+];
+const DEFAULT_SCALE = 1.2;
+
+function scaleForName(name: string | null | undefined): number {
+  const n = name ?? "";
+  for (const { match, scale } of BRAND_SCALE_OVERRIDES) {
+    if (match.test(n)) return scale;
+  }
+  return DEFAULT_SCALE;
+}
 
 /** Renders a manufacturer logo with a name-initial fallback for missing
  *  images. Sits on a white pill so brand colors render naturally on the
@@ -67,7 +85,8 @@ export function ManufacturerLogo({ src, name, size = "sm", className }: Props) {
         alt={name ?? ""}
         fill
         sizes={IMG_SIZES[size]}
-        className="object-contain scale-[1.2]"
+        className="object-contain"
+        style={{ transform: `scale(${scaleForName(name)})` }}
         loading="lazy"
       />
     </span>
