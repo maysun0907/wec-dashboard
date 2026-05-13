@@ -287,7 +287,8 @@
   "raceClass": {
     "HYPERCAR": "HYPERCAR",
     "LMGT3": "LMGT3",
-    "Hypercar": "Hypercar"
+    "Hypercar": "Hypercar",
+    "LMGT3Title": "LMGT3"
   },
   "manufacturers": {
     "title": "Manufacturers",

@@ -42,12 +42,12 @@ import {
 
 type Params = { id: string };
 
-const SESSION_LABELS: Record<string, string> = {
-  FP1: "Practice 1",
-  FP2: "Practice 2",
-  FP3: "Practice 3",
-  Q: "Qualifying",
-  RACE: "Race",
+const SESSION_LABEL_KEYS: Record<string, "practice1" | "practice2" | "practice3" | "qualifying" | "race"> = {
+  FP1: "practice1",
+  FP2: "practice2",
+  FP3: "practice3",
+  Q: "qualifying",
+  RACE: "race",
 };
 
 const SESSION_LABELS_SHORT: Record<string, string> = {
@@ -55,7 +55,7 @@ const SESSION_LABELS_SHORT: Record<string, string> = {
   FP2: "FP2",
   FP3: "FP3",
   Q: "Q",
-  RACE: "Race",
+  RACE: "RACE",
 };
 
 export async function generateStaticParams(): Promise<Params[]> {
@@ -199,7 +199,7 @@ export default async function RaceDetailPage({
                   {SESSION_LABELS_SHORT[s.type] ?? s.type}
                 </span>
                 <span className="hidden sm:inline">
-                  {SESSION_LABELS[s.type] ?? s.type}
+                  {SESSION_LABEL_KEYS[s.type] ? t(SESSION_LABEL_KEYS[s.type]!) : s.type}
                 </span>
               </TabsTrigger>
             ))}
@@ -227,7 +227,7 @@ export default async function RaceDetailPage({
                   <>
                     <SessionWinnersCard type={s.type} rows={rows} />
                     <ResultsCard
-                      label={SESSION_LABELS[s.type] ?? s.type}
+                      label={SESSION_LABEL_KEYS[s.type] ? t(SESSION_LABEL_KEYS[s.type]!) : s.type}
                       type={s.type}
                       rows={rows}
                     />
@@ -236,12 +236,12 @@ export default async function RaceDetailPage({
                   </>
                 ) : isPractice && rows.length <= 3 ? (
                   <PracticeFastestCard
-                    label={SESSION_LABELS[s.type] ?? s.type}
+                    label={SESSION_LABEL_KEYS[s.type] ? t(SESSION_LABEL_KEYS[s.type]!) : s.type}
                     rows={rows}
                   />
                 ) : (
                   <ResultsCard
-                    label={SESSION_LABELS[s.type] ?? s.type}
+                    label={SESSION_LABEL_KEYS[s.type] ? t(SESSION_LABEL_KEYS[s.type]!) : s.type}
                     type={s.type}
                     rows={rows}
                   />

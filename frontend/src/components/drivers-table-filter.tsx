@@ -49,14 +49,19 @@ export function DriversTableFilter({ drivers }: { drivers: DriverEntry[] }) {
 
   return (
     <div className="space-y-3">
-      <div className="relative px-4 pt-3">
-        <Search className="pointer-events-none absolute left-7 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          placeholder={t("searchPlaceholder")}
-          className="h-9 pl-8"
-        />
+      <div className="px-4 pt-3">
+        {/* Tight inner wrapper so absolute-positioned magnifier centers
+            against the Input, not the wrapper (the count line below
+            grows the wrapper and was shifting the icon off-axis). */}
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder={t("searchPlaceholder")}
+            className="h-9 pl-9"
+          />
+        </div>
         {q && (
           <span className="mt-1 block px-1 text-xs text-muted-foreground">
             {filtered.length} {tc("of")} {drivers.length}

@@ -61,6 +61,7 @@ import {
 export default async function HomePage() {
   const year = await getSelectedSeason();
   const t = await getTranslations("common");
+  const tClass = await getTranslations("raceClass");
   const rawLocale = await getLocale();
   const locale = isLocale(rawLocale) ? rawLocale : "en";
   const [
@@ -126,8 +127,8 @@ export default async function HomePage() {
             .sort((a, b) => a.classPosition - b.classPosition)
             .slice(0, 5);
         lastResultByClass = [
-          { label: "Hypercar", rows: topPerClass("HYPERCAR") },
-          { label: "LMGT3", rows: topPerClass("LMGT3") },
+          { label: tClass("Hypercar"), rows: topPerClass("HYPERCAR") },
+          { label: tClass("LMGT3Title"), rows: topPerClass("LMGT3") },
         ].filter((c) => c.rows.length > 0);
       }
     } catch {
@@ -215,8 +216,8 @@ export default async function HomePage() {
           <section className="grid items-stretch gap-6 lg:grid-cols-2">
             <DriversPodium
               classes={[
-                { label: "Hypercar", rows: hypercarPodium },
-                { label: "LMGT3", rows: lmgt3Podium },
+                { label: tClass("Hypercar"), rows: hypercarPodium },
+                { label: tClass("LMGT3Title"), rows: lmgt3Podium },
               ]}
               rounds={completedRounds}
             />
