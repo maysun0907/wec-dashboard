@@ -37,9 +37,13 @@ const IMG_SIZES: Record<NonNullable<Props["size"]>, string> = {
 // "BMW" (manufacturer name) and "BMW M Team WRT" (team name).
 const BRAND_SCALE_OVERRIDES: Array<{ match: RegExp; scale: number }> = [
   { match: /bmw/i, scale: 1.5 },
-  // Audi's PNG centres the four rings in roughly the middle 50 % of
-  // a square canvas, so the rings read tiny at 1.2× — bump to 1.6×.
-  { match: /audi/i, scale: 1.6 },
+  // Porsche shield sits with generous outer padding in the FIA PNG —
+  // the crest reads small at 1.2 next to the other roundels.
+  { match: /porsche/i, scale: 1.5 },
+  // Audi's PNG centres the four rings around the middle, but the
+  // glyph is wide-aspect; 1.6 was clipping the outer rings at the
+  // pill's rounded corners. 1.4 fills more without touching edges.
+  { match: /audi/i, scale: 1.4 },
   { match: /aston\s*martin/i, scale: 1.0 },
   { match: /genesis/i, scale: 1.0 },
 ];
