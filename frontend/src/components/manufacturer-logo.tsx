@@ -40,10 +40,10 @@ const BRAND_SCALE_OVERRIDES: Array<{ match: RegExp; scale: number }> = [
   // Porsche shield sits with generous outer padding in the FIA PNG —
   // the crest reads small at 1.2 next to the other roundels.
   { match: /porsche/i, scale: 1.5 },
-  // Audi's PNG centres the four rings around the middle, but the
-  // glyph is wide-aspect; 1.6 was clipping the outer rings at the
-  // pill's rounded corners. 1.4 fills more without touching edges.
-  { match: /audi/i, scale: 1.4 },
+  // Audi rings are wide-aspect; anything above the default clips the
+  // outer rings at the pill's rounded corners. Pinned to the same
+  // 1.2 as the rest of the field.
+  { match: /audi/i, scale: 1.2 },
   { match: /aston\s*martin/i, scale: 1.0 },
   { match: /genesis/i, scale: 1.0 },
 ];
