@@ -24,44 +24,29 @@ export default async function RulesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Classes</CardTitle>
-          <CardDescription>
-            Two classes share the 2026 grid. LMP2 left WEC after 2024.
-          </CardDescription>
+          <CardTitle>{t("classesTitle")}</CardTitle>
+          <CardDescription>{t("classesDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <ClassPanel
             badge={<ClassBadge raceClass="HYPERCAR" />}
-            title="Hypercar"
-            description="Top class. Two homologation paths competing under one BoP umbrella."
+            title={t("hypercarTitle")}
+            description={t("hypercarDesc")}
             items={[
-              {
-                label: "LMH",
-                detail:
-                  "Le Mans Hypercar — bespoke chassis + bespoke ICE. Ferrari 499P, Toyota TR010, Peugeot 9X8, Aston Martin Valkyrie.",
-              },
-              {
-                label: "LMDh",
-                detail:
-                  "Le Mans Daytona h — manufacturer's ICE on a spec chassis (Multimatic / Oreca / Ligier / Dallara) and spec Bosch hybrid kit. Cadillac, BMW, Alpine, Genesis.",
-              },
+              { label: t("lmhLabel"), detail: t("lmhDetail") },
+              { label: t("lmdhLabel"), detail: t("lmdhDetail") },
             ]}
           />
           <ClassPanel
             badge={<ClassBadge raceClass="LMGT3" />}
-            title="LMGT3"
-            description="Built on the Group GT3 platform. Two-class WEC since 2024 (replaced LMGTE)."
+            title={t("lmgt3Title")}
+            description={t("lmgt3Desc")}
             items={[
               {
-                label: "Driver lineup",
-                detail:
-                  "Pro / Am rules — at least one Bronze or Silver driver per car, varying by season.",
+                label: t("driverLineupLabel"),
+                detail: t("driverLineupDetail"),
               },
-              {
-                label: "Tires",
-                detail:
-                  "Single supplier (Goodyear) — same compounds as LMP2 to neutralize tire as a performance variable.",
-              },
+              { label: t("tiresLabel"), detail: t("tiresDetail") },
             ]}
           />
         </CardContent>
@@ -69,44 +54,40 @@ export default async function RulesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Hypercar regulation envelope</CardTitle>
-          <CardDescription>
-            Every Hypercar entry is homologated to fit inside this box.
-            BoP slides individual cars within it, but the floor / ceiling
-            are fixed.
-          </CardDescription>
+          <CardTitle>{t("envelopeTitle")}</CardTitle>
+          <CardDescription>{t("envelopeDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
             <Spec
-              label="Min weight"
+              label={t("specMinWeight")}
               value="1030 kg"
-              detail="LMH and LMDh share the floor"
+              detail={t("specMinWeightDetail")}
             />
             <Spec
-              label="Max combined power"
+              label={t("specMaxPower")}
               value="500 kW"
-              detail="≈ 670 hp (ICE + ERS)"
+              detail={t("specMaxPowerDetail")}
             />
             <Spec
-              label="Front-axle ERS"
+              label={t("specFrontErs")}
               value="≥ 190 km/h"
-              detail="Hybrid only deploys above this speed"
+              detail={t("specFrontErsDetail")}
             />
             <Spec
-              label="ICE displacement"
+              label={t("specIceDisp")}
               value="—"
-              detail="Open. 2.6 L V6 (Peugeot) to 6.5 L V12 (Aston) on the grid."
+              detail={t("specIceDispDetail")}
             />
             <Spec
-              label="Aero"
-              value="Single map"
-              detail="One configuration per car after homologation; no track-specific bodywork."
+              label={t("specAero")}
+              value={t("specAeroValue")}
+              detail={t("specAeroDetail")}
             />
             <Spec
-              label="ERS mandate"
-              value="From 2026"
-              detail="Required for any newly homologated car going forward."
+              label={t("specErsMandate")}
+              value={t("specErsMandateValue")}
+              detail={t("specErsMandateDetail")}
             />
           </dl>
         </CardContent>
@@ -114,27 +95,16 @@ export default async function RulesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Balance of Performance</CardTitle>
-          <CardDescription>
-            How the FIA equalizes a Toyota TR010 against an Aston Martin
-            Valkyrie despite very different drivetrains.
-          </CardDescription>
+          <CardTitle>{t("bopTitle")}</CardTitle>
+          <CardDescription>{t("bopDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>
-            BoP is set in two phases. Pre-season: cars are simulated and
-            wind-tunnel-tested at Windshear with a target performance
-            window. Per-round: weight, max-power, and energy-per-stint
-            adjustments are applied based on the most recent races.
-          </p>
+          <p>{t("bopBody1")}</p>
           <p>
             <span className="font-medium text-foreground">
-              From 2026 the FIA stopped publishing the per-round table.
+              {t("bopBody2Bold")}
             </span>{" "}
-            Numbers are now shared only with the competing teams — the
-            stated rationale is that BoP figures without the underlying
-            homologation data lead to outside misinterpretation. There is
-            no public source for the actual settings.
+            {t("bopBody2")}
           </p>
           <p>
             <a
@@ -160,43 +130,31 @@ export default async function RulesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Success handicap (new for 2026)</CardTitle>
-          <CardDescription>
-            A results-based mass penalty for top runners — already used
-            in LMGT3 since 2024, expanded to Hypercar this year.
-          </CardDescription>
+          <CardTitle>{t("successTitle")}</CardTitle>
+          <CardDescription>{t("successDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>{t("successBody1")}</p>
           <p>
-            Cars carrying championship form into a round are weighted up;
-            the lower-scoring rivals stay at base weight. The handicap is
-            absorbed into the same private BoP table, so the per-car
-            split isn&rsquo;t public.
-          </p>
-          <p>
-            <span className="font-medium text-foreground">Le Mans is exempt.
+            <span className="font-medium text-foreground">
+              {t("successBody2Bold")}
             </span>{" "}
-            Endurance week stands on its own — handicap is paused so the
-            crown jewel of the calendar isn&rsquo;t decided by mid-season
-            standings.
+            {t("successBody2")}
           </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Points</CardTitle>
-          <CardDescription>
-            Two tables based on race length. Top ten finishers in class
-            score; pole position adds one driver point.
-          </CardDescription>
+          <CardTitle>{t("pointsTitle")}</CardTitle>
+          <CardDescription>{t("pointsDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[480px] text-sm">
               <thead>
                 <tr className="border-b text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  <th className="py-2 pr-4 text-left">Race length</th>
+                  <th className="py-2 pr-4 text-left">{t("pointsColLength")}</th>
                   <th className="px-2 text-right">P1</th>
                   <th className="px-2 text-right">P2</th>
                   <th className="px-2 text-right">P3</th>
@@ -212,7 +170,7 @@ export default async function RulesPage() {
               <tbody className="font-mono tabular-nums">
                 <tr className="border-b">
                   <td className="py-2 pr-4 font-sans text-foreground">
-                    Standard 6 h
+                    {t("pointsRowStandard")}
                   </td>
                   <td className="px-2 text-right">25</td>
                   <td className="px-2 text-right">18</td>
@@ -227,7 +185,7 @@ export default async function RulesPage() {
                 </tr>
                 <tr>
                   <td className="py-2 pr-4 font-sans text-foreground">
-                    Endurance (24 h, 8 h, 1812 km)
+                    {t("pointsRowEndurance")}
                   </td>
                   <td className="px-2 text-right font-semibold">38</td>
                   <td className="px-2 text-right">27</td>
@@ -244,74 +202,60 @@ export default async function RulesPage() {
             </table>
           </div>
           <p className="mt-3 text-sm text-muted-foreground">
-            Endurance table applies at the 24 Hours of Le Mans, 8 Hours
-            of Bahrain, and the Qatar 1812 km. Pole position adds +1 to
-            every driver of the pole-sitting car.
+            {t("pointsFootnote")}
           </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Qualifying</CardTitle>
-          <CardDescription>
-            Two-stage Hyperpole format since 2022. LMGT3 runs a separate
-            Hyperpole on the same day.
-          </CardDescription>
+          <CardTitle>{t("qualifyingTitle")}</CardTitle>
+          <CardDescription>{t("qualifyingDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <ol className="space-y-3 text-sm">
             <li>
               <span className="font-medium text-foreground">
-                Stage 1 · Qualifying
+                {t("qualifyingStage1Label")}
               </span>{" "}
-              — open to all cars in the class. Top times on the board
-              determine who advances.
+              — {t("qualifyingStage1")}
             </li>
             <li>
               <span className="font-medium text-foreground">
-                Stage 2 · Hyperpole
+                {t("qualifyingStage2Label")}
               </span>{" "}
-              — top 10 (Hypercar) and top 8 (LMGT3) advance for a fresh
-              shootout. Pole sitter takes the championship-points bonus
-              and the right side of the grid.
+              — {t("qualifyingStage2")}
             </li>
           </ol>
           <p className="mt-3 text-sm text-muted-foreground">
-            Cars that don&rsquo;t advance start in their stage-1 order
-            behind the Hyperpole field.
+            {t("qualifyingFootnote")}
           </p>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Calendar shape</CardTitle>
-          <CardDescription>
-            Eight rounds across four continents. Three are endurance
-            specials.
-          </CardDescription>
+          <CardTitle>{t("calendarTitle")}</CardTitle>
+          <CardDescription>{t("calendarDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           <ul className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
             <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">24 Hours of Le Mans</span>
+              <span className="text-muted-foreground">{t("calendarLeMans")}</span>
               <span className="font-mono text-foreground">24 h</span>
             </li>
             <li className="flex justify-between gap-3">
               <span className="text-muted-foreground">
-                Bapco Energies 8 Hours of Bahrain
+                {t("calendarBahrain")}
               </span>
               <span className="font-mono text-foreground">8 h</span>
             </li>
             <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Qatar 1812 km</span>
+              <span className="text-muted-foreground">{t("calendarQatar")}</span>
               <span className="font-mono text-foreground">≈ 10 h</span>
             </li>
             <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">
-                Imola, Spa, São Paulo, COTA, Fuji
-              </span>
+              <span className="text-muted-foreground">{t("calendarOthers")}</span>
               <span className="font-mono text-foreground">6 h</span>
             </li>
           </ul>
@@ -320,21 +264,16 @@ export default async function RulesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Regulation lifecycle</CardTitle>
-          <CardDescription>
-            How long the current rule set is locked in.
-          </CardDescription>
+          <CardTitle>{t("lifecycleTitle")}</CardTitle>
+          <CardDescription>{t("lifecycleDesc")}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>
-            The LMH and LMDh frameworks were originally written through
-            2027 / 2028. In 2024 the FIA, ACO, and IMSA jointly extended
-            both regulation sets through{" "}
-            <span className="font-medium text-foreground">2032</span> —
-            twelve years for LMH, ten for LMDh — to give manufacturers a
-            stable runway and avoid a repeat of the late-2010s LMP1
-            collapse. There has been informal talk of a single converged
-            platform for the next cycle, but nothing committed.
+            {t("lifecycleBodyPre")}
+            <span className="font-medium text-foreground">
+              {t("lifecycleBodyMid")}
+            </span>
+            {t("lifecycleBodyPost")}
           </p>
         </CardContent>
       </Card>
