@@ -25,7 +25,22 @@
     "lastResult": "Latest result",
     "lastResultSubtitle": "{eventName} · top 3 per class",
     "topN": "Top {n}",
-    "laps": "laps"
+    "laps": "laps",
+    "champions": "Champions",
+    "championsSubtitle": "Final standings winners — one row per class with data.",
+    "classChampions": "{cls} Champions",
+    "championsDrivers": "Drivers",
+    "championsTeam": "Team",
+    "championsTeamPrivateers": "Team (Privateers)",
+    "championsManufacturer": "Manufacturer",
+    "noRaceResults": "No race results recorded.",
+    "seasonAtAGlance": "Season at a glance",
+    "seasonAtAGlanceSubtitle": "Every round + class winners. Click a row for the full results.",
+    "statRaces": "Races",
+    "statClasses": "Classes",
+    "statManufacturers": "Manufacturers",
+    "statTeams": "Teams",
+    "statDrivers": "Drivers"
   },
   "common": {
     "schedule": "Schedule",

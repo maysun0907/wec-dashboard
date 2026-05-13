@@ -25,7 +25,22 @@
     "lastResult": "최근 결과",
     "lastResultSubtitle": "{eventName} · 클래스별 상위 3",
     "topN": "상위 {n}",
-    "laps": "랩"
+    "laps": "랩",
+    "champions": "챔피언",
+    "championsSubtitle": "최종 순위 우승 — 데이터가 있는 클래스별 1행.",
+    "classChampions": "{cls} 챔피언",
+    "championsDrivers": "드라이버",
+    "championsTeam": "팀",
+    "championsTeamPrivateers": "팀 (프라이비터)",
+    "championsManufacturer": "매뉴팩처",
+    "noRaceResults": "기록된 경기 결과가 없습니다.",
+    "seasonAtAGlance": "시즌 한눈에 보기",
+    "seasonAtAGlanceSubtitle": "전체 라운드와 클래스 우승. 행을 클릭하면 전체 결과로 이동.",
+    "statRaces": "경기",
+    "statClasses": "클래스",
+    "statManufacturers": "매뉴팩처",
+    "statTeams": "팀",
+    "statDrivers": "드라이버"
   },
   "common": {
     "schedule": "일정",

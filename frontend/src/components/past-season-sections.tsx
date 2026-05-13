@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { format, parseISO } from "date-fns";
 import {
   Card,
@@ -47,12 +48,13 @@ export function SeasonNumbersStrip({
   drivers: number;
   teams: number;
 }) {
+  const t = useTranslations("home");
   const items: { value: number; label: string }[] = [
-    { value: rounds, label: "Races" },
-    { value: classes, label: "Classes" },
-    { value: manufacturers, label: "Manufacturers" },
-    { value: teams, label: "Teams" },
-    { value: drivers, label: "Drivers" },
+    { value: rounds, label: t("statRaces") },
+    { value: classes, label: t("statClasses") },
+    { value: manufacturers, label: t("statManufacturers") },
+    { value: teams, label: t("statTeams") },
+    { value: drivers, label: t("statDrivers") },
   ];
   return (
     <Card>
@@ -89,12 +91,13 @@ export function SeasonChampionsCard({
     (c) => c.driver || c.team || c.manufacturer,
   );
   if (usable.length === 0) return null;
+  const t = useTranslations("home");
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Champions</CardTitle>
+        <CardTitle>{t("champions")}</CardTitle>
         <CardDescription>
-          Final standings winners — one row per class with data.
+          {t("championsSubtitle")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -104,14 +107,14 @@ export function SeasonChampionsCard({
           // marking the eyebrow keeps the user from wondering why
           // the LMP1 Team champ isn't Porsche / Audi / Toyota.
           const teamEyebrow =
-            row.raceClass === "LMP1" ? "Team (Privateers)" : "Team";
+            row.raceClass === "LMP1" ? t("championsTeamPrivateers") : t("championsTeam");
           const tiles: { key: "d" | "t" | "m"; node: ReactNode }[] = [];
           if (row.driver) {
             tiles.push({
               key: "d",
               node: (
                 <ChampionSlot
-                  eyebrow="Drivers"
+                  eyebrow={t("championsDrivers")}
                   value={{
                     primary: row.driver.driverName,
                     secondary: row.driver.team,
@@ -145,7 +148,7 @@ export function SeasonChampionsCard({
               key: "m",
               node: (
                 <ChampionSlot
-                  eyebrow="Manufacturer"
+                  eyebrow={t("championsManufacturer")}
                   value={{
                     primary: row.manufacturer.manufacturerName,
                     secondary: null,
@@ -165,7 +168,7 @@ export function SeasonChampionsCard({
               <div className="mb-3 flex items-center justify-between">
                 <ClassBadge raceClass={row.raceClass} />
                 <span className="text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-                  {raceClassLabel(row.raceClass)} Champions
+                  {t("classChampions", { cls: raceClassLabel(row.raceClass) })}
                 </span>
               </div>
               {/* Each tile is a fixed 18rem on sm+ so a class with
@@ -278,6 +281,7 @@ export function LeMansSpotlight({
   event: Event;
   winnersByClass: { raceClass: RaceClass; row: SessionResult }[];
 }) {
+  const t = useTranslations("home");
   return (
     <Card>
       <CardHeader>
@@ -295,7 +299,7 @@ export function LeMansSpotlight({
       <CardContent className="space-y-3">
         {winnersByClass.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No race results recorded.
+            {t("noRaceResults")}
           </p>
         ) : (
           winnersByClass.map(({ raceClass, row }) => (
@@ -348,12 +352,13 @@ export function RoundsGrid({
   const widthRem =
     classes.length >= 4 ? 13 : classes.length === 3 ? 16 : 18;
 
+  const t = useTranslations("home");
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Season at a glance</CardTitle>
+        <CardTitle>{t("seasonAtAGlance")}</CardTitle>
         <CardDescription>
-          Every round + class winners. Click a row for the full results.
+          {t("seasonAtAGlanceSubtitle")}
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0">
