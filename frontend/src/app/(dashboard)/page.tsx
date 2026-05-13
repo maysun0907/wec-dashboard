@@ -703,7 +703,7 @@ function LastResultCard({
             <CardTitle>{t("lastResult")}</CardTitle>
             <CardDescription>{eventName}</CardDescription>
           </div>
-          <Badge variant="secondary">Top 5</Badge>
+          <Badge variant="secondary">{t("topN", { n: 5 })}</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-6 px-0">

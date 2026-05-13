@@ -23,7 +23,9 @@
     "upNext": "다음 일정",
     "fullScheduleArrow": "전체 일정 →",
     "lastResult": "최근 결과",
-    "lastResultSubtitle": "{eventName} · 클래스별 상위 3"
+    "lastResultSubtitle": "{eventName} · 클래스별 상위 3",
+    "topN": "상위 {n}",
+    "laps": "랩"
   },
   "common": {
     "schedule": "일정",
@@ -160,6 +162,7 @@
     "practice1": "프랙티스 1",
     "practice2": "프랙티스 2",
     "practice3": "프랙티스 3",
+    "lapsLower": "랩",
     "polePositions": "폴포지션",
     "raceWinners": "결승 우승",
     "poleSubtitle": "클래스별 폴 사이터 — Hyperpole 최고 랩.",
@@ -209,7 +212,22 @@
     "noCars": "등록된 차량이 없습니다.",
     "noCarsInClass": "이 클래스에 등록된 차량이 없습니다.",
     "independent": "프라이비터",
-    "entriesCount": "엔트리 · {count}"
+    "entriesCount": "엔트리 · {count}",
+    "specifications": "사양",
+    "category": "카테고리",
+    "yearIntroduced": "데뷔 연도",
+    "engine": "엔진",
+    "power": "출력",
+    "weight": "중량",
+    "seasonStats": "시즌 성적",
+    "seasonStatsSubtitle": "이 모델을 운영하는 모든 차량의 합산 성적",
+    "wins": "우승",
+    "podiums": "포디움",
+    "poles": "폴",
+    "races": "출전",
+    "entriesSubtitle": "이번 시즌 이 모델을 운영하는 팀",
+    "noTeamsRunning": "선택한 시즌에 이 모델을 운영하는 팀이 없습니다.",
+    "noImageYet": "이미지 없음"
   },
   "circuits": {
     "title": "서킷",
@@ -221,7 +239,10 @@
     "raceDay": "결승일",
     "turns": "코너",
     "country": "국가",
-    "timesHosted": "WEC 개최 횟수"
+    "timesHosted": "WEC 개최 횟수",
+    "wecRaceHistory": "WEC 경기 이력",
+    "noEvents": "아직 이 서킷에서 열린 WEC 경기가 없습니다.",
+    "historySubtitle": "시즌순, 최신 경기부터."
   },
   "rules": {
     "title": "규정",

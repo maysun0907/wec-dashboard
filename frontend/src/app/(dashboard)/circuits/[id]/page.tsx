@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format, parseISO } from "date-fns";
+import { getLocale, getTranslations } from "next-intl/server";
+import { localizeCircuitName, localizeEventName } from "@/lib/locale-names";
+import { isLocale } from "@/i18n/config";
 import {
   Card,
   CardContent,
@@ -43,13 +46,22 @@ export default async function CircuitDetailPage({
   params: Promise<Params>;
 }) {
   const { id } = await params;
-  const circuit = await fetchCircuit(id);
-  if (circuit === null) notFound();
+  const circuitRaw = await fetchCircuit(id);
+  if (circuitRaw === null) notFound();
 
-  // Local SVG override (Wikimedia line art) wins because it's
-  // styled to fit our dark theme; fall back to the FIA-published
-  // PNG layout when no override is on disk.
+  const rawLocale = await getLocale();
+  const localeForName = isLocale(rawLocale) ? rawLocale : "en";
+  const circuit = {
+    ...circuitRaw,
+    name: localizeCircuitName(circuitRaw.name, localeForName),
+    events: circuitRaw.events.map((e) => ({
+      ...e,
+      name: localizeEventName(e.name, localeForName),
+    })),
+  };
+
   const layoutSvg = localCircuitLayout(circuit.country) ?? circuit.layoutImage;
+  const t = await getTranslations("circuits");
 
   return (
     <div className="space-y-6">
@@ -57,7 +69,7 @@ export default async function CircuitDetailPage({
         href="/circuits"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
-        ← Circuits
+        ← {t("title")}
       </Link>
 
       <Card>
@@ -111,7 +123,7 @@ export default async function CircuitDetailPage({
             {circuit.lengthKm > 0 && (
               <div className="flex flex-col">
                 <dt className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Length
+                  {t("length")}
                 </dt>
                 <dd className="font-mono text-lg font-semibold tabular-nums">
                   {circuit.lengthKm.toFixed(3)} km
@@ -121,7 +133,7 @@ export default async function CircuitDetailPage({
             {circuit.lapRecord && (
               <div className="flex flex-col">
                 <dt className="text-xs uppercase tracking-wider text-muted-foreground">
-                  Lap record
+                  {t("lapRecord")}
                 </dt>
                 <dd className="font-mono text-lg font-semibold tabular-nums">
                   {circuit.lapRecord}
@@ -130,7 +142,7 @@ export default async function CircuitDetailPage({
             )}
             <div className="flex flex-col">
               <dt className="text-xs uppercase tracking-wider text-muted-foreground">
-                Times hosted WEC
+                {t("timesHosted")}
               </dt>
               <dd className="font-mono text-lg font-semibold tabular-nums">
                 {circuit.events.length}
@@ -142,11 +154,11 @@ export default async function CircuitDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>WEC race history</CardTitle>
+          <CardTitle>{t("wecRaceHistory")}</CardTitle>
           <CardDescription>
             {circuit.events.length === 0
-              ? "No WEC events recorded at this circuit yet."
-              : "Sorted by season, most recent first."}
+              ? t("noEvents")
+              : t("historySubtitle")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -47,11 +49,8 @@ export default async function CarDetailPage({
 
   const primaryClass: RaceClass | null =
     car.teams.length > 0 ? car.teams[0].raceClass : null;
-  // Prefer the FIA-published cutout (transparent-bg side profile in
-  // the actual race livery). Local files in `public/cars/` act as a
-  // fallback for cars FIA hasn't rendered yet — drop a file to
-  // override.
   const imageUrl = car.imageUrl ?? localCarImage(slug);
+  const t = await getTranslations("cars");
 
   return (
     <div className="space-y-6">
@@ -59,7 +58,7 @@ export default async function CarDetailPage({
         href="/cars"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
-        ← Cars
+        ← {t("title")}
       </Link>
 
       <Card>
@@ -72,7 +71,7 @@ export default async function CarDetailPage({
                 src={car.manufacturerLogoUrl}
                 name={car.manufacturer ?? car.name}
               />
-              {car.manufacturer ?? "Independent"}
+              {car.manufacturer ?? t("independent")}
             </CardDescription>
           </div>
           {primaryClass && <ClassBadge raceClass={primaryClass} />}
@@ -81,24 +80,24 @@ export default async function CarDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Specifications</CardTitle>
+          <CardTitle>{t("specifications")}</CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
-            <Spec label="Category" value={car.category} />
+            <Spec label={t("category")} value={car.category} />
             <Spec
-              label="Year introduced"
+              label={t("yearIntroduced")}
               value={car.yearIntroduced ? String(car.yearIntroduced) : null}
               numeric
             />
-            <Spec label="Engine" value={car.engine} />
+            <Spec label={t("engine")} value={car.engine} />
             <Spec
-              label="Power"
+              label={t("power")}
               value={car.powerHp ? `${car.powerHp} hp` : null}
               numeric
             />
             <Spec
-              label="Weight"
+              label={t("weight")}
               value={car.weightKg ? `${car.weightKg} kg` : null}
               numeric
             />
@@ -109,17 +108,15 @@ export default async function CarDetailPage({
       {car.stats.races > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Season stats</CardTitle>
-            <CardDescription>
-              Aggregated across every car running this model this season
-            </CardDescription>
+            <CardTitle>{t("seasonStats")}</CardTitle>
+            <CardDescription>{t("seasonStatsSubtitle")}</CardDescription>
           </CardHeader>
           <CardContent>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-4">
-              <Spec label="Wins" value={String(car.stats.wins)} numeric />
-              <Spec label="Podiums" value={String(car.stats.podiums)} numeric />
-              <Spec label="Poles" value={String(car.stats.poles)} numeric />
-              <Spec label="Races" value={String(car.stats.races)} numeric />
+              <Spec label={t("wins")} value={String(car.stats.wins)} numeric />
+              <Spec label={t("podiums")} value={String(car.stats.podiums)} numeric />
+              <Spec label={t("poles")} value={String(car.stats.poles)} numeric />
+              <Spec label={t("races")} value={String(car.stats.races)} numeric />
             </dl>
           </CardContent>
         </Card>
@@ -127,13 +124,13 @@ export default async function CarDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Entries · {car.teams.length}</CardTitle>
-          <CardDescription>Teams running this model this season</CardDescription>
+          <CardTitle>{t("entriesCount", { count: car.teams.length })}</CardTitle>
+          <CardDescription>{t("entriesSubtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           {car.teams.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No teams running this model in the selected season.
+              {t("noTeamsRunning")}
             </p>
           ) : (
             <ul className="divide-y divide-border">
@@ -204,12 +201,17 @@ function CarImage({ src, alt }: { src: string | null; alt: string }) {
       </span>
     );
   }
+  return <CarImageFallback alt={alt} />;
+}
+
+function CarImageFallback({ alt }: { alt: string }) {
+  const t = useTranslations("cars");
   return (
     <span
       aria-label={alt}
       className="flex h-32 w-48 shrink-0 items-center justify-center rounded-lg bg-secondary/40 text-xs uppercase tracking-wider text-muted-foreground sm:h-40 sm:w-64"
     >
-      No image yet
+      {t("noImageYet")}
     </span>
   );
 }

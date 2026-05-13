@@ -373,7 +373,7 @@ function SessionWinnersCard({
                   )}
                   {r.laps !== null && (
                     <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                      laps
+                      {t("lapsLower")}
                     </span>
                   )}
                   {r.gap && (
