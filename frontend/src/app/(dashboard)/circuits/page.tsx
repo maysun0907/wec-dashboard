@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { localizeCircuit, localizeEvent } from "@/lib/locale-names";
+import { isLocale } from "@/i18n/config";
 import {
   Card,
   CardContent,
@@ -22,10 +24,14 @@ export const metadata = { title: "Circuits" };
 
 export default async function CircuitsPage() {
   const year = await getSelectedSeason();
-  const [circuits, events] = await Promise.all([
+  const [circuitsRaw, eventsRaw] = await Promise.all([
     getCircuits(year),
     getEvents(year).catch(() => []),
   ]);
+  const rawLocale = await getLocale();
+  const locale = isLocale(rawLocale) ? rawLocale : "en";
+  const circuits = circuitsRaw.map((c) => localizeCircuit(c, locale));
+  const events = eventsRaw.map((e) => localizeEvent(e, locale));
   // One round per circuit per season — index for O(1) card lookups.
   const roundByCircuit = new Map(events.map((e) => [e.circuit.id, e]));
   const today = new Date();

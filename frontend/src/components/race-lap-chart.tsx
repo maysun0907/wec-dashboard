@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   CartesianGrid,
   Label,
@@ -39,6 +40,7 @@ const CLASS_COLOR: Partial<Record<RaceClass, string>> = {
 type Mode = "overall" | "class";
 
 export function RaceLapChart({ sessionId }: { sessionId: number }) {
+  const t = useTranslations("raceDetail");
   const [chart, setChart] = useState<LapChart | null>(null);
   const [error, setError] = useState(false);
   const [classes, setClasses] = useState<Set<RaceClass>>(new Set());
@@ -91,10 +93,10 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Position chart</CardTitle>
+          <CardTitle>{t("positionChart")}</CardTitle>
         </CardHeader>
         <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          Loading lap-by-lap data…
+          {t("loadingLapData")}
         </CardContent>
       </Card>
     );
@@ -112,7 +114,7 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
   return (
     <Card>
       <CardHeader className="flex flex-col gap-3 space-y-0 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        <CardTitle>Position chart</CardTitle>
+        <CardTitle>{t("positionChart")}</CardTitle>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <div className="inline-flex rounded-md border border-border bg-secondary/40 p-0.5">
             {(["overall", "class"] as Mode[]).map((m) => (
@@ -127,7 +129,7 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
                     : "text-muted-foreground hover:text-foreground")
                 }
               >
-                {m === "overall" ? "Overall" : "By class"}
+                {m === "overall" ? t("modeOverall") : t("modeByClass")}
               </button>
             ))}
           </div>

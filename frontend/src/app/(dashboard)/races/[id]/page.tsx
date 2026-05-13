@@ -3,7 +3,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { localizeEvent } from "@/lib/locale-names";
+import { isLocale } from "@/i18n/config";
 import { format, parseISO } from "date-fns";
 import {
   Card,
@@ -97,6 +99,9 @@ export default async function RaceDetailPage({
   } catch {
     notFound();
   }
+  const rawLocale = await getLocale();
+  const localeForName = isLocale(rawLocale) ? rawLocale : "en";
+  event = localizeEvent(event, localeForName);
 
   const status = eventStatus(event);
   const sessions = event.sessions; // already in canonical order

@@ -15,6 +15,16 @@
     "navigation": "메뉴",
     "openMenu": "메뉴 열기"
   },
+  "home": {
+    "nextRace": "다음 경기",
+    "raceWeekend": "레이스 위켄드",
+    "roundYear": "라운드 {round} · {year}",
+    "countsDown": "결승 시작까지 카운트다운",
+    "upNext": "다음 일정",
+    "fullScheduleArrow": "전체 일정 →",
+    "lastResult": "최근 결과",
+    "lastResultSubtitle": "{eventName} · 클래스별 상위 3"
+  },
   "common": {
     "schedule": "일정",
     "standings": "순위",
@@ -127,6 +137,10 @@
     "colPit": "피트",
     "colPts": "점수",
     "colRaceClass": "클래스",
+    "positionChart": "포지션 차트",
+    "loadingLapData": "랩별 데이터 로딩 중…",
+    "modeOverall": "종합",
+    "modeByClass": "클래스별",
     "qualifyingResults": "예선 결과",
     "sortGrid": "그리드",
     "sortQ": "예선",

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
 import { Check, ExternalLink, Trophy } from "lucide-react";
+import { localizeEvent } from "@/lib/locale-names";
+import { isLocale } from "@/i18n/config";
 import {
   Card,
   CardContent,
@@ -125,15 +127,19 @@ function classifySession(
 
 export default async function LivePage() {
   const year = await getSelectedSeason();
-  const events = await getEvents(year);
+  const eventsRaw = await getEvents(year);
   const now = Date.now();
   const todayIso = new Date(now).toISOString().slice(0, 10);
+  const rawLocale = await getLocale();
+  const localeForName = isLocale(rawLocale) ? rawLocale : "en";
+  const events = eventsRaw.map((e) => localizeEvent(e, localeForName));
 
   // Pick the active weekend (today between dates) or the next upcoming.
   const live = events.find(
     (e) => e.dateStart <= todayIso && todayIso <= e.dateEnd,
   );
-  const next = live ?? getNextEvent(events, new Date(now)) ?? null;
+  const nextRaw = live ?? getNextEvent(events, new Date(now)) ?? null;
+  const next = nextRaw ? localizeEvent(nextRaw, localeForName) : null;
 
   const t = await getTranslations("live");
   if (next === null) {

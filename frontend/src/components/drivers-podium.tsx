@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Trophy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -78,14 +79,15 @@ export function DriversPodium({
 }) {
   const visible = classes.filter((c) => c.rows.length > 0);
   if (visible.length === 0) return null;
+  const t = useTranslations("common");
 
   return (
     <Card className="flex h-full flex-col">
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Drivers · Top 3</CardTitle>
+          <CardTitle>{t("topN", { title: t("drivers"), n: 3 })}</CardTitle>
           <Badge variant="outline" className="text-[10px]">
-            After R{rounds}
+            {t("afterRound", { round: rounds })}
           </Badge>
         </div>
       </CardHeader>
@@ -107,7 +109,7 @@ export function DriversPodium({
           href="/standings"
           className="font-medium text-muted-foreground hover:text-foreground"
         >
-          Full standings →
+          {t("fullStandings")} →
         </Link>
       </div>
     </Card>

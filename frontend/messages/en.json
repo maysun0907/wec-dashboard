@@ -15,6 +15,16 @@
     "navigation": "Navigation",
     "openMenu": "Open menu"
   },
+  "home": {
+    "nextRace": "Next Race",
+    "raceWeekend": "Race weekend",
+    "roundYear": "Round {round} · {year}",
+    "countsDown": "Counts down to lights out",
+    "upNext": "Up next",
+    "fullScheduleArrow": "Full schedule →",
+    "lastResult": "Last result",
+    "lastResultSubtitle": "{eventName} · top 3 per class"
+  },
   "common": {
     "schedule": "Schedule",
     "standings": "Standings",
@@ -127,6 +137,10 @@
     "colPit": "Pit",
     "colPts": "Pts",
     "colRaceClass": "Class",
+    "positionChart": "Position chart",
+    "loadingLapData": "Loading lap-by-lap data…",
+    "modeOverall": "Overall",
+    "modeByClass": "By class",
     "qualifyingResults": "Qualifying results",
     "sortGrid": "Grid",
     "sortQ": "Q",

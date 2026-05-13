@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { useTranslations } from "next-intl";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { localizeEvent } from "@/lib/locale-names";
+import { isLocale } from "@/i18n/config";
 import {
   Card,
   CardContent,
@@ -59,8 +61,10 @@ import {
 export default async function HomePage() {
   const year = await getSelectedSeason();
   const t = await getTranslations("common");
+  const rawLocale = await getLocale();
+  const locale = isLocale(rawLocale) ? rawLocale : "en";
   const [
-    events,
+    eventsRaw,
     hypercarStandings,
     lmgt3Standings,
     driverEntries,
@@ -74,6 +78,7 @@ export default async function HomePage() {
       () => [] as StandingManufacturer[],
     ),
   ]);
+  const events = eventsRaw.map((e) => localizeEvent(e, locale));
   // Photos live on driver entries, not standings rows — bridge by id.
   // Driver photos: prefer the public/drivers/{id}.* override when
   // it's there, fall back to the wikipedia thumbnail otherwise.
@@ -418,16 +423,7 @@ function NextRaceHero({
 
       <div className="relative flex flex-col gap-6 p-6 sm:gap-8 sm:p-10 lg:p-12">
         {/* Eyebrow row */}
-        <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--racing-red)] sm:text-sm">
-          <span className="inline-flex items-center gap-2">
-            <span className="size-2 animate-pulse rounded-full bg-[var(--racing-red)] shadow-[0_0_12px_var(--racing-red)]" />
-            Next Race
-          </span>
-          <span className="text-muted-foreground/60">/</span>
-          <span className="text-muted-foreground">
-            Round {event.round} · {parseISO(event.dateStart).getFullYear()}
-          </span>
-        </div>
+        <NextRaceEyebrow round={event.round} year={parseISO(event.dateStart).getFullYear()} />
 
         {/* Title block */}
         <div className="space-y-3">
@@ -447,44 +443,73 @@ function NextRaceHero({
         </div>
 
         {/* Countdown */}
-        <div className="space-y-2">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground sm:text-xs">
-            Counts down to lights out
-          </p>
-          <div className="text-foreground">
-            <RaceCountdown targetIso={startIso} />
-          </div>
-        </div>
+        <NextRaceCountdown startIso={startIso} />
 
         {/* Footer row */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-5 text-sm">
-          <span className="font-medium text-muted-foreground">
-            {format(parseISO(event.dateStart), "EEEE, MMMM d, yyyy")}
-          </span>
-          <Link
-            href={`/races/${event.id}`}
-            className="group inline-flex items-center gap-2 rounded-md border border-[var(--racing-red)]/30 bg-[var(--racing-red)]/10 px-4 py-2 text-sm font-semibold uppercase tracking-widest text-[var(--racing-red)] transition-colors hover:bg-[var(--racing-red)]/20"
-          >
-            Race weekend
-            <span className="transition-transform group-hover:translate-x-0.5">→</span>
-          </Link>
-        </div>
+        <NextRaceFooter eventId={event.id} dateStart={event.dateStart} />
       </div>
     </Card>
   );
 }
 
+function NextRaceEyebrow({ round, year }: { round: number; year: number }) {
+  const t = useTranslations("home");
+  return (
+    <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.25em] text-[var(--racing-red)] sm:text-sm">
+      <span className="inline-flex items-center gap-2">
+        <span className="size-2 animate-pulse rounded-full bg-[var(--racing-red)] shadow-[0_0_12px_var(--racing-red)]" />
+        {t("nextRace")}
+      </span>
+      <span className="text-muted-foreground/60">/</span>
+      <span className="text-muted-foreground">{t("roundYear", { round, year })}</span>
+    </div>
+  );
+}
+
+function NextRaceCountdown({ startIso }: { startIso: string | null }) {
+  const t = useTranslations("home");
+  return (
+    <div className="space-y-2">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.3em] text-muted-foreground sm:text-xs">
+        {t("countsDown")}
+      </p>
+      <div className="text-foreground">
+        <RaceCountdown targetIso={startIso} />
+      </div>
+    </div>
+  );
+}
+
+function NextRaceFooter({ eventId, dateStart }: { eventId: number; dateStart: string }) {
+  const t = useTranslations("home");
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-5 text-sm">
+      <span className="font-medium text-muted-foreground">
+        {format(parseISO(dateStart), "EEEE, MMMM d, yyyy")}
+      </span>
+      <Link
+        href={`/races/${eventId}`}
+        className="group inline-flex items-center gap-2 rounded-md border border-[var(--racing-red)]/30 bg-[var(--racing-red)]/10 px-4 py-2 text-sm font-semibold uppercase tracking-widest text-[var(--racing-red)] transition-colors hover:bg-[var(--racing-red)]/20"
+      >
+        {t("raceWeekend")}
+        <span className="transition-transform group-hover:translate-x-0.5">→</span>
+      </Link>
+    </div>
+  );
+}
+
 function UpcomingCard({ events }: { events: Event[] }) {
+  const t = useTranslations("home");
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-          <CardTitle>Up next</CardTitle>
+          <CardTitle>{t("upNext")}</CardTitle>
           <Link
             href="/races"
             className="text-xs text-muted-foreground hover:text-foreground"
           >
-            Full schedule →
+            {t("fullScheduleArrow")}
           </Link>
         </div>
       </CardHeader>
@@ -667,12 +692,14 @@ function LastResultCard({
   eventName: string;
   classes: { label: string; rows: SessionResult[] }[];
 }) {
+  const t = useTranslations("home");
+  const td = useTranslations("raceDetail");
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Latest result</CardTitle>
+            <CardTitle>{t("lastResult")}</CardTitle>
             <CardDescription>{eventName}</CardDescription>
           </div>
           <Badge variant="secondary">Top 5</Badge>
@@ -690,13 +717,13 @@ function LastResultCard({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12 pl-4">Pos</TableHead>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>Team</TableHead>
+                  <TableHead className="w-12 pl-4">{td("colPos")}</TableHead>
+                  <TableHead className="w-12">{td("colCar")}</TableHead>
+                  <TableHead>{td("colTeam")}</TableHead>
                   <TableHead className="hidden md:table-cell">
-                    Drivers
+                    {td("colDrivers")}
                   </TableHead>
-                  <TableHead className="pr-4 text-right">Gap</TableHead>
+                  <TableHead className="pr-4 text-right">{td("colGap")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

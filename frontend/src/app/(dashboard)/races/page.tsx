@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { localizeEvent } from "@/lib/locale-names";
+import { isLocale } from "@/i18n/config";
 import {
   Card,
   CardContent,
@@ -34,10 +36,13 @@ const STATUS_VARIANT: Record<
 
 export default async function RacesPage() {
   const year = await getSelectedSeason();
-  const events = await getEvents(year);
+  const eventsRaw = await getEvents(year);
   const today = new Date();
   const t = await getTranslations("races");
   const tStatus = await getTranslations("eventStatus");
+  const rawLocale = await getLocale();
+  const locale = isLocale(rawLocale) ? rawLocale : "en";
+  const events = eventsRaw.map((e) => localizeEvent(e, locale));
 
   return (
     <div className="space-y-6">
