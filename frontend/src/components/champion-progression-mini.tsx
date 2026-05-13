@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   CartesianGrid,
   Line,
@@ -47,12 +48,13 @@ export function ChampionProgressionMini({
     return rounds.size >= 2;
   });
   if (renderable.length === 0) return null;
+  const t = useTranslations("home");
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Championship progression</CardTitle>
+        <CardTitle>{t("championshipProgression")}</CardTitle>
         <CardDescription>
-          Cumulative points per round — top 5 drivers per class.
+          {t("championshipProgressionSubtitle")}
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-6 lg:grid-cols-2">

@@ -51,7 +51,9 @@
     "statClasses": "Classes",
     "statManufacturers": "Manufacturers",
     "statTeams": "Teams",
-    "statDrivers": "Drivers"
+    "statDrivers": "Drivers",
+    "championshipProgression": "Championship progression",
+    "championshipProgressionSubtitle": "Cumulative points per round — top 5 drivers per class."
   },
   "common": {
     "schedule": "Schedule",

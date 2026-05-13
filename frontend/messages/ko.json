@@ -51,7 +51,9 @@
     "statClasses": "클래스",
     "statManufacturers": "매뉴팩처",
     "statTeams": "팀",
-    "statDrivers": "드라이버"
+    "statDrivers": "드라이버",
+    "championshipProgression": "챔피언십 추이",
+    "championshipProgressionSubtitle": "라운드별 누적 점수 — 클래스별 상위 5 드라이버."
   },
   "common": {
     "schedule": "일정",
