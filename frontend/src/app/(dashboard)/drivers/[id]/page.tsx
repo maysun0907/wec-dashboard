@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
-import { localizeEvent } from "@/lib/locale-names";
+import { localizeEventName } from "@/lib/locale-names";
 import { isLocale } from "@/i18n/config";
 import {
   Card,
@@ -76,10 +76,7 @@ export default async function DriverDetailPage({
   const rawLocale = await getLocale();
   const localeForName = isLocale(rawLocale) ? rawLocale : "en";
   // Localize event names inside the results list so the table reads
-  // in the current language. Results carry { eventName, ... }, not a
-  // nested circuit, so we apply a lightweight {name: eventName} shape
-  // to localizeEvent rather than threading a second helper.
-  const { localizeEventName } = await import("@/lib/locale-names");
+  // in the current language.
   const driver = {
     ...driverRaw,
     results: driverRaw.results.map((r) => ({

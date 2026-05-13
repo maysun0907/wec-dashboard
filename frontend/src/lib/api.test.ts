@@ -15,7 +15,15 @@ const ev = (id: number, dateStart: string, dateEnd: string): Event => ({
   dateStart,
   dateEnd,
   format: null,
-  circuit: { id: 1, name: "T", country: "QAT", lengthKm: 5 },
+  posterUrl: null,
+  circuit: {
+    id: 1,
+    name: "T",
+    country: "QAT",
+    lengthKm: 5,
+    lapRecord: null,
+    layoutImage: null,
+  },
 });
 
 describe("describeRounds", () => {

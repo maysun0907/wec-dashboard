@@ -294,7 +294,11 @@
     "career": "커리어",
     "raceResults": "경기 결과",
     "noTitle": "매뉴팩처가 없습니다.",
-    "carsThisSeason": "이번 시즌 {count}대"
+    "carsThisSeason": "이번 시즌 {count}대",
+    "carsAndDrivers": "{cars}대 · 드라이버 {drivers}명",
+    "championshipLabel": "{cls} 챔피언십",
+    "championshipValue": "P{pos} · {pts}점",
+    "raceResultsSubtitle": "{name} 차량의 라운드별 클래스 순위."
   },
   "table": {
     "round": "Rd",

@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
+import { localizeEventName } from "@/lib/locale-names";
+import { isLocale } from "@/i18n/config";
 import { BrandLinkPills } from "@/components/brand-link-pills";
 import {
   Card,
@@ -67,8 +71,22 @@ export default async function ManufacturerDetailPage({
 }) {
   const { id } = await params;
   const year = await getSelectedSeason();
-  const manufacturer = await fetchManufacturer(id, year);
-  if (manufacturer === null) notFound();
+  const manufacturerRaw = await fetchManufacturer(id, year);
+  if (manufacturerRaw === null) notFound();
+  const rawLocale = await getLocale();
+  const localeForName = isLocale(rawLocale) ? rawLocale : "en";
+  const manufacturer = {
+    ...manufacturerRaw,
+    results: manufacturerRaw.results.map((r) => ({
+      ...r,
+      eventName: localizeEventName(r.eventName, localeForName),
+    })),
+  };
+  const t = await getTranslations("manufacturers");
+  const tCommon = await getTranslations("common");
+  const tDrivers = await getTranslations("drivers");
+  const tt = await getTranslations("table");
+  const tStandings = await getTranslations("standings");
 
   // Single-team brands (Genesis Magma Racing, Alpine Endurance Team,
   // etc.) — the manufacturer page would just be a near-duplicate of
@@ -96,13 +114,13 @@ export default async function ManufacturerDetailPage({
           href="/standings"
           className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
         >
-          ← Standings
+          ← {tStandings("title")}
         </Link>
         <Link
           href={`/manufacturers/compare?ids=${manufacturer.id}`}
           className="inline-flex items-center rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-medium hover:bg-secondary"
         >
-          Compare →
+          {tCommon("compare")} →
         </Link>
       </div>
 
@@ -131,7 +149,7 @@ export default async function ManufacturerDetailPage({
               />
             </CardTitle>
             <CardDescription>
-              {`${totalCars} cars · ${totalDrivers} drivers`}
+              {t("carsAndDrivers", { cars: totalCars, drivers: totalDrivers })}
             </CardDescription>
           </div>
         </CardHeader>
@@ -141,8 +159,8 @@ export default async function ManufacturerDetailPage({
               {manufacturer.standings.map((s) => (
                 <Stat
                   key={s.raceClass}
-                  label={`${s.raceClass} championship`}
-                  value={`P${s.position} · ${s.points} pts`}
+                  label={t("championshipLabel", { cls: s.raceClass })}
+                  value={t("championshipValue", { pos: s.position, pts: s.points })}
                 />
               ))}
             </div>
@@ -190,7 +208,7 @@ export default async function ManufacturerDetailPage({
             <CardContent>
               {c.drivers.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  No drivers listed yet.
+                  {tDrivers("noCoDrivers")}
                 </p>
               ) : (
                 <ul className="space-y-2 text-sm">
@@ -223,7 +241,7 @@ export default async function ManufacturerDetailPage({
       {manufacturer.seasons.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Career</CardTitle>
+            <CardTitle>{t("career")}</CardTitle>
             <CardDescription>
               {manufacturerCareerSummary(manufacturer.seasons)}
             </CardDescription>
@@ -236,11 +254,11 @@ export default async function ManufacturerDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Race results</CardTitle>
+          <CardTitle>{t("raceResults")}</CardTitle>
           <CardDescription>
             {manufacturer.results.length === 0
-              ? "No completed races yet this season."
-              : `Every ${manufacturer.name} car's class finish per round.`}
+              ? tDrivers("noCompletedRaces")
+              : t("raceResultsSubtitle", { name: manufacturer.name })}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-0">
@@ -268,14 +286,15 @@ function manufacturerCareerSummary(seasons: ManufacturerSeason[]): string {
 }
 
 function ManufacturerCareerTable({ rows }: { rows: ManufacturerSeason[] }) {
+  const tt = useTranslations("table");
   return (
     <Table>
       <TableHeader>
         <TableRow>
           <TableHead className="w-16 pl-4">Year</TableHead>
-          <TableHead className="w-20">Class</TableHead>
-          <TableHead className="w-16 text-right">Pos</TableHead>
-          <TableHead className="w-20 text-right">Pts</TableHead>
+          <TableHead className="w-20">{tt("class")}</TableHead>
+          <TableHead className="w-16 text-right">{tt("pos")}</TableHead>
+          <TableHead className="w-20 text-right">{tt("pts")}</TableHead>
           <TableHead className="hidden w-12 text-right sm:table-cell">Cars</TableHead>
           <TableHead className="hidden w-12 text-right md:table-cell">R</TableHead>
           <TableHead className="hidden w-12 text-right md:table-cell">W</TableHead>

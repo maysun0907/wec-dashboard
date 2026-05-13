@@ -18,8 +18,10 @@ function pad(n: number) {
   return n.toString().padStart(2, "0");
 }
 
-export function RaceCountdown({ targetIso }: { targetIso: string }) {
-  const target = new Date(targetIso).getTime();
+export function RaceCountdown({ targetIso }: { targetIso: string | null }) {
+  // Null targetIso happens when the API hasn't filled the next race's
+  // RACE.startTime yet — render an empty placeholder rather than NaN.
+  const target = targetIso ? new Date(targetIso).getTime() : Number.NaN;
   // Compute initial digits server-side so the first paint isn't a frozen
   // 00:00:00:00. Server Date.now() and client Date.now() differ by a few
   // ms which would normally trip a hydration warning — suppress on the

@@ -294,7 +294,11 @@
     "career": "Career",
     "raceResults": "Race results",
     "noTitle": "No manufacturers to show.",
-    "carsThisSeason": "{count, plural, one {# car} other {# cars}} this season"
+    "carsThisSeason": "{count, plural, one {# car} other {# cars}} this season",
+    "carsAndDrivers": "{cars, plural, one {# car} other {# cars}} · {drivers, plural, one {# driver} other {# drivers}}",
+    "championshipLabel": "{cls} championship",
+    "championshipValue": "P{pos} · {pts} pts",
+    "raceResultsSubtitle": "Every {name} car's class finish per round."
   },
   "table": {
     "round": "Round",
