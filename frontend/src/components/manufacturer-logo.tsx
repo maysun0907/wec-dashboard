@@ -40,19 +40,27 @@ const BRAND_SCALE_OVERRIDES: Array<{ match: RegExp; scale: number }> = [
   // Porsche shield sits with generous outer padding in the FIA PNG —
   // the crest reads small at 1.2 next to the other roundels.
   { match: /porsche/i, scale: 1.5 },
-  // Audi rings are wide-aspect; anything above the default clips the
-  // outer rings at the pill's rounded corners. Pinned to the same
-  // 1.2 as the rest of the field.
-  { match: /audi/i, scale: 1.2 },
+  // Audi's four-ring PNG fills the canvas almost edge-to-edge
+  // horizontally — any scale > 1 clips the outer rings at the pill's
+  // rounded corners. Pinned to 1.0 (no scale).
+  { match: /audi/i, scale: 1.0 },
   { match: /aston\s*martin/i, scale: 1.0 },
   { match: /genesis/i, scale: 1.0 },
 ];
 const DEFAULT_SCALE = 1.2;
 
-function scaleForName(name: string | null | undefined): number {
-  const n = name ?? "";
+/** Resolve per-brand scale. Matches against both `name` (what the
+ *  consumer passed, often a team name like "Team WRT") AND `src`
+ *  (the manufacturer asset URL, typically `.../bmw.png`) so a BMW
+ *  roundel hung off a non-"BMW"-named team still gets the brand's
+ *  bespoke scale. */
+function scaleForName(
+  name: string | null | undefined,
+  src: string | null | undefined,
+): number {
+  const haystack = `${name ?? ""} ${src ?? ""}`;
   for (const { match, scale } of BRAND_SCALE_OVERRIDES) {
-    if (match.test(n)) return scale;
+    if (match.test(haystack)) return scale;
   }
   return DEFAULT_SCALE;
 }
@@ -93,7 +101,7 @@ export function ManufacturerLogo({ src, name, size = "sm", className }: Props) {
         fill
         sizes={IMG_SIZES[size]}
         className="object-contain"
-        style={{ transform: `scale(${scaleForName(name)})` }}
+        style={{ transform: `scale(${scaleForName(name, src)})` }}
         loading="lazy"
       />
     </span>
