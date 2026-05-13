@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Plus, X } from "lucide-react";
 import {
   CommandDialog,
@@ -46,6 +47,7 @@ type Props = {
 };
 
 export function DriverComparePicker({ selected, catalog, raceClass }: Props) {
+  const t = useTranslations("drivers");
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -148,20 +150,20 @@ export function DriverComparePicker({ selected, catalog, raceClass }: Props) {
         className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1 text-sm text-muted-foreground transition-colors hover:border-solid hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Plus className="size-3.5" />
-        Add driver
-        {atMax && <span className="text-xs">(max {MAX_DRIVERS})</span>}
+        {t("addDriver")}
+        {atMax && <span className="text-xs">{t("maxDrivers", { n: MAX_DRIVERS })}</span>}
       </button>
 
       <CommandDialog
         open={open}
         onOpenChange={setOpen}
-        title="Add driver"
-        description={`Pick a ${raceClass} driver to compare`}
+        title={t("addDriver")}
+        description={t("addDriverDesc", { raceClass })}
       >
-        <CommandInput placeholder="Search drivers…" />
+        <CommandInput placeholder={t("searchDrivers")} />
         <CommandList>
-          <CommandEmpty>No drivers match.</CommandEmpty>
-          <CommandGroup heading={`${raceClass} drivers`}>
+          <CommandEmpty>{t("noDriversMatch")}</CommandEmpty>
+          <CommandGroup heading={t("classDrivers", { raceClass })}>
             {candidates.map((d) => (
               <CommandItem
                 key={d.id}

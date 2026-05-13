@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Plus, X } from "lucide-react";
 import {
   CommandDialog,
@@ -32,6 +33,8 @@ type Props = {
 export function ManufacturerComparePicker({ selected, catalog }: Props) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const t = useTranslations("manufacturers");
+  const tc = useTranslations("nav");
 
   const selectedIds = useMemo(
     () => new Set(selected.map((m) => m.manufacturerId)),
@@ -102,20 +105,20 @@ export function ManufacturerComparePicker({ selected, catalog }: Props) {
         className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1 text-sm text-muted-foreground transition-colors hover:border-solid hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Plus className="size-3.5" />
-        Add manufacturer
-        {atMax && <span className="text-xs">(max {MAX})</span>}
+        {t("addManufacturer")}
+        {atMax && <span className="text-xs">{t("maxN", { n: MAX })}</span>}
       </button>
 
       <CommandDialog
         open={open}
         onOpenChange={setOpen}
-        title="Add manufacturer"
-        description="Pick a Hypercar manufacturer to compare"
+        title={t("addManufacturer")}
+        description={t("addManufacturerDesc")}
       >
-        <CommandInput placeholder="Search…" />
+        <CommandInput placeholder={tc("search")} />
         <CommandList>
-          <CommandEmpty>No matches.</CommandEmpty>
-          <CommandGroup heading="Hypercar manufacturers">
+          <CommandEmpty>{tc("searchEmpty")}</CommandEmpty>
+          <CommandGroup heading={t("hypercarManufacturers")}>
             {candidates.map((m) => (
               <CommandItem
                 key={m.manufacturerId}

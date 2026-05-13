@@ -113,6 +113,12 @@
     "title": "드라이버",
     "eyebrow": "{year} 엔트리",
     "description": "{count}명 등록",
+    "addDriver": "드라이버 추가",
+    "addDriverDesc": "비교할 {raceClass} 드라이버를 선택",
+    "searchDrivers": "드라이버 검색…",
+    "noDriversMatch": "일치하는 드라이버가 없습니다.",
+    "maxDrivers": "(최대 {n})",
+    "classDrivers": "{raceClass} 드라이버",
     "entriesHeading": "엔트리",
     "searchPlaceholder": "이름, 팀, 번호 또는 국적으로 검색",
     "colDriver": "드라이버",
@@ -425,7 +431,11 @@
     "carsAndDrivers": "{cars}대 · 드라이버 {drivers}명",
     "championshipLabel": "{cls} 챔피언십",
     "championshipValue": "P{pos} · {pts}점",
-    "raceResultsSubtitle": "{name} 차량의 라운드별 클래스 순위."
+    "raceResultsSubtitle": "{name} 차량의 라운드별 클래스 순위.",
+    "addManufacturer": "매뉴팩처 추가",
+    "addManufacturerDesc": "비교할 하이퍼카 매뉴팩처를 선택",
+    "hypercarManufacturers": "하이퍼카 매뉴팩처",
+    "maxN": "(최대 {n})"
   },
   "table": {
     "round": "Rd",

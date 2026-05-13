@@ -113,6 +113,12 @@
     "title": "Drivers",
     "eyebrow": "{year} Roster",
     "description": "{count} entries",
+    "addDriver": "Add driver",
+    "addDriverDesc": "Pick a {raceClass} driver to compare",
+    "searchDrivers": "Search drivers…",
+    "noDriversMatch": "No drivers match.",
+    "maxDrivers": "(max {n})",
+    "classDrivers": "{raceClass} drivers",
     "entriesHeading": "Entries",
     "searchPlaceholder": "Search by name, team, # or nationality",
     "colDriver": "Driver",
@@ -425,7 +431,11 @@
     "carsAndDrivers": "{cars, plural, one {# car} other {# cars}} · {drivers, plural, one {# driver} other {# drivers}}",
     "championshipLabel": "{cls} championship",
     "championshipValue": "P{pos} · {pts} pts",
-    "raceResultsSubtitle": "Every {name} car's class finish per round."
+    "raceResultsSubtitle": "Every {name} car's class finish per round.",
+    "addManufacturer": "Add manufacturer",
+    "addManufacturerDesc": "Pick a Hypercar manufacturer to compare",
+    "hypercarManufacturers": "Hypercar manufacturers",
+    "maxN": "(max {n})"
   },
   "table": {
     "round": "Round",
