@@ -37,6 +37,9 @@ const IMG_SIZES: Record<NonNullable<Props["size"]>, string> = {
 // "BMW" (manufacturer name) and "BMW M Team WRT" (team name).
 const BRAND_SCALE_OVERRIDES: Array<{ match: RegExp; scale: number }> = [
   { match: /bmw/i, scale: 1.5 },
+  // Audi's PNG centres the four rings in roughly the middle 50 % of
+  // a square canvas, so the rings read tiny at 1.2× — bump to 1.6×.
+  { match: /audi/i, scale: 1.6 },
   { match: /aston\s*martin/i, scale: 1.0 },
   { match: /genesis/i, scale: 1.0 },
 ];
