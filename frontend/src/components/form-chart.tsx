@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   Line,
   LineChart,
@@ -12,6 +13,7 @@ import {
 type Point = { round: number; classPosition: number };
 
 export function FormChart({ data }: { data: Point[] }) {
+  const t = useTranslations("raceDetail");
   if (data.length === 0) return null;
   const yMax = Math.max(5, ...data.map((p) => p.classPosition));
 
@@ -43,7 +45,7 @@ export function FormChart({ data }: { data: Point[] }) {
             borderRadius: 6,
             fontSize: 12,
           }}
-          formatter={(value) => [`P${value}`, "Class position"]}
+          formatter={(value) => [`P${value}`, t("classPosition")]}
           labelFormatter={(label) => `Round ${label}`}
         />
         <Line

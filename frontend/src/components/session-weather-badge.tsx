@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { getTranslations } from "next-intl/server";
 import { getSessionWeather } from "@/lib/api";
 
 /** Pick an at-a-glance condition emoji from rain + humidity. We don't
@@ -39,6 +40,7 @@ export async function SessionWeatherBadge({
   ) {
     return null;
   }
+  const t = await getTranslations("raceDetail");
   const emoji = conditionEmoji(w.humidityPct, w.rain);
   // Build the parts list bottom-up so a session that only reports
   // rain (no temperatures) still shows the rain emoji + "Rain" text
@@ -48,7 +50,7 @@ export async function SessionWeatherBadge({
   if (w.airTempC != null) {
     parts.push(`${Math.round(w.airTempC)}°C`);
   } else if (w.rain) {
-    parts.push("Rain");
+    parts.push(t("rain"));
   }
   if (w.trackTempC != null) {
     parts.push(`Track ${Math.round(w.trackTempC)}°C`);

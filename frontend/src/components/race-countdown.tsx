@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 
 type Parts = { days: number; hours: number; minutes: number; seconds: number };
 
@@ -35,18 +36,19 @@ export function RaceCountdown({ targetIso }: { targetIso: string | null }) {
     return () => clearInterval(id);
   }, [target]);
 
+  const t = useTranslations("home");
   return (
     <div
       className="flex flex-wrap items-stretch gap-2 sm:gap-3"
       suppressHydrationWarning
     >
-      <Unit value={pad(parts.days)} label="Days" />
+      <Unit value={pad(parts.days)} label={t("countdownDays")} />
       <Sep />
-      <Unit value={pad(parts.hours)} label="Hours" />
+      <Unit value={pad(parts.hours)} label={t("countdownHours")} />
       <Sep />
-      <Unit value={pad(parts.minutes)} label="Min" />
+      <Unit value={pad(parts.minutes)} label={t("countdownMin")} />
       <Sep />
-      <Unit value={pad(parts.seconds)} label="Sec" />
+      <Unit value={pad(parts.seconds)} label={t("countdownSec")} />
     </div>
   );
 }

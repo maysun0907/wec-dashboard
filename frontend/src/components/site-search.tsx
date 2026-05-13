@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Search } from "lucide-react";
 import {
   CommandDialog,
@@ -30,6 +31,7 @@ export function SiteSearch() {
   const [open, setOpen] = useState(false);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const router = useRouter();
+  const t = useTranslations("nav");
 
   // ⌘K / Ctrl+K and the `wec:open-search` custom event used by the
   // mobile hamburger menu's "Search" entry.
@@ -99,17 +101,17 @@ export function SiteSearch() {
       <CommandDialog
         open={open}
         onOpenChange={setOpen}
-        title="Search"
-        description="Drivers, teams, circuits"
+        title={t("searchTitle")}
+        description={t("searchPlaceholder")}
       >
-        <CommandInput placeholder="Search drivers, teams, circuits…" />
+        <CommandInput placeholder={t("searchPlaceholder")} />
         <CommandList>
           <CommandEmpty>
-            {catalog === null ? "Loading…" : "No matches."}
+            {catalog === null ? t("loading") : t("searchEmpty")}
           </CommandEmpty>
           {catalog && (
             <>
-              <CommandGroup heading="Drivers">
+              <CommandGroup heading={t("drivers")}>
                 {catalog.drivers.map((d) => (
                   <CommandItem
                     key={`d-${d.id}`}
@@ -123,21 +125,21 @@ export function SiteSearch() {
                   </CommandItem>
                 ))}
               </CommandGroup>
-              <CommandGroup heading="Teams">
-                {dedupedTeams.map((t) => (
+              <CommandGroup heading={t("teams")}>
+                {dedupedTeams.map((tm) => (
                   <CommandItem
-                    key={`t-${t.id}`}
-                    value={`team ${t.name} ${t.manufacturer ?? ""}`}
-                    onSelect={() => navigate(`/teams/${t.id}`)}
+                    key={`t-${tm.id}`}
+                    value={`team ${tm.name} ${tm.manufacturer ?? ""}`}
+                    onSelect={() => navigate(`/teams/${tm.id}`)}
                   >
-                    <span>{t.name}</span>
+                    <span>{tm.name}</span>
                     <span className="ml-auto text-xs text-muted-foreground">
-                      {t.manufacturer ?? "—"} · {t.raceClass}
+                      {tm.manufacturer ?? "—"} · {tm.raceClass}
                     </span>
                   </CommandItem>
                 ))}
               </CommandGroup>
-              <CommandGroup heading="Circuits">
+              <CommandGroup heading={t("circuits")}>
                 {catalog.circuits.map((c) => (
                   <CommandItem
                     key={`c-${c.id}`}
