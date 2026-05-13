@@ -99,7 +99,12 @@
     "coDrivers": "공동 드라이버",
     "coDriversSubtitle": "같은 차량, 이번 시즌 ({count})",
     "noCoDrivers": "공동 드라이버 없음.",
-    "previousResults": "이전 결과"
+    "previousResults": "이전 결과",
+    "raceResults": "경기 결과",
+    "noCompletedRaces": "이번 시즌 완료된 경기가 없습니다.",
+    "overallByRound": "라운드별 종합 순위.",
+    "colLaps": "랩",
+    "colYear": "연도"
   },
   "standings": {
     "title": "챔피언십 순위",
@@ -283,5 +288,23 @@
     "HYPERCAR": "HYPERCAR",
     "LMGT3": "LMGT3",
     "Hypercar": "하이퍼카"
+  },
+  "manufacturers": {
+    "title": "매뉴팩처",
+    "career": "커리어",
+    "raceResults": "경기 결과",
+    "noTitle": "매뉴팩처가 없습니다.",
+    "carsThisSeason": "이번 시즌 {count}대"
+  },
+  "table": {
+    "round": "Rd",
+    "event": "이벤트",
+    "team": "팀",
+    "class": "클래스",
+    "pos": "순위",
+    "pts": "점수",
+    "best": "베스트",
+    "races": "경기",
+    "wins": "우승"
   }
 }

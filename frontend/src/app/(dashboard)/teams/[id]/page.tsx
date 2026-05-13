@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
+import { localizeEventName } from "@/lib/locale-names";
+import { isLocale } from "@/i18n/config";
 import {
   Card,
   CardContent,
@@ -66,9 +69,19 @@ export default async function TeamDetailPage({
 }) {
   const { id } = await params;
   const year = await getSelectedSeason();
-  const team = await fetchTeam(id, year);
-  if (team === null) notFound();
+  const teamRaw = await fetchTeam(id, year);
+  if (teamRaw === null) notFound();
+  const rawLocale = await getLocale();
+  const localeForName = isLocale(rawLocale) ? rawLocale : "en";
+  const team = {
+    ...teamRaw,
+    results: teamRaw.results.map((r) => ({
+      ...r,
+      eventName: localizeEventName(r.eventName, localeForName),
+    })),
+  };
   const t = await getTranslations("teams");
+  const tt = await getTranslations("table");
 
   return (
     <div className="space-y-6">
@@ -215,15 +228,15 @@ export default async function TeamDetailPage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12 pl-4">Rd</TableHead>
-                  <TableHead>Event</TableHead>
+                  <TableHead className="w-12 pl-4">{tt("round")}</TableHead>
+                  <TableHead>{tt("event")}</TableHead>
                   <TableHead className="w-12">#</TableHead>
-                  <TableHead className="w-16">Class</TableHead>
+                  <TableHead className="w-16">{tt("class")}</TableHead>
                   <TableHead className="w-14 text-right">Cls</TableHead>
                   <TableHead className="w-12 text-right text-muted-foreground">
-                    Pos
+                    {tt("pos")}
                   </TableHead>
-                  <TableHead className="pr-4 text-right">Pts</TableHead>
+                  <TableHead className="pr-4 text-right">{tt("pts")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -288,15 +301,16 @@ function teamCareerSummary(seasons: TeamSeason[]): string {
 }
 
 function TeamCareerTable({ rows }: { rows: TeamSeason[] }) {
+  const tt = useTranslations("table");
   return (
     <Table>
       <TableHeader>
         <TableRow>
           <TableHead className="w-16 pl-4">Year</TableHead>
-          <TableHead className="w-20">Class</TableHead>
+          <TableHead className="w-20">{tt("class")}</TableHead>
           <TableHead className="w-12 text-right">#</TableHead>
-          <TableHead className="w-16 text-right">Pos</TableHead>
-          <TableHead className="w-20 text-right">Pts</TableHead>
+          <TableHead className="w-16 text-right">{tt("pos")}</TableHead>
+          <TableHead className="w-20 text-right">{tt("pts")}</TableHead>
           <TableHead className="hidden w-12 text-right md:table-cell">R</TableHead>
           <TableHead className="hidden w-12 text-right md:table-cell">W</TableHead>
           <TableHead className="w-14 pr-4 text-right">P</TableHead>

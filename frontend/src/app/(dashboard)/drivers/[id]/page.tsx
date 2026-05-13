@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getTranslations } from "next-intl/server";
+import { useTranslations } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
+import { localizeEvent } from "@/lib/locale-names";
+import { isLocale } from "@/i18n/config";
 import {
   Card,
   CardContent,
@@ -68,9 +71,24 @@ export default async function DriverDetailPage({
 }) {
   const { id } = await params;
   const year = await getSelectedSeason();
-  const driver = await fetchDriver(id, year);
-  if (driver === null) notFound();
+  const driverRaw = await fetchDriver(id, year);
+  if (driverRaw === null) notFound();
+  const rawLocale = await getLocale();
+  const localeForName = isLocale(rawLocale) ? rawLocale : "en";
+  // Localize event names inside the results list so the table reads
+  // in the current language. Results carry { eventName, ... }, not a
+  // nested circuit, so we apply a lightweight {name: eventName} shape
+  // to localizeEvent rather than threading a second helper.
+  const { localizeEventName } = await import("@/lib/locale-names");
+  const driver = {
+    ...driverRaw,
+    results: driverRaw.results.map((r) => ({
+      ...r,
+      eventName: localizeEventName(r.eventName, localeForName),
+    })),
+  };
   const t = await getTranslations("drivers");
+  const tt = await getTranslations("table");
 
   return (
     <div className="space-y-6">
@@ -244,11 +262,11 @@ export default async function DriverDetailPage({
 
         <Card>
           <CardHeader>
-            <CardTitle>Race results</CardTitle>
+            <CardTitle>{t("raceResults")}</CardTitle>
             <CardDescription>
               {driver.results.length === 0
-                ? "No completed races yet this season."
-                : "Overall finishing position per round."}
+                ? t("noCompletedRaces")
+                : t("overallByRound")}
             </CardDescription>
           </CardHeader>
           <CardContent className="px-0">
@@ -256,14 +274,14 @@ export default async function DriverDetailPage({
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-12 pl-4">Rd</TableHead>
-                    <TableHead>Event</TableHead>
-                    <TableHead className="w-16 text-right">Class</TableHead>
-                    <TableHead className="w-14 text-right">Pos</TableHead>
+                    <TableHead className="w-12 pl-4">{tt("round")}</TableHead>
+                    <TableHead>{tt("event")}</TableHead>
+                    <TableHead className="w-16 text-right">{tt("class")}</TableHead>
+                    <TableHead className="w-14 text-right">{tt("pos")}</TableHead>
                     <TableHead className="hidden w-16 text-right sm:table-cell">
-                      Laps
+                      {t("colLaps")}
                     </TableHead>
-                    <TableHead className="pr-4 text-right">Pts</TableHead>
+                    <TableHead className="pr-4 text-right">{tt("pts")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -325,16 +343,18 @@ function careerSummary(seasons: DriverSeason[]): string {
 }
 
 function CareerTable({ rows }: { rows: DriverSeason[] }) {
+  const tt = useTranslations("table");
+  const td = useTranslations("drivers");
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-16 pl-4">Year</TableHead>
-          <TableHead className="w-20">Class</TableHead>
-          <TableHead>Team</TableHead>
+          <TableHead className="w-16 pl-4">{td("colYear")}</TableHead>
+          <TableHead className="w-20">{tt("class")}</TableHead>
+          <TableHead>{tt("team")}</TableHead>
           <TableHead className="hidden w-12 text-right sm:table-cell">#</TableHead>
-          <TableHead className="w-16 text-right">Pos</TableHead>
-          <TableHead className="w-16 text-right">Pts</TableHead>
+          <TableHead className="w-16 text-right">{tt("pos")}</TableHead>
+          <TableHead className="w-16 text-right">{tt("pts")}</TableHead>
           <TableHead className="hidden w-12 text-right md:table-cell">R</TableHead>
           <TableHead className="hidden w-12 text-right md:table-cell">W</TableHead>
           <TableHead className="w-14 pr-4 text-right">P</TableHead>

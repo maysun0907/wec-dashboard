@@ -99,7 +99,12 @@
     "coDrivers": "Co-drivers",
     "coDriversSubtitle": "Same car, this season ({count})",
     "noCoDrivers": "No co-drivers listed.",
-    "previousResults": "Previous results"
+    "previousResults": "Previous results",
+    "raceResults": "Race results",
+    "noCompletedRaces": "No completed races yet this season.",
+    "overallByRound": "Overall finishing position per round.",
+    "colLaps": "Laps",
+    "colYear": "Year"
   },
   "standings": {
     "title": "Standings",
@@ -283,5 +288,23 @@
     "HYPERCAR": "HYPERCAR",
     "LMGT3": "LMGT3",
     "Hypercar": "Hypercar"
+  },
+  "manufacturers": {
+    "title": "Manufacturers",
+    "career": "Career",
+    "raceResults": "Race results",
+    "noTitle": "No manufacturers to show.",
+    "carsThisSeason": "{count, plural, one {# car} other {# cars}} this season"
+  },
+  "table": {
+    "round": "Round",
+    "event": "Event",
+    "team": "Team",
+    "class": "Class",
+    "pos": "Pos",
+    "pts": "Pts",
+    "best": "Best",
+    "races": "Races",
+    "wins": "Wins"
   }
 }
