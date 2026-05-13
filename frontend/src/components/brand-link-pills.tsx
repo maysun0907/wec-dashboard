@@ -1,4 +1,5 @@
 import type { ReactNode, SVGProps } from "react";
+import { useTranslations } from "next-intl";
 
 type Brand = {
   websiteUrl?: string | null;
@@ -18,11 +19,12 @@ type Brand = {
  *  glyphs we need — see commit history for the build failure that
  *  prompted the swap. */
 export function BrandLinkPills({ brand }: { brand: Brand }) {
+  const t = useTranslations("common");
   type Item = { label: string; href: string; icon: ReactNode };
   const items: Item[] = [];
   if (brand.websiteUrl)
     items.push({
-      label: "Official racing site",
+      label: t("officialRacingSite"),
       href: brand.websiteUrl,
       icon: <GlobeIcon />,
     });

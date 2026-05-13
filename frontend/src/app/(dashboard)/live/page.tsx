@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
+import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Check, ExternalLink, Trophy } from "lucide-react";
 import { localizeEvent } from "@/lib/locale-names";
@@ -36,13 +37,17 @@ const FIAWEC_URL = "https://www.fiawec.com/";
 const FIAWEC_TV_URL = "https://plus.fiawec.com/en";
 const TWITTER_URL = "https://twitter.com/FIAWEC";
 
-const SESSION_LABEL: Record<string, string> = {
-  FP1: "Free Practice 1",
-  FP2: "Free Practice 2",
-  FP3: "Free Practice 3",
-  Q: "Qualifying",
-  RACE: "Race",
+const SESSION_LABEL_KEYS: Record<string, "sessionLabelFP1" | "sessionLabelFP2" | "sessionLabelFP3" | "sessionLabelQ" | "sessionLabelRACE"> = {
+  FP1: "sessionLabelFP1",
+  FP2: "sessionLabelFP2",
+  FP3: "sessionLabelFP3",
+  Q: "sessionLabelQ",
+  RACE: "sessionLabelRACE",
 };
+function sessionLabel(type: string, t: (k: string) => string): string {
+  const k = SESSION_LABEL_KEYS[type];
+  return k ? t(k) : type;
+}
 
 // Approximate session lengths (minutes). Used only to decide whether a
 // session is "in progress now" or already ended; we don't track exact
@@ -222,7 +227,7 @@ export default async function LivePage() {
               <>
                 <span className="size-1.5 animate-pulse rounded-full bg-[var(--racing-red)]" />
                 {t("liveRound", {
-                  type: SESSION_LABEL[liveSession.type] ?? liveSession.type,
+                  type: sessionLabel(liveSession.type, t),
                   round: next.round,
                 })}
               </>
@@ -320,7 +325,7 @@ export default async function LivePage() {
           <CardHeader>
             <CardTitle>
               {t("latestResult", {
-                type: SESSION_LABEL[lastDone.type] ?? lastDone.type,
+                type: sessionLabel(lastDone.type, t),
               })}
             </CardTitle>
             <CardDescription>
@@ -385,25 +390,26 @@ function LiveSessionPanel({
     const mm = m % 60;
     return `${h}h ${mm}m`;
   };
+  const tl = useTranslations("live");
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-1">
         <div className="text-xs uppercase tracking-wider text-muted-foreground">
-          {SESSION_LABEL[session.type] ?? session.type} — in progress
+          {tl("inProgress", { type: sessionLabel(session.type, tl) })}
         </div>
         <div className="font-mono text-3xl font-bold tabular-nums">
           {fmt(elapsedMin)}{" "}
-          <span className="text-base text-muted-foreground">elapsed</span>
+          <span className="text-base text-muted-foreground">{tl("elapsed")}</span>
         </div>
         {remainingMin !== null && (
           <div className="font-mono text-sm text-muted-foreground tabular-nums">
-            ~{fmt(remainingMin)} remaining
+            ~{fmt(remainingMin)} {tl("remaining")}
           </div>
         )}
       </div>
       <div className="space-y-2">
         <div className="text-xs uppercase tracking-wider text-muted-foreground">
-          Session start
+          {tl("sessionStart")}
         </div>
         {session.startTime && (
           <SessionTime iso={session.startTime} circuitTz={tz} />
@@ -420,18 +426,19 @@ function NextSessionPanel({
   session: TimedSession;
   tz: string;
 }) {
+  const tl = useTranslations("live");
   if (session.startTime === null) return null;
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-2">
         <div className="text-xs uppercase tracking-wider text-muted-foreground">
-          Next: {SESSION_LABEL[session.type] ?? session.type}
+          {tl("nextLabel", { type: sessionLabel(session.type, tl) })}
         </div>
         <RaceCountdown targetIso={session.startTime} />
       </div>
       <div className="space-y-2">
         <div className="text-xs uppercase tracking-wider text-muted-foreground">
-          Starts at
+          {tl("startsAt")}
         </div>
         <SessionTime iso={session.startTime} circuitTz={tz} />
       </div>
@@ -452,6 +459,7 @@ function ScheduleRow({
    *  with this session's tab pre-selected. */
   eventId: number;
 }) {
+  const tl = useTranslations("live");
   const status = session.status;
   return (
     <li>
@@ -470,7 +478,7 @@ function ScheduleRow({
         )}
         <div className="min-w-0 flex-1">
           <div className="font-medium">
-            {SESSION_LABEL[session.type] ?? session.type}
+            {sessionLabel(session.type, tl)}
           </div>
           {session.startTime ? (
             <div className="text-xs text-muted-foreground">
@@ -483,7 +491,7 @@ function ScheduleRow({
             </div>
           ) : (
             <div className="text-xs text-muted-foreground">
-              Time not yet published
+              {tl("timeNotYet")}
             </div>
           )}
         </div>

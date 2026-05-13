@@ -85,7 +85,13 @@
     "notAvailable": "Not available",
     "yes": "Yes",
     "no": "No",
-    "all": "All"
+    "all": "All",
+    "somethingWrong": "Something went wrong",
+    "renderError": "This page failed to render. The data source might be slow or temporarily down.",
+    "tryAgain": "Try again",
+    "goHome": "Go home",
+    "officialRacingSite": "Official racing site",
+    "ref": "ref"
   },
   "races": {
     "title": "Schedule",
@@ -395,7 +401,14 @@
     "sessionLabelFP2": "Free Practice 2",
     "sessionLabelFP3": "Free Practice 3",
     "sessionLabelQ": "Qualifying",
-    "sessionLabelRACE": "Race"
+    "sessionLabelRACE": "Race",
+    "inProgress": "{type} — in progress",
+    "elapsed": "elapsed",
+    "remaining": "remaining",
+    "sessionStart": "Session start",
+    "nextLabel": "Next: {type}",
+    "startsAt": "Starts at",
+    "timeNotYet": "Time not yet published"
   },
   "raceClass": {
     "HYPERCAR": "HYPERCAR",
