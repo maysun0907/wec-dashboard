@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Check, Link as LinkIcon } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import {
@@ -475,6 +476,7 @@ export function ChampionshipSimulator({
     setPicks((prev) => ({ ...prev, [raceClass]: {} }));
   }
 
+  const t = useTranslations("simulator");
   return (
     <Tabs defaultValue="HYPERCAR">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -497,12 +499,12 @@ export function ChampionshipSimulator({
           {copied ? (
             <>
               <Check className="size-3.5" />
-              Copied
+              {t("copied")}
             </>
           ) : (
             <>
               <LinkIcon className="size-3.5" />
-              Share picks
+              {t("sharePicks")}
             </>
           )}
         </Button>
@@ -565,10 +567,22 @@ function ClassPanel({
     );
   }, [teams, raceClass]);
 
+  const t = useTranslations("simulator");
   const championships = CHAMPIONSHIPS_BY_CLASS[raceClass];
   const [activeChamp, setActiveChamp] = useState<ChampType>(
     championships[0] ?? "drivers",
   );
+  const champLabel: Record<ChampType, string> = {
+    drivers: t("champDrivers"),
+    manufacturers: t("champManufacturers"),
+    teams: t("champTeams"),
+  };
+  const slotLabel: Record<PickSlot, string> = {
+    p1: t("slotWinner"),
+    p2: t("slot2nd"),
+    p3: t("slot3rd"),
+    pole: t("slotPole"),
+  };
 
   const simulated = useMemo(() => {
     if (activeChamp === "drivers") {
@@ -603,9 +617,9 @@ function ClassPanel({
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Pick the podium</CardTitle>
+                <CardTitle>{t("pickPodium")}</CardTitle>
                 <CardDescription>
-                  {upcoming.length} rounds remaining · {totalPicks} picks
+                  {t("remainingPicks", { rounds: upcoming.length, picks: totalPicks })}
                 </CardDescription>
               </div>
               <ClassBadge raceClass={raceClass} />
@@ -616,7 +630,7 @@ function ClassPanel({
         {upcoming.length === 0 ? (
           <Card>
             <CardContent className="py-6 text-sm text-muted-foreground">
-              Season is complete — nothing left to simulate.
+              {t("seasonComplete")}
             </CardContent>
           </Card>
         ) : (
@@ -633,8 +647,8 @@ function ClassPanel({
                       <CardTitle className="text-base">{e.name}</CardTitle>
                     </div>
                     <span className="text-right text-[10px] text-muted-foreground">
-                      {pts[0]}/{pts[1]}/{pts[2]} pts
-                      <br />+1 pole
+                      {t("ptsLabel", { p1: pts[0], p2: pts[1], p3: pts[2] })}
+                      <br />{t("polePlus1")}
                     </span>
                   </div>
                 </CardHeader>
@@ -642,7 +656,7 @@ function ClassPanel({
                   {SLOT_ORDER.map((slot) => (
                     <div key={slot} className="flex items-center gap-2">
                       <span className="w-12 shrink-0 text-xs uppercase tracking-wider text-muted-foreground">
-                        {SLOT_LABEL[slot]}
+                        {slotLabel[slot]}
                       </span>
                       <Select
                         value={picks[e.id]?.[slot] ?? ""}
@@ -670,7 +684,7 @@ function ClassPanel({
         {hasPicks && (
           <div className="pt-1">
             <Button variant="outline" size="sm" onClick={onReset}>
-              Reset picks
+              {t("resetPicks")}
             </Button>
           </div>
         )}
@@ -681,11 +695,9 @@ function ClassPanel({
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <CardTitle>Predicted standings</CardTitle>
+                <CardTitle>{t("predictedStandings")}</CardTitle>
                 <CardDescription>
-                  {hasPicks
-                    ? "Top 10 — Δ shows points gained vs current."
-                    : "Pick winners on the left to see how the table shifts."}
+                  {hasPicks ? t("topDeltaHelp") : t("pickToSee")}
                 </CardDescription>
               </div>
               {championships.length > 1 && (
@@ -696,7 +708,7 @@ function ClassPanel({
                   <TabsList variant="line">
                     {championships.map((champ) => (
                       <TabsTrigger key={champ} value={champ}>
-                        {CHAMP_LABEL[champ]}
+                        {champLabel[champ]}
                       </TabsTrigger>
                     ))}
                   </TabsList>
@@ -708,11 +720,11 @@ function ClassPanel({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12 pl-4">Pos</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead className="w-16 text-right">Now</TableHead>
-                  <TableHead className="w-16 text-right">Sim</TableHead>
-                  <TableHead className="w-12 pr-4 text-right">Δ</TableHead>
+                  <TableHead className="w-12 pl-4">{t("colPos")}</TableHead>
+                  <TableHead>{t("colName")}</TableHead>
+                  <TableHead className="w-16 text-right">{t("colNow")}</TableHead>
+                  <TableHead className="w-16 text-right">{t("colSim")}</TableHead>
+                  <TableHead className="w-12 pr-4 text-right">{t("colDelta")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

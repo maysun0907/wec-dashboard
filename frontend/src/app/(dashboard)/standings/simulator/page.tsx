@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { getLocale, getTranslations } from "next-intl/server";
 import { ChampionshipSimulator } from "@/components/simulator";
 import { PageHeader } from "@/components/page-header";
+import { localizeEvent } from "@/lib/locale-names";
+import { isLocale } from "@/i18n/config";
 import {
   getDriverStandings,
   getDrivers,
@@ -16,7 +19,7 @@ export const metadata = { title: "Championship simulator" };
 export default async function SimulatorPage() {
   const year = await getSelectedSeason();
   const [
-    events,
+    eventsRaw,
     drivers,
     teams,
     hyperDrivers,
@@ -32,6 +35,10 @@ export default async function SimulatorPage() {
     getManufacturerStandings("HYPERCAR", year),
     getTeamStandings("LMGT3", year),
   ]);
+  const rawLocale = await getLocale();
+  const locale = isLocale(rawLocale) ? rawLocale : "en";
+  const events = eventsRaw.map((e) => localizeEvent(e, locale));
+  const t = await getTranslations("simulator");
 
   return (
     <div className="space-y-6">
@@ -39,13 +46,13 @@ export default async function SimulatorPage() {
         href="/standings"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
-        ← Standings
+        {t("back")}
       </Link>
 
       <PageHeader
-        eyebrow="What if"
-        title="Championship simulator"
-        description="Pick the podium and pole-sitter for each remaining round, then switch between Drivers, Manufacturers (Hypercar), and Teams (LMGT3) trophies. Endurance rounds (Le Mans, Bahrain 8h, Qatar 1812 km) score 38/27/23 to the podium; standard 6h rounds score 25/18/15. Pole adds +1 to the pole-sitter’s drivers."
+        eyebrow={t("eyebrow")}
+        title={t("title")}
+        description={t("description")}
       />
 
       <ChampionshipSimulator
