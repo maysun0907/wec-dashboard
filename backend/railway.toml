@@ -14,4 +14,3 @@ preDeployCommand = "alembic upgrade head && python -m app.curate_car_models && p
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
-# trigger redeploy
