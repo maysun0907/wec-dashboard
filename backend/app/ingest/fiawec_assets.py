@@ -194,6 +194,37 @@ def _is_archive_url(url: str) -> bool:
     return url.startswith(WAYBACK)
 
 
+def _wayback_probe(probe_url: str) -> tuple[str, str] | None:
+    """Fetch a Wayback `/web/{ts}/...` URL with `follow_redirects=False`
+    and return the redirect target as (timestamp, full_url). Retries
+    on transient failures (Connection refused, 5xx) because Wayback
+    cuts off bursts of requests."""
+    import time
+
+    for attempt in range(4):
+        try:
+            r = httpx.get(
+                probe_url,
+                headers={"User-Agent": USER_AGENT},
+                follow_redirects=False,
+                timeout=30,
+            )
+            if r.status_code >= 500:
+                time.sleep(2 ** attempt)
+                continue
+            loc = r.headers.get("location")
+            if not loc:
+                return None
+            m = re.search(r"/web/(\d{14})/", loc)
+            if m is None:
+                return None
+            return m.group(1), loc
+        except httpx.HTTPError:
+            time.sleep(2 ** attempt)
+            continue
+    return None
+
+
 def _scrape_legacy_per_car(
     year: int, car_numbers: list[str]
 ) -> dict[str, str]:
@@ -215,38 +246,34 @@ def _scrape_legacy_per_car(
     don't pay the CDX API cost (which has been timing out under
     load), and the if-newer-than-target redirect will land us on the
     closest in-year snapshot. Returns ``{car_number: wayback_url}``."""
+    import time
+
     out: dict[str, str] = {}
+    # Try mid-year first (covers Le Mans race-week captures) and fall
+    # back to late-year for cars Wayback only re-archived after the
+    # season wrapped. Cars whose Wayback redirects always land outside
+    # the season year (e.g. only 2026 captures exist for a 2024 page)
+    # are skipped.
+    probe_dates = [f"{year}0701", f"{year}1215", f"{year}0301"]
     for num in car_numbers:
         target = f"https://www.fiawec.com/en/car/{year}/{num}"
-        # Late-year timestamp probe — Wayback's `web/{ts}/...`
-        # endpoint follows a 302 to the nearest captured snapshot.
-        # If the redirect lands in a different year, the page is
-        # irrelevant for this season and we skip.
-        probe_url = (
-            f"{WAYBACK}/web/{year}1215000000/{target}"
-        )
-        try:
-            r = httpx.get(
-                probe_url,
-                headers={"User-Agent": USER_AGENT},
-                follow_redirects=False,
-                timeout=30,
-            )
-        except httpx.HTTPError:
+        ts: str | None = None
+        page_url: str | None = None
+        for date in probe_dates:
+            probe = f"{WAYBACK}/web/{date}000000/{target}"
+            result = _wayback_probe(probe)
+            if result is None:
+                continue
+            cand_ts, cand_url = result
+            if cand_ts.startswith(str(year)):
+                ts = cand_ts
+                page_url = cand_url
+                break
+        if ts is None or page_url is None:
+            # Throttle even on misses — connection refused is mostly
+            # what we see when bursting Wayback too fast.
+            time.sleep(0.5)
             continue
-        loc = r.headers.get("location")
-        if not loc:
-            continue
-        m = re.search(r"/web/(\d{14})/", loc)
-        if m is None:
-            continue
-        ts = m.group(1)
-        # Only accept snapshots that fall inside the requested year.
-        # Wayback otherwise happily returns a 2026 capture for a 2024
-        # query when no in-year snapshot exists.
-        if not ts.startswith(str(year)):
-            continue
-        page_url = loc
         try:
             html = _fetch(page_url)
         except httpx.HTTPError:
@@ -264,6 +291,7 @@ def _scrape_legacy_per_car(
         else:
             live = f"https://www.fiawec.com{asset_path}"
         out[num] = _to_wayback_asset(live, ts)
+        time.sleep(0.5)
     return out
 
 
