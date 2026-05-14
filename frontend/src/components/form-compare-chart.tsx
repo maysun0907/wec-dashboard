@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import {
   CartesianGrid,
   Legend,
@@ -48,6 +49,7 @@ function pivot(series: FormSeries[]): Row[] {
 }
 
 export function FormCompareChart({ series }: { series: FormSeries[] }) {
+  const t = useTranslations("raceDetail");
   const data = useMemo(() => pivot(series), [series]);
   const yMax = useMemo(() => {
     let m = 5;
@@ -58,7 +60,7 @@ export function FormCompareChart({ series }: { series: FormSeries[] }) {
   if (series.length === 0 || data.length === 0) {
     return (
       <div className="px-4 py-12 text-center text-sm text-muted-foreground">
-        No completed rounds for the selected drivers yet.
+        {t("noRoundsForDrivers")}
       </div>
     );
   }

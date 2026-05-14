@@ -46,7 +46,7 @@ export function FormChart({ data }: { data: Point[] }) {
             fontSize: 12,
           }}
           formatter={(value) => [`P${value}`, t("classPosition")]}
-          labelFormatter={(label) => `Round ${label}`}
+          labelFormatter={(label) => t("roundN", { round: label as number })}
         />
         <Line
           type="monotone"

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -102,19 +104,22 @@ export default async function ComparePage({
     return { key: `d-${d.id}`, label: d.name, points };
   });
 
+  const t = await getTranslations("compare");
+  const tSeasons = await getTranslations("seasons");
+  const tDrivers = await getTranslations("drivers");
   return (
     <div className="space-y-6">
       <Link
         href="/drivers"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
-        ← Drivers
+        ← {tDrivers("title")}
       </Link>
 
       <PageHeader
-        eyebrow="Side by side"
-        title="Compare drivers"
-        description="Up to 5 drivers from the same class. Lines drop to a gap when a driver missed that round."
+        eyebrow={tSeasons("sideBySide")}
+        title={t("compareDrivers")}
+        description={t("compareDriversDesc")}
       />
 
       <DriverComparePicker
@@ -132,16 +137,16 @@ export default async function ComparePage({
       {selected.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            Pick at least one driver to start comparing.
+            {t("pickAtLeastOneDriver")}
           </CardContent>
         </Card>
       ) : (
         <>
           <Card>
             <CardHeader>
-              <CardTitle>Stats</CardTitle>
+              <CardTitle>{t("stats")}</CardTitle>
               <CardDescription>
-                Class results across {raceClass} rounds completed so far.
+                {t("statsSubtitle", { raceClass })}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-0">
@@ -151,9 +156,9 @@ export default async function ComparePage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Form</CardTitle>
+              <CardTitle>{t("form")}</CardTitle>
               <CardDescription>
-                Class position by round — lower is better.
+                {t("formSubtitle")}
               </CardDescription>
             </CardHeader>
             <CardContent className="pb-4">
@@ -163,9 +168,9 @@ export default async function ComparePage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Championship progression</CardTitle>
+              <CardTitle>{t("championshipProgression")}</CardTitle>
               <CardDescription>
-                Cumulative WEC points after each completed round.
+                {t("championshipProgressionSubtitle")}
               </CardDescription>
             </CardHeader>
             <CardContent className="pb-4">
@@ -176,11 +181,11 @@ export default async function ComparePage({
           {selected.length >= 2 && (
             <Card>
               <CardHeader>
-                <CardTitle>Head to head</CardTitle>
+                <CardTitle>{t("headToHead")}</CardTitle>
                 <CardDescription>
                   {selected.length === 2
-                    ? "Round-by-round class finish — lower wins."
-                    : "Pairwise wins across rounds both drivers contested."}
+                    ? t("headToHeadPair")
+                    : t("headToHeadMatrix")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="px-0">
@@ -199,17 +204,18 @@ export default async function ComparePage({
 }
 
 function StatsTable({ drivers }: { drivers: DriverDetail[] }) {
+  const t = useTranslations("compare");
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="text-xs uppercase tracking-wider text-muted-foreground">
           <tr className="border-b border-border">
-            <th className="px-4 py-2 text-left">Driver</th>
-            <th className="px-2 py-2 text-right">Champ. pos.</th>
-            <th className="px-2 py-2 text-right">Points</th>
-            <th className="px-2 py-2 text-right">Races</th>
-            <th className="px-2 py-2 text-right">Best</th>
-            <th className="px-4 py-2 text-right">Avg</th>
+            <th className="px-4 py-2 text-left">{t("colDriver")}</th>
+            <th className="px-2 py-2 text-right">{t("colChampPos")}</th>
+            <th className="px-2 py-2 text-right">{t("colPoints")}</th>
+            <th className="px-2 py-2 text-right">{t("colRaces")}</th>
+            <th className="px-2 py-2 text-right">{t("colBest")}</th>
+            <th className="px-4 py-2 text-right">{t("colAvg")}</th>
           </tr>
         </thead>
         <tbody>
@@ -264,6 +270,7 @@ function classPosByRound(d: DriverDetail): ClassPosByRound {
 }
 
 function HeadToHeadRounds({ drivers }: { drivers: DriverDetail[] }) {
+  const t = useTranslations("compare");
   const [a, b] = drivers;
   if (!a || !b) return null;
   const aMap = classPosByRound(a);
@@ -291,24 +298,24 @@ function HeadToHeadRounds({ drivers }: { drivers: DriverDetail[] }) {
         <span className="font-mono text-foreground">{aWins}</span>
         <span> · </span>
         <span className="font-medium text-foreground">{a.name}</span>
-        <span className="mx-3">vs</span>
+        <span className="mx-3">{t("vs")}</span>
         <span className="font-medium text-foreground">{b.name}</span>
         <span> · </span>
         <span className="font-mono text-foreground">{bWins}</span>
         {ties > 0 && (
           <span className="ml-3 text-muted-foreground">
-            ({ties} tied · {both} shared rounds)
+            {t("tiedSharedRounds", { ties, both })}
           </span>
         )}
       </div>
       <table className="w-full text-sm">
         <thead className="text-xs uppercase tracking-wider text-muted-foreground">
           <tr className="border-b border-border">
-            <th className="w-16 px-4 py-2 text-left">Round</th>
+            <th className="w-16 px-4 py-2 text-left">{t("colRound")}</th>
             <th className="py-2 text-right">{a.name}</th>
-            <th className="w-12 py-2 text-center">vs</th>
+            <th className="w-12 py-2 text-center">{t("vs")}</th>
             <th className="py-2 text-left">{b.name}</th>
-            <th className="w-20 px-4 py-2 text-right">Edge</th>
+            <th className="w-20 px-4 py-2 text-right">{t("colEdge")}</th>
           </tr>
         </thead>
         <tbody>
@@ -339,7 +346,7 @@ function HeadToHeadRounds({ drivers }: { drivers: DriverDetail[] }) {
                   {av !== undefined ? `P${av}` : "—"}
                 </td>
                 <td className="py-2 text-center text-xs text-muted-foreground">
-                  vs
+                  {t("vs")}
                 </td>
                 <td
                   className={
@@ -353,7 +360,7 @@ function HeadToHeadRounds({ drivers }: { drivers: DriverDetail[] }) {
                 </td>
                 <td className="px-4 py-2 text-right font-mono tabular-nums">
                   {winner === "tie"
-                    ? "tie"
+                    ? t("tie")
                     : winner !== null
                       ? `+${Math.abs((av ?? 0) - (bv ?? 0))}`
                       : "—"}
@@ -368,6 +375,7 @@ function HeadToHeadRounds({ drivers }: { drivers: DriverDetail[] }) {
 }
 
 function HeadToHeadMatrix({ drivers }: { drivers: DriverDetail[] }) {
+  const t = useTranslations("compare");
   const maps = drivers.map(classPosByRound);
   // wins[i][j] = number of rounds driver i beat driver j (lower class pos)
   const wins: number[][] = drivers.map(() => drivers.map(() => 0));
@@ -386,13 +394,13 @@ function HeadToHeadMatrix({ drivers }: { drivers: DriverDetail[] }) {
       <table className="w-full text-sm">
         <thead className="text-xs uppercase tracking-wider text-muted-foreground">
           <tr className="border-b border-border">
-            <th className="px-4 py-2 text-left">Driver</th>
+            <th className="px-4 py-2 text-left">{t("colDriver")}</th>
             {drivers.map((d) => (
               <th key={d.id} className="px-2 py-2 text-center font-medium">
                 {d.name.split(" ").slice(-1)[0]}
               </th>
             ))}
-            <th className="px-4 py-2 text-right">Total</th>
+            <th className="px-4 py-2 text-right">{t("colTotal")}</th>
           </tr>
         </thead>
         <tbody>

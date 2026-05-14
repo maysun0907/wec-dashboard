@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
@@ -79,19 +81,22 @@ export default async function ManufacturerComparePage({
     })
     .filter((s): s is ProgressionSeries => s !== null);
 
+  const t = await getTranslations("compare");
+  const tSeasons = await getTranslations("seasons");
+  const tStandings = await getTranslations("standings");
   return (
     <div className="space-y-6">
       <Link
         href="/standings"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
-        ← Standings
+        ← {tStandings("title")}
       </Link>
 
       <PageHeader
-        eyebrow="Side by side"
-        title="Compare manufacturers"
-        description="Hypercar manufacturers’ championship — pick up to 5 brands to watch their cumulative points side by side."
+        eyebrow={tSeasons("sideBySide")}
+        title={t("compareManufacturers")}
+        description={t("compareManufacturersHypercarDesc")}
       />
 
       <ManufacturerComparePicker selected={selected} catalog={standings} />
@@ -99,17 +104,16 @@ export default async function ManufacturerComparePage({
       {selected.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            Pick at least one manufacturer to start comparing.
+            {t("pickAtLeastOneManufacturer")}
           </CardContent>
         </Card>
       ) : (
         <>
           <Card>
             <CardHeader>
-              <CardTitle>Standings snapshot</CardTitle>
+              <CardTitle>{t("standingsSnapshot")}</CardTitle>
               <CardDescription>
-                Current championship state across the rounds completed so
-                far.
+                {t("standingsSnapshotSubtitle")}
               </CardDescription>
             </CardHeader>
             <CardContent className="px-0">
@@ -119,9 +123,9 @@ export default async function ManufacturerComparePage({
 
           <Card>
             <CardHeader>
-              <CardTitle>Championship progression</CardTitle>
+              <CardTitle>{t("championshipProgression")}</CardTitle>
               <CardDescription>
-                Best-finishing car per round determines manufacturer points.
+                {t("manufacturerProgressionSubtitle")}
               </CardDescription>
             </CardHeader>
             <CardContent className="pb-4">
@@ -135,14 +139,15 @@ export default async function ManufacturerComparePage({
 }
 
 function StatsTable({ rows }: { rows: StandingManufacturer[] }) {
+  const t = useTranslations("compare");
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="text-xs uppercase tracking-wider text-muted-foreground">
           <tr className="border-b border-border">
-            <th className="px-4 py-2 text-left">Manufacturer</th>
-            <th className="px-2 py-2 text-right">Champ. pos.</th>
-            <th className="px-4 py-2 text-right">Points</th>
+            <th className="px-4 py-2 text-left">{t("colManufacturer")}</th>
+            <th className="px-2 py-2 text-right">{t("colChampPos")}</th>
+            <th className="px-4 py-2 text-right">{t("colPoints")}</th>
           </tr>
         </thead>
         <tbody>

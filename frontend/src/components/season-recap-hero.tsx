@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Trophy } from "lucide-react";
 import {
   Card,
@@ -35,6 +36,7 @@ export function SeasonRecapHero({
   driverEntries,
 }: Props) {
   const photoById = new Map(driverEntries.map((d) => [d.id, d.photoUrl]));
+  const t = useTranslations("home");
 
   return (
     <Card className="relative overflow-hidden">
@@ -48,20 +50,20 @@ export function SeasonRecapHero({
       <CardHeader className="relative">
         <div className="flex items-center gap-2 text-xs font-semibold tracking-widest text-[var(--racing-yellow)] uppercase">
           <Trophy className="size-3" fill="currentColor" />
-          {year} season recap
+          {t("seasonRecap", { year })}
         </div>
         <CardTitle className="mt-2 text-2xl sm:text-3xl">
-          {year} FIA World Endurance Championship
+          {t("seasonRecapTitle", { year })}
         </CardTitle>
         <CardDescription>
-          {rounds} rounds completed.
+          {t("roundsCompleted", { rounds })}
         </CardDescription>
       </CardHeader>
       <CardContent className="relative grid gap-6 sm:grid-cols-2">
         {champions.length > 0 && (
           <div className="space-y-2">
             <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              Drivers&rsquo; champion (Hypercar)
+              {t("driversChampHypercar")}
             </div>
             <ul className="space-y-2">
               {champions.map((c) => (
@@ -101,7 +103,7 @@ export function SeasonRecapHero({
         {manufacturerChamp && (
           <div className="space-y-2">
             <div className="text-xs uppercase tracking-wider text-muted-foreground">
-              Manufacturers&rsquo; champion (Hypercar)
+              {t("manufacturersChampHypercar")}
             </div>
             <Link
               href={`/manufacturers/${manufacturerChamp.manufacturerId}`}
@@ -117,7 +119,7 @@ export function SeasonRecapHero({
                   {manufacturerChamp.manufacturerName}
                 </span>
                 <span className="block text-xs text-muted-foreground">
-                  P1 · {manufacturerChamp.points} points
+                  {t("p1Points", { points: manufacturerChamp.points })}
                 </span>
               </div>
             </Link>

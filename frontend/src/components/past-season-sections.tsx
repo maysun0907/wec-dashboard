@@ -207,6 +207,7 @@ function ChampionSlot({
   eyebrow: string;
   value: ChampionValue | null;
 }) {
+  const t = useTranslations("home");
   if (value === null) {
     return (
       <div className="flex h-full items-center gap-3 rounded-md border border-dashed border-border/40 bg-background/20 p-3">
@@ -215,7 +216,7 @@ function ChampionSlot({
             {eyebrow}
           </div>
           <div className="truncate text-sm text-muted-foreground/60">
-            Not recorded
+            {t("notRecorded")}
           </div>
         </div>
       </div>

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Trophy } from "lucide-react";
 import {
   Card,
@@ -121,6 +123,8 @@ export default async function SeasonComparePage({
   }
 
   const data = await Promise.all(years.map((y) => fetchSeason(y)));
+  const t = await getTranslations("seasons");
+  const tStandings = await getTranslations("standings");
 
   return (
     <div className="space-y-6">
@@ -128,13 +132,13 @@ export default async function SeasonComparePage({
         href="/standings"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
-        ← Standings
+        ← {tStandings("title")}
       </Link>
 
       <PageHeader
-        eyebrow="Side by side"
-        title="Compare seasons"
-        description="Drivers’ champion, manufacturers’ champion, and the top standings of two or three seasons side by side. Top class auto-switches from LMP1 (pre-2021) to Hypercar."
+        eyebrow={t("sideBySide")}
+        title={t("compareSeasons")}
+        description={t("compareSeasonsDesc")}
       />
 
       <SeasonComparePicker selected={years} catalog={seasons} />
@@ -142,7 +146,7 @@ export default async function SeasonComparePage({
       {data.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-sm text-muted-foreground">
-            Pick at least one season above.
+            {t("pickAtLeastOneSeason")}
           </CardContent>
         </Card>
       ) : (
@@ -163,6 +167,7 @@ export default async function SeasonComparePage({
 }
 
 function SeasonColumn({ data }: { data: SeasonData }) {
+  const t = useTranslations("seasons");
   const champion = data.drivers.find((d) => d.position === 1) ?? null;
   const otherChamps = data.drivers.filter(
     (d) => d.position === 1 && d.driverId !== champion?.driverId,
@@ -213,11 +218,11 @@ function SeasonColumn({ data }: { data: SeasonData }) {
             {data.year}
           </CardTitle>
           <span className="text-xs text-muted-foreground">
-            {data.events.length} rounds
+            {t("roundsCount", { count: data.events.length })}
           </span>
         </div>
         <CardDescription>
-          {data.topClass === "HYPERCAR" ? "Hypercar" : "LMP1"} championship
+          {data.topClass === "HYPERCAR" ? t("hypercarChampionship") : t("lmp1Championship")}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

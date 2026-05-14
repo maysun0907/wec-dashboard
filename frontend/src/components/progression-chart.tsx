@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import {
   CartesianGrid,
   Legend,
@@ -50,11 +51,12 @@ function pivot(series: Series[]): ChartRow[] {
 
 export function ProgressionChart({ series }: { series: Series[] }) {
   const data = useMemo(() => pivot(series), [series]);
+  const t = useTranslations("raceDetail");
 
   if (series.length === 0 || data.length === 0) {
     return (
       <div className="px-4 py-12 text-center text-sm text-muted-foreground">
-        No completed rounds yet — chart will fill in as the season runs.
+        {t("noRoundsYet")}
       </div>
     );
   }

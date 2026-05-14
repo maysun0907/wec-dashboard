@@ -181,7 +181,7 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
                 tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
                 stroke="var(--border)"
                 label={{
-                  value: "Lap",
+                  value: t("lap"),
                   position: "insideBottomRight",
                   offset: -2,
                   fontSize: 11,
@@ -270,14 +270,13 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
           </ResponsiveContainer>
         </div>
         <p className="mt-2 px-2 text-xs text-muted-foreground">
-          Per-lap classification computed from Al Kamel cumulative race
-          time. Hover a line to highlight a car.
+          {t("lapChartFootnote")}
           {chart.incidents.length > 0 && (
             <>
               {" "}
-              Yellow bands mark{" "}
+              {t("yellowBands")}{" "}
               <span className="text-[var(--racing-yellow)]">
-                Safety Car / FCY periods
+                {t("scFcyPeriods")}
               </span>
               .
             </>

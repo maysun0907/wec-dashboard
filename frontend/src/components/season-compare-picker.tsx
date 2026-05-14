@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Plus, X } from "lucide-react";
 import { type Season } from "@/lib/api";
 
@@ -19,6 +20,7 @@ type Props = {
 
 export function SeasonComparePicker({ selected, catalog }: Props) {
   const router = useRouter();
+  const t = useTranslations("seasons");
   const remaining = catalog
     .map((s) => s.year)
     .filter((y) => !selected.includes(y))
@@ -70,7 +72,7 @@ export function SeasonComparePicker({ selected, catalog }: Props) {
             className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1 text-sm text-muted-foreground transition-colors hover:border-solid hover:text-foreground [&::-webkit-details-marker]:hidden"
           >
             <Plus className="size-3.5" />
-            Add season
+            {t("addSeason")}
           </summary>
           <div className="absolute left-0 top-full z-10 mt-1 max-h-72 w-32 overflow-auto rounded-md border border-border bg-popover p-1 shadow-md">
             {remaining.map((y) => (
