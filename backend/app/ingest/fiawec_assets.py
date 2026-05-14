@@ -102,6 +102,17 @@ _LOGO_RE = re.compile(r"/uploads/([a-z]+(?:-[a-z]+)*?)-[a-f0-9-]{16,}\.png$")
 _CAR_RE = re.compile(
     r"/uploads/(\d{4})-wec-(\d{1,3})-([a-z0-9-]+?)-droite?-[a-f0-9]+\.png$"
 )
+# Pre-2018 FIA WEC site (Symfony /ecm/) car-render filename pattern.
+# Examples:
+#   2017_WEC_n1_Porsche_919_Spa_Droite_f86a18.png
+#   2017_Le Mans_n1_Porsche_919_Droite_659425.png  (literal space)
+#   2017_WEC_n1_Porsche_919_Nürburgring_Droite_5971c4.png  (utf-8)
+# We just need to match the trailing `_Droite_{hash6}.png` to filter
+# out non-car images on the per-car page (team logos, tyres, etc.).
+_LEGACY_CAR_RE = re.compile(
+    r"/ecm/assets/1/engage/(\d+)/([^\"']+?_Droite_[a-f0-9]{6}\.png)",
+    re.IGNORECASE,
+)
 # Track-map URL pattern: `/uploads/{year}-tracks-rvb-{slug}-{hash}.png`.
 _TRACK_RE = re.compile(
     r"/uploads/\d{4}-tracks-rvb-[a-z]+-[a-f0-9-]+\.png"
@@ -169,6 +180,48 @@ def _to_wayback_asset(url: str, timestamp: str) -> str:
 
 def _is_archive_url(url: str) -> bool:
     return url.startswith(WAYBACK)
+
+
+def _scrape_legacy_per_car(
+    year: int, car_numbers: list[str]
+) -> dict[str, str]:
+    """Per-car Wayback walk for the 2016-2017 era. FIA's pre-2018
+    site put every entry on `/en/car/{year}/{number}` and the asset
+    URLs sit under `/ecm/assets/1/engage/{id}/...Droite_{hash}.png`
+    instead of the modern `/uploads/{year}-wec-*-droite-*.png`. The
+    grid page didn't exist back then, so there's no single endpoint
+    to scrape — we have to hit one Wayback snapshot per car.
+
+    Returns ``{car_number: wayback_url}`` — first 'Droite' (right-
+    side livery) PNG we find on each car's page. Multiple races'
+    photos exist; we pick the first because they're all the same
+    season livery for a given number."""
+    out: dict[str, str] = {}
+    for num in car_numbers:
+        # Closest snapshot to that car's /en/car/{year}/{number} page
+        # taken within the calendar year + 1 (FIA captures often
+        # land in Jan of the following year).
+        target = f"https://www.fiawec.com/en/car/{year}/{num}"
+        snap = _wayback_closest(target, year)
+        if snap is None:
+            # Try the following year's captures too — old pages
+            # remained served well into the next calendar year.
+            snap = _wayback_closest(target, year + 1)
+        if snap is None:
+            continue
+        ts, page_url = snap
+        try:
+            html = _fetch(page_url)
+        except httpx.HTTPError:
+            continue
+        m = _LEGACY_CAR_RE.search(html)
+        if m is None:
+            continue
+        # m.group(0) is the path-relative portion; rebuild full live URL
+        # then route through Wayback so the asset stays resolvable.
+        live = f"https://www.fiawec.com{m.group(0)}"
+        out[num] = _to_wayback_asset(live, ts)
+    return out
 
 
 def _scrape_grid(
@@ -403,6 +456,28 @@ def ingest_fiawec_assets(
             .all()
         )
         car_by_number = {c.number: c for c in cars_in_season}
+        # Pre-2018 fallback: FIA's then-CMS put car PNGs at
+        # /ecm/assets/1/engage/... and never had a grid index, so the
+        # grid scrape returns 0 for those years. Walk the DB cars and
+        # hit each /en/car/{year}/{n} page individually via Wayback.
+        # Skip if the grid scrape already produced renders for this
+        # number (the modern format wins).
+        if year < LIVE_GRID_MIN_YEAR and year <= 2017:
+            missing_numbers = [
+                c.number
+                for c in cars_in_season
+                if c.number not in car_renders_by_number
+            ]
+            if missing_numbers:
+                legacy = _scrape_legacy_per_car(year, missing_numbers)
+                if verbose:
+                    print(
+                        f"  legacy /ecm/ per-car walk: "
+                        f"{len(legacy)}/{len(missing_numbers)} resolved"
+                    )
+                for num, url in legacy.items():
+                    car_renders_by_number.setdefault(num, url)
+
         for car_number, url in car_renders_by_number.items():
             car = car_by_number.get(car_number)
             if car is None or car.image_url == url:
