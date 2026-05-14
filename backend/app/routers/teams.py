@@ -23,13 +23,21 @@ def list_teams(
         .options(
             joinedload(models.Car.team).joinedload(models.Team.manufacturer),
             joinedload(models.Car.race_class),
-            joinedload(models.Car.car_model),
+            joinedload(models.Car.car_model).joinedload(
+                models.CarModel.manufacturer
+            ),
         )
         .filter(models.Car.season_id == season.id)
         .all()
     )
     # Sort numerically; "007" → 7 places it next to other 7-ish entries.
     cars.sort(key=lambda c: int(c.number) if c.number.isdigit() else 9999)
+    # Prefer the CarModel's manufacturer over the Team's. A team like
+    # Proton Competition runs a Porsche 963 in Hypercar AND a Ford
+    # Mustang in LMGT3 — Team.manufacturer is 1:1 so it gets
+    # overwritten on re-ingest, leaving a Porsche 963 row labelled
+    # "Ford" (or vice versa) in past seasons. CarModel.manufacturer is
+    # always correct because it's intrinsic to the car, not the team.
     return [
         schemas.TeamEntryOut(
             id=c.team.id,
@@ -38,17 +46,27 @@ def list_teams(
             race_class=c.race_class.name,
             model=c.model,
             car_model_slug=c.car_model.slug if c.car_model is not None else None,
-            manufacturer=(
-                c.team.manufacturer.name if c.team.manufacturer is not None else None
-            ),
-            manufacturer_logo_url=(
-                c.team.manufacturer.logo_url
-                if c.team.manufacturer is not None
-                else None
-            ),
+            manufacturer=_car_manufacturer_name(c),
+            manufacturer_logo_url=_car_manufacturer_logo(c),
         )
         for c in cars
     ]
+
+
+def _car_manufacturer_name(c: models.Car) -> str | None:
+    if c.car_model is not None and c.car_model.manufacturer is not None:
+        return c.car_model.manufacturer.name
+    if c.team is not None and c.team.manufacturer is not None:
+        return c.team.manufacturer.name
+    return None
+
+
+def _car_manufacturer_logo(c: models.Car) -> str | None:
+    if c.car_model is not None and c.car_model.manufacturer is not None:
+        return c.car_model.manufacturer.logo_url
+    if c.team is not None and c.team.manufacturer is not None:
+        return c.team.manufacturer.logo_url
+    return None
 
 
 def _team_career(db: Session, team_id: int) -> list[schemas.TeamSeasonOut]:
