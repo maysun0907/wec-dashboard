@@ -471,19 +471,49 @@ def ingest_fiawec_assets(
 
 def main() -> None:
     """Standalone trigger for manual debug from the Railway shell.
-    Usage: ``python -m app.ingest.fiawec_assets [year]`` (defaults to
-    2026). Prints per-step diagnostics."""
+
+    Usage:
+        python -m app.ingest.fiawec_assets             # current season
+        python -m app.ingest.fiawec_assets 2024        # one past year
+        python -m app.ingest.fiawec_assets all         # every season in
+                                                       # the DB (one-shot
+                                                       # past-season
+                                                       # backfill via
+                                                       # Wayback)
+    """
     import argparse
 
     from app.db import SessionLocal
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("year", nargs="?", type=int, default=2026)
+    parser.add_argument(
+        "year",
+        nargs="?",
+        default="2026",
+        help="Season year, or 'all' to walk every Season row in the DB.",
+    )
     args = parser.parse_args()
     db = SessionLocal()
     try:
-        report = ingest_fiawec_assets(db, args.year, verbose=True)
-        print(report)
+        if args.year == "all":
+            years = [
+                y
+                for (y,) in db.query(models.Season.year)
+                .order_by(models.Season.year.desc())
+                .all()
+            ]
+            print(f"backfilling {len(years)} seasons: {years}")
+            totals: dict[str, int] = {}
+            for y in years:
+                print(f"\n=== {y} ===")
+                report = ingest_fiawec_assets(db, y, verbose=True)
+                print(report)
+                for k, v in report.items():
+                    totals[k] = totals.get(k, 0) + v
+            print(f"\nTotal across all seasons: {totals}")
+        else:
+            report = ingest_fiawec_assets(db, int(args.year), verbose=True)
+            print(report)
     finally:
         db.close()
 
