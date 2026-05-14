@@ -20,6 +20,11 @@ const nextConfig: NextConfig = {
       // Past-season car renders / manufacturer logos are pulled from
       // Wayback Machine snapshots — see backend/app/ingest/fiawec_assets.py.
       { protocol: "https", hostname: "web.archive.org" },
+      // 2018+ FIA assets are hosted on Google Cloud Storage. Wayback
+      // captures store the original URL, so when the archive serves
+      // a `/web/{ts}im_/https://storage.googleapis.com/...png`, the
+      // browser follows that pattern.
+      { protocol: "https", hostname: "storage.googleapis.com" },
     ],
   },
 };

@@ -109,15 +109,20 @@ _LOGO_RE = re.compile(r"/uploads/([a-z]+(?:-[a-z]+)*?)-[a-f0-9-]{16,}\.png$")
 _CAR_RE = re.compile(
     r"/uploads/(\d{4})-wec-(\d{1,3})-([a-z0-9-]+?)-droite?-[a-f0-9]+\.png$"
 )
-# Pre-2018 FIA WEC site (Symfony /ecm/) car-render filename pattern.
+# FIA's legacy `/ecm/` and current `/ecm-prod/` asset hosts. Per-car
+# pages on the pre-modern site (and on the modern site for past
+# seasons that no longer live on /en/page/grid) embed car PNGs under
+# one of these patterns:
+#   /ecm/assets/1/engage/{id}/{name}_Droite_{hash6}.png  (2016-2017)
+#   storage.googleapis.com/ecm-prod/assets/1/engage/{id}/{filename}-droite_{hash6}.png  (2018-2025)
 # Examples:
 #   2017_WEC_n1_Porsche_919_Spa_Droite_f86a18.png
-#   2017_Le Mans_n1_Porsche_919_Droite_659425.png  (literal space)
-#   2017_WEC_n1_Porsche_919_Nürburgring_Droite_5971c4.png  (utf-8)
-# We just need to match the trailing `_Droite_{hash6}.png` to filter
-# out non-car images on the per-car page (team logos, tyres, etc.).
+#   2024-wec-7-droite_dc672f.png
+#   2024-wec-7toyota-gr010-7-droite_4660d4.png
+#   2024-lm-7-toyota-gr010-droite_c3c44b.png
 _LEGACY_CAR_RE = re.compile(
-    r"/ecm/assets/1/engage/(\d+)/([^\"']+?_Droite_[a-f0-9]{6}\.png)",
+    r"/(?:ecm|ecm-prod)/assets/1/engage/(\d+)/"
+    r"([^\"']+?[-_]droite[-_][a-f0-9]{6}\.png)",
     re.IGNORECASE,
 )
 # Track-map URL pattern: `/uploads/{year}-tracks-rvb-{slug}-{hash}.png`.
@@ -192,31 +197,56 @@ def _is_archive_url(url: str) -> bool:
 def _scrape_legacy_per_car(
     year: int, car_numbers: list[str]
 ) -> dict[str, str]:
-    """Per-car Wayback walk for the 2016-2017 era. FIA's pre-2018
-    site put every entry on `/en/car/{year}/{number}` and the asset
-    URLs sit under `/ecm/assets/1/engage/{id}/...Droite_{hash}.png`
-    instead of the modern `/uploads/{year}-wec-*-droite-*.png`. The
-    grid page didn't exist back then, so there's no single endpoint
-    to scrape — we have to hit one Wayback snapshot per car.
+    """Per-car Wayback walk. Two reasons we need this even outside
+    the pre-2018 era:
 
-    Returns ``{car_number: wayback_url}`` — first 'Droite' (right-
-    side livery) PNG we find on each car's page. Multiple races'
-    photos exist; we pick the first because they're all the same
-    season livery for a given number."""
+    1. The grid page (/en/page/grid) only ever caches the current
+       season, so Wayback redirects requests for any past-year
+       snapshot to whatever the current grid was the day Wayback
+       was crawled — useless for our backfill.
+    2. Per-car pages (/en/car/{year}/{number}) DID get archived
+       for many past seasons. They embed the same Droite-suffixed
+       PNG we want, just hosted on different paths depending on
+       era: /ecm/assets/... in 2016-2017, /ecm-prod/... on Google
+       Cloud Storage in 2018+.
+
+    Snapshot lookup tries `https://web.archive.org/web/{Y}1215000000/`
+    first because end-of-year captures are the most reliable — we
+    don't pay the CDX API cost (which has been timing out under
+    load), and the if-newer-than-target redirect will land us on the
+    closest in-year snapshot. Returns ``{car_number: wayback_url}``."""
     out: dict[str, str] = {}
     for num in car_numbers:
-        # Closest snapshot to that car's /en/car/{year}/{number} page
-        # taken within the calendar year + 1 (FIA captures often
-        # land in Jan of the following year).
         target = f"https://www.fiawec.com/en/car/{year}/{num}"
-        snap = _wayback_closest(target, year)
-        if snap is None:
-            # Try the following year's captures too — old pages
-            # remained served well into the next calendar year.
-            snap = _wayback_closest(target, year + 1)
-        if snap is None:
+        # Late-year timestamp probe — Wayback's `web/{ts}/...`
+        # endpoint follows a 302 to the nearest captured snapshot.
+        # If the redirect lands in a different year, the page is
+        # irrelevant for this season and we skip.
+        probe_url = (
+            f"{WAYBACK}/web/{year}1215000000/{target}"
+        )
+        try:
+            r = httpx.get(
+                probe_url,
+                headers={"User-Agent": USER_AGENT},
+                follow_redirects=False,
+                timeout=30,
+            )
+        except httpx.HTTPError:
             continue
-        ts, page_url = snap
+        loc = r.headers.get("location")
+        if not loc:
+            continue
+        m = re.search(r"/web/(\d{14})/", loc)
+        if m is None:
+            continue
+        ts = m.group(1)
+        # Only accept snapshots that fall inside the requested year.
+        # Wayback otherwise happily returns a 2026 capture for a 2024
+        # query when no in-year snapshot exists.
+        if not ts.startswith(str(year)):
+            continue
+        page_url = loc
         try:
             html = _fetch(page_url)
         except httpx.HTTPError:
@@ -224,9 +254,15 @@ def _scrape_legacy_per_car(
         m = _LEGACY_CAR_RE.search(html)
         if m is None:
             continue
-        # m.group(0) is the path-relative portion; rebuild full live URL
-        # then route through Wayback so the asset stays resolvable.
-        live = f"https://www.fiawec.com{m.group(0)}"
+        # The asset path captured by group(0) is relative to whichever
+        # host serves it (fiawec.com for /ecm/, storage.googleapis.com
+        # for /ecm-prod/). Rebuild the appropriate full URL before
+        # routing through Wayback.
+        asset_path = m.group(0)
+        if "/ecm-prod/" in asset_path:
+            live = f"https://storage.googleapis.com{asset_path}"
+        else:
+            live = f"https://www.fiawec.com{asset_path}"
         out[num] = _to_wayback_asset(live, ts)
     return out
 
@@ -469,7 +505,7 @@ def ingest_fiawec_assets(
         # hit each /en/car/{year}/{n} page individually via Wayback.
         # Skip if the grid scrape already produced renders for this
         # number (the modern format wins).
-        if year < LIVE_GRID_MIN_YEAR and year <= 2017:
+        if year < LIVE_GRID_MIN_YEAR:
             missing_numbers = [
                 c.number
                 for c in cars_in_season
