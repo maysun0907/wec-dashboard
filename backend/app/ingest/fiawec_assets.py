@@ -558,6 +558,24 @@ def ingest_fiawec_assets(
         if verbose:
             print(f"  per-car renders updated: {updated_per_car}")
 
+        # Promote per-car URLs up to CarModel.image_url for any model
+        # that's still missing one. The /cars/{slug} model-detail page
+        # reads CarModel.image_url, not Car.image_url — without this
+        # step the past-season detail pages stay blank even though
+        # individual cars are fully populated.
+        for car in cars_in_season:
+            if car.image_url is None or car.car_model_id is None:
+                continue
+            cm = (
+                db.query(models.CarModel)
+                .filter(models.CarModel.id == car.car_model_id)
+                .first()
+            )
+            if cm is None or cm.image_url is not None:
+                continue
+            cm.image_url = car.image_url
+            updated_cars += 1
+
     # Per-race assets (posters + track maps) — live only. Past-season
     # race-weekend pages are 404 on fiawec.com and Wayback's coverage
     # of them is thin and per-week (different slugs each round), so
