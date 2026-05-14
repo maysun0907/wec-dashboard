@@ -87,6 +87,26 @@ CAR_SPECS: dict[str, CarSpec] = {
         "year_introduced": 2026,
         **_HYPERCAR_BOP,
     },
+    # Past-season Hypercar entries (no longer on the 2026 grid but
+    # they ran 2023-2025 so the detail page still gets traffic).
+    "porsche-963": {
+        "category": "LMDh",
+        "engine": "4.6 L twin-turbo V8 hybrid",
+        "year_introduced": 2023,
+        **_HYPERCAR_BOP,
+    },
+    "lamborghini-sc63": {
+        "category": "LMDh",
+        "engine": "3.8 L twin-turbo V8 hybrid",
+        "year_introduced": 2024,
+        **_HYPERCAR_BOP,
+    },
+    "isotta-fraschini-tipo-6c": {
+        "category": "LMH",
+        "engine": "3.0 L twin-turbo V6 hybrid",
+        "year_introduced": 2024,
+        **_HYPERCAR_BOP,
+    },
     # ---- LMGT3 ----
     # All GT3 cars race under Group GT3 BoP — peak homologated power
     # sits in a 470–510 kW (≈ 630–685 hp) window per round, weight in a

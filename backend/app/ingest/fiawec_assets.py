@@ -65,6 +65,13 @@ CAR_MODEL_SLUG_BY_FIA: dict[str, str] = {
     "genesis": "genesis-gmr-001",
     "peugeot-9x8": "peugeot-9x8",
     "toyota-gr010": "toyota-tr010-hybrid",
+    # Past-season Hypercar entries — kept around so Wayback backfill
+    # of 2023-2025 still maps the per-model PNG onto our DB slug.
+    "porsche-963": "porsche-963",
+    "lamborghini-sc63": "lamborghini-sc63",
+    "lamborghini": "lamborghini-sc63",
+    "isotta-fraschini": "isotta-fraschini-tipo-6c",
+    "isotta": "isotta-fraschini-tipo-6c",
     # LMGT3
     "aston-martin-gt3": "aston-martin-vantage-amr-gt3-evo",
     "bmw-m4-gt3": "bmw-m4-gt3-evo",
