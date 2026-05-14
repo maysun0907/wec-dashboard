@@ -44,6 +44,9 @@ const BRAND_SCALE_OVERRIDES: Array<{ match: RegExp; scale: number }> = [
   // horizontally — any scale > 1 clips the outer rings at the pill's
   // rounded corners. Pinned to 1.0 (no scale).
   { match: /audi/i, scale: 1.0 },
+  // Lamborghini wordmark is wide; default 1.2 clips the L and the
+  // closing "i". 1.0 (no scale) keeps it inside the pill.
+  { match: /lamborghini/i, scale: 1.0 },
   { match: /aston\s*martin/i, scale: 1.0 },
   { match: /genesis/i, scale: 1.0 },
 ];
