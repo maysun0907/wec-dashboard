@@ -19,6 +19,67 @@ from app.logging import configure_logging
 _FIELDS = ("category", "engine", "power_hp", "weight_kg", "year_introduced", "image_url")
 
 
+def _dedupe_duplicate_models(db, log) -> int:
+    """A team like Proton Competition runs different manufacturers
+    across classes (Porsche 963 in Hypercar, Ford Mustang in LMGT3).
+    upsert_car_model keys by (name, manufacturer_id), so if a
+    Wikipedia row ever attributes "Porsche 963" to "Ford" by mistake,
+    we end up with two separate CarModel rows sharing the same name
+    but different manufacturers — one of them wrong, both surviving.
+
+    Detect those collisions and merge them: the canonical row is the
+    one whose Manufacturer.name is a prefix of the model name
+    ("Porsche" ⊂ "Porsche 963"); if no manufacturer matches the name
+    prefix we keep the one with the most Cars referencing it. Cars
+    get re-pointed; the losing CarModel is deleted.
+    """
+    from collections import defaultdict
+
+    by_name: dict[str, list[models.CarModel]] = defaultdict(list)
+    for cm in db.query(models.CarModel).all():
+        by_name[cm.name].append(cm)
+
+    merged = 0
+    for name, group in by_name.items():
+        if len(group) <= 1:
+            continue
+
+        # Choose the canonical model: prefer the one whose manufacturer
+        # name is a prefix of the model name; fall back to the row with
+        # the most Cars referencing it.
+        def _name_match(cm: models.CarModel) -> int:
+            mfr = cm.manufacturer.name if cm.manufacturer else ""
+            return 1 if mfr and name.lower().startswith(mfr.lower()) else 0
+
+        def _car_count(cm: models.CarModel) -> int:
+            return (
+                db.query(models.Car)
+                .filter(models.Car.car_model_id == cm.id)
+                .count()
+            )
+
+        group.sort(key=lambda cm: (_name_match(cm), _car_count(cm)), reverse=True)
+        canonical = group[0]
+        losers = group[1:]
+        for loser in losers:
+            (
+                db.query(models.Car)
+                .filter(models.Car.car_model_id == loser.id)
+                .update({models.Car.car_model_id: canonical.id})
+            )
+            log.info(
+                "car_model_merged",
+                name=name,
+                kept_slug=canonical.slug,
+                kept_mfr=canonical.manufacturer.name if canonical.manufacturer else None,
+                dropped_slug=loser.slug,
+                dropped_mfr=loser.manufacturer.name if loser.manufacturer else None,
+            )
+            db.delete(loser)
+            merged += 1
+    return merged
+
+
 def main() -> None:
     configure_logging()
     log = structlog.get_logger(__name__)
@@ -27,6 +88,10 @@ def main() -> None:
     unchanged = 0
     missing: list[str] = []
     try:
+        merged = _dedupe_duplicate_models(db, log)
+        if merged:
+            log.info("car_model_dedupe_done", merged=merged)
+            db.commit()
         for slug, spec in CAR_SPECS.items():
             cm = db.query(models.CarModel).filter_by(slug=slug).first()
             if cm is None:
