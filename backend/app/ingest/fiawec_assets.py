@@ -26,6 +26,11 @@ from app import models
 
 USER_AGENT = "wec-dashboard/0.1 (open-source dashboard for FIA WEC fans)"
 BASE = "https://www.fiawec.com"
+WAYBACK = "https://web.archive.org"
+# Only FIA's grid renders for years <= this hit the Wayback fallback;
+# the current season is served live. Update this when the season ages
+# out of fiawec.com's live grid page.
+LIVE_GRID_MIN_YEAR = 2026
 
 # FIA's short slug on each manufacturer logo PNG → our DB
 # `Manufacturer.name`. Corvette is a Chevrolet sub-brand in our
@@ -122,6 +127,50 @@ def _fetch(url: str) -> str:
     return r.text
 
 
+def _wayback_closest(target_url: str, year: int) -> tuple[str, str] | None:
+    """Find the latest Wayback Machine snapshot of `target_url` that
+    fell within `year`. Returns ``(timestamp, snapshot_url)`` — the
+    timestamp is needed to rewrite asset URLs to their own Wayback
+    captures, and the snapshot_url is the page HTML we'll parse.
+    Returns None when Wayback has no snapshot for that year."""
+    # CDX API: search for captures of the target URL between
+    # YYYY-01-01 and YYYY-12-31, take the most recent successful one.
+    try:
+        r = httpx.get(
+            f"{WAYBACK}/cdx/search/cdx",
+            params={
+                "url": target_url,
+                "from": f"{year}0101",
+                "to": f"{year}1231",
+                "filter": "statuscode:200",
+                "output": "json",
+                "limit": "-1",  # newest first
+            },
+            headers={"User-Agent": USER_AGENT},
+            timeout=30,
+        )
+        r.raise_for_status()
+        rows = r.json()
+    except (httpx.HTTPError, ValueError):
+        return None
+    if not rows or len(rows) < 2:
+        return None
+    # First row is the column header — skip it.
+    ts = rows[1][1]
+    return ts, f"{WAYBACK}/web/{ts}/{target_url}"
+
+
+def _to_wayback_asset(url: str, timestamp: str) -> str:
+    """Convert a live fiawec.com asset URL into the Wayback `im_` form
+    (no toolbar, raw image). Uses the same timestamp as the page
+    snapshot so the asset comes from roughly the same moment."""
+    return f"{WAYBACK}/web/{timestamp}im_/{url}"
+
+
+def _is_archive_url(url: str) -> bool:
+    return url.startswith(WAYBACK)
+
+
 def _scrape_grid(
     year: int,
 ) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
@@ -136,9 +185,21 @@ def _scrape_grid(
        per-entry livery PNG, keyed by the number on the actual car.
        Powers Genesis #17 vs #19, Ferrari #50/#51/#83 etc.
 
-    Falls back to grid + /car/{year} pages — some entries (Toyota in
-    particular) only show on /car/{year} not /page/grid.
+    For the live current season we hit fiawec.com directly. For past
+    seasons fiawec.com 301-redirects every per-year URL to the
+    current grid, so we fall back to Wayback Machine snapshots taken
+    in that season's year — the assets they reference are rewritten
+    into Wayback's `im_` form so they keep resolving even if the
+    fiawec CDN later expires the originals.
     """
+    if year >= LIVE_GRID_MIN_YEAR:
+        return _scrape_grid_live(year)
+    return _scrape_grid_wayback(year)
+
+
+def _scrape_grid_live(
+    year: int,
+) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
     candidates: list[str] = []
     for path in (f"/en/page/grid", f"/en/car/{year}"):
         try:
@@ -166,6 +227,69 @@ def _scrape_grid(
         m = _LOGO_RE.search(u)
         if m and m.group(1) not in skip_logo_slugs:
             mfr_logos.setdefault(m.group(1), full)
+    return mfr_logos, car_renders_by_model, car_renders_by_number
+
+
+def _scrape_grid_wayback(
+    year: int,
+) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
+    """Past-season variant. Pulls a Wayback snapshot of /en/page/grid
+    taken during `year`, regexes the same `/uploads/...png` paths
+    out, then rewrites each one through `im_` so the asset itself
+    is fetched from archive.org rather than the (long-dead) live CDN.
+
+    Manufacturer logos are not year-specific (they don't carry a year
+    in the filename) — we still grab them but most are already in the
+    DB from current-season ingest, so they no-op."""
+    mfr_logos: dict[str, str] = {}
+    car_renders_by_model: dict[str, str] = {}
+    car_renders_by_number: dict[str, str] = {}
+    skip_logo_slugs = {"wec-logo", "manufacturers-logos-couleur-rvb-footer"}
+
+    # Multiple Wayback snapshots cover different points of the season.
+    # Walk a few — first the year overall, then add per-quarter samples
+    # if more URLs surface. Each snapshot can list different per-car
+    # renders (a Spa-one-off livery uploaded mid-July only shows in
+    # captures from July onwards).
+    snapshots: list[tuple[str, str]] = []
+    for target in (
+        f"https://www.fiawec.com/en/page/grid",
+        f"https://www.fiawec.com/en/car/{year}",
+    ):
+        snap = _wayback_closest(target, year)
+        if snap is not None:
+            snapshots.append(snap)
+    if not snapshots:
+        return mfr_logos, car_renders_by_model, car_renders_by_number
+
+    for ts, page_url in snapshots:
+        try:
+            html = _fetch(page_url)
+        except httpx.HTTPError:
+            continue
+        for u in re.findall(r'<img[^>]+src="([^"]*?/uploads/[^"]+)"', html):
+            # Wayback rewrites image src to either
+            #   /web/{ts}im_/https://www.fiawec.com/uploads/...
+            # or a relative `/web/{ts}im_/https://www.fiawec.com/...`.
+            # We want the live fiawec path for parsing + the Wayback
+            # form for the asset URL we store in the DB.
+            m = re.search(r"https?://www\.fiawec\.com(/uploads/[^\"']+)", u)
+            if m is None:
+                continue
+            live_path = m.group(1)
+            wayback_url = _to_wayback_asset(
+                f"https://www.fiawec.com{live_path}", ts
+            )
+            car_m = _CAR_RE.search(live_path)
+            if car_m and car_m.group(1) == str(year):
+                number = car_m.group(2)
+                model_slug = car_m.group(3)
+                car_renders_by_model.setdefault(model_slug, wayback_url)
+                car_renders_by_number.setdefault(number, wayback_url)
+                continue
+            logo_m = _LOGO_RE.search(live_path)
+            if logo_m and logo_m.group(1) not in skip_logo_slugs:
+                mfr_logos.setdefault(logo_m.group(1), wayback_url)
     return mfr_logos, car_renders_by_model, car_renders_by_number
 
 
@@ -216,11 +340,19 @@ def ingest_fiawec_assets(
 ) -> dict[str, int]:
     """Refresh manufacturer / car-render / circuit URLs from the
     fiawec.com grid + race pages. Idempotent — only writes when the
-    URL has actually changed."""
+    URL has actually changed.
+
+    For `year < LIVE_GRID_MIN_YEAR` the data is fetched from a
+    Wayback Machine snapshot taken during that season; live fiawec
+    URLs only serve the current grid. Race posters + track maps are
+    skipped on past-season runs because per-race pages are all 404 on
+    the live site too — manufacturer logos + car renders are the
+    only assets we can reliably backfill."""
     mfr_logos, car_renders_by_model, car_renders_by_number = _scrape_grid(year)
+    source = "live fiawec" if year >= LIVE_GRID_MIN_YEAR else "wayback"
     if verbose:
         print(
-            f"  grid: {len(mfr_logos)} mfr logos, "
+            f"  grid [{source}]: {len(mfr_logos)} mfr logos, "
             f"{len(car_renders_by_model)} car-model renders, "
             f"{len(car_renders_by_number)} per-car-number renders"
         )
@@ -280,8 +412,12 @@ def ingest_fiawec_assets(
         if verbose:
             print(f"  per-car renders updated: {updated_per_car}")
 
+    # Per-race assets (posters + track maps) — live only. Past-season
+    # race-weekend pages are 404 on fiawec.com and Wayback's coverage
+    # of them is thin and per-week (different slugs each round), so
+    # the cost/benefit doesn't pencil out for a backfill.
     updated_posters = 0
-    race_slugs = _resolve_race_slugs(year)
+    race_slugs = _resolve_race_slugs(year) if year >= LIVE_GRID_MIN_YEAR else {}
     if verbose:
         print(f"  race-slug resolver: {len(race_slugs)} resolved")
         for country, slug in race_slugs.items():

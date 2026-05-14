@@ -17,6 +17,9 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "www.fiawec.com" },
       { protocol: "https", hostname: "fiawec.com" },
       { protocol: "https", hostname: "upload.wikimedia.org" },
+      // Past-season car renders / manufacturer logos are pulled from
+      // Wayback Machine snapshots — see backend/app/ingest/fiawec_assets.py.
+      { protocol: "https", hostname: "web.archive.org" },
     ],
   },
 };
