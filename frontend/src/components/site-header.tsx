@@ -15,20 +15,21 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-2 px-3 sm:gap-6 sm:px-6 lg:px-8">
         <Link
           href="/"
-          className="group flex shrink-0 items-center gap-3"
+          className="group flex shrink-0 items-center gap-2 sm:gap-3"
           aria-label="WEC Dashboard"
         >
           {/* Official FIA WEC logo (Wikimedia Commons, CC0 / below
-              threshold of originality). Aspect 337×144 — sized via h-8. */}
+              threshold of originality). Aspect 337×144. h-6 on phones
+              so the right-aligned controls have breathing room. */}
           <img
             src="/wec-logo.png"
             alt="FIA WEC"
             width={188}
             height={80}
-            className="h-8 w-auto transition-opacity group-hover:opacity-80"
+            className="h-6 w-auto transition-opacity group-hover:opacity-80 sm:h-8"
           />
           <span className="hidden font-heading text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground sm:inline">
             Dashboard

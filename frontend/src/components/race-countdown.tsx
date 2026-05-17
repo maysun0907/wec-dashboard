@@ -55,7 +55,7 @@ export function RaceCountdown({ targetIso }: { targetIso: string | null }) {
 
 function Unit({ value, label }: { value: number | string; label: string }) {
   return (
-    <div className="flex min-w-[68px] flex-col items-center justify-center rounded-md border border-border/60 bg-background/40 px-3 py-2 backdrop-blur-sm sm:min-w-[96px] sm:px-4 sm:py-3">
+    <div className="flex min-w-12 flex-1 flex-col items-center justify-center rounded-md border border-border/60 bg-background/40 px-2 py-2 backdrop-blur-sm sm:min-w-[96px] sm:flex-none sm:px-4 sm:py-3">
       <span className="font-heading text-4xl font-extrabold leading-none tabular-nums tracking-tight sm:text-6xl">
         {value}
       </span>

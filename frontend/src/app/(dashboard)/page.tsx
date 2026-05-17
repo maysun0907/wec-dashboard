@@ -414,21 +414,22 @@ function NextRaceHero({
       {/* Top accent stripe. */}
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[var(--racing-red)] to-transparent" />
 
-      {/* Giant flag backdrop on the right side. */}
+      {/* Giant flag backdrop on the right side. Scales with viewport
+          so it doesn't overlap the title at narrow widths. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-8 top-1/2 -translate-y-1/2 select-none text-[14rem] leading-none opacity-[0.07] sm:text-[22rem]"
+        className="pointer-events-none absolute -right-4 top-1/2 -translate-y-1/2 select-none text-[8rem] leading-none opacity-[0.07] sm:-right-8 sm:text-[14rem] lg:text-[22rem]"
       >
         <Flag code={event.circuit.country} flagOnly />
       </div>
 
-      <div className="relative flex flex-col gap-6 p-6 sm:gap-8 sm:p-10 lg:p-12">
+      <div className="relative flex flex-col gap-6 p-5 sm:gap-8 sm:p-10 lg:p-12">
         {/* Eyebrow row */}
         <NextRaceEyebrow round={event.round} year={parseISO(event.dateStart).getFullYear()} />
 
         {/* Title block */}
         <div className="space-y-3">
-          <h2 className="font-heading text-3xl font-extrabold uppercase leading-[0.95] tracking-tight sm:text-5xl lg:text-6xl xl:text-7xl">
+          <h2 className="font-heading text-2xl font-extrabold uppercase leading-[0.95] tracking-tight sm:text-4xl lg:text-6xl xl:text-7xl">
             {event.name}
           </h2>
           <p className="flex flex-wrap items-center gap-2 text-base text-muted-foreground sm:text-lg">
@@ -607,10 +608,10 @@ function StandingsCard<T extends { position: number; points: number }>({
                       }}
                     />
                   </div>
-                  <div className="relative flex h-full items-center gap-4 rounded-md px-4 py-3">
+                  <div className="relative flex h-full items-center gap-2 rounded-md px-3 py-3 sm:gap-4 sm:px-4">
                     <span
                       className={
-                        "font-heading w-8 shrink-0 text-center text-2xl font-bold tabular-nums " +
+                        "font-heading w-6 shrink-0 text-center text-xl font-bold tabular-nums sm:w-8 sm:text-2xl " +
                         (isLeader
                           ? "text-[var(--racing-red)]"
                           : "text-muted-foreground")
@@ -622,7 +623,8 @@ function StandingsCard<T extends { position: number; points: number }>({
                       <ManufacturerLogo
                         src={logo}
                         name={rowName(row)}
-                        size="xl"
+                        size="lg"
+                        className="sm:size-20"
                       />
                     )}
                     <div className="min-w-0 flex-1">
@@ -650,7 +652,7 @@ function StandingsCard<T extends { position: number; points: number }>({
                         read as slightly off-axis next to a flat "5".
                         Mono fixes the alignment perception and reads
                         more like a data-board readout. */}
-                    <span className="font-mono inline-block min-w-[3ch] shrink-0 text-right text-4xl font-bold tabular-nums">
+                    <span className="font-mono inline-block min-w-[3ch] shrink-0 text-right text-3xl font-bold tabular-nums sm:text-4xl">
                       {row.points}
                     </span>
                   </div>

@@ -125,7 +125,7 @@ export default async function ManufacturerDetailPage({
       </div>
 
       <Card className="relative overflow-hidden">
-        <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+        <CardHeader className="flex flex-col items-start gap-3 space-y-0 sm:flex-row sm:items-center sm:gap-4">
           <ManufacturerLogo
             src={manufacturer.logoUrl}
             name={manufacturer.name}

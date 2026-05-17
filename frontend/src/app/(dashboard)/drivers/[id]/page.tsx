@@ -97,7 +97,7 @@ export default async function DriverDetailPage({
       </Link>
 
       <Card className="relative overflow-hidden">
-        <CardHeader className="flex flex-row items-start gap-4 space-y-0">
+        <CardHeader className="flex flex-col items-start gap-3 space-y-0 sm:flex-row sm:gap-4">
           <DriverPhoto
             src={localDriverImage(driver.id) ?? driver.photoUrl}
             name={driver.name}

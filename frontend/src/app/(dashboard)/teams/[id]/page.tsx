@@ -93,7 +93,7 @@ export default async function TeamDetailPage({
       </Link>
 
       <Card>
-        <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+        <CardHeader className="flex flex-col items-start gap-3 space-y-0 sm:flex-row sm:items-center sm:gap-4">
           {/* Logo isn't a link any more — single-team brands like
               Genesis would land you on the manufacturer page that
               just redirects right back here. The brand name in the

@@ -503,6 +503,11 @@ export type Season = {
 };
 
 // --- Fetcher ---
+//
+// Cache windows are intentionally generous: ingestion runs hourly via
+// the Railway cron, so anything with a sub-hour revalidate either
+// matches the cron cadence (race weekends) or trades freshness for
+// edge-cache hit rate (detail pages users browse between weekends).
 
 type FetchOpts = { revalidate?: number };
 
@@ -541,28 +546,31 @@ export const getCircuit = (id: number) =>
 export const getDrivers = (year?: number | null) =>
   api<DriverEntry[]>(withYear("/api/v1/drivers", year), { revalidate: 3600 });
 
+// Detail pages only change when ingestion lands new results (hourly).
+// 10 min is long enough for edge cache to do real work yet short enough
+// that a race-weekend ingest tick is visible within ~one refresh.
 export const getDriver = (id: number, year?: number | null) =>
   api<DriverDetail>(withYear(`/api/v1/drivers/${id}`, year), {
-    revalidate: 60,
+    revalidate: 600,
   });
 
 export const getTeams = (year?: number | null) =>
   api<TeamEntry[]>(withYear("/api/v1/teams", year), { revalidate: 600 });
 
 export const getTeam = (id: number, year?: number | null) =>
-  api<TeamDetail>(withYear(`/api/v1/teams/${id}`, year), { revalidate: 60 });
+  api<TeamDetail>(withYear(`/api/v1/teams/${id}`, year), { revalidate: 600 });
 
 export const getManufacturer = (id: number, year?: number | null) =>
   api<ManufacturerDetail>(withYear(`/api/v1/manufacturers/${id}`, year), {
-    revalidate: 60,
+    revalidate: 600,
   });
 
 export const getCarModels = (year?: number | null) =>
-  api<CarModelSummary[]>(withYear("/api/v1/cars", year), { revalidate: 600 });
+  api<CarModelSummary[]>(withYear("/api/v1/cars", year), { revalidate: 1800 });
 
 export const getCarModel = (slug: string, year?: number | null) =>
   api<CarModelDetail>(withYear(`/api/v1/cars/${slug}`, year), {
-    revalidate: 60,
+    revalidate: 600,
   });
 
 export type BopRow = {
@@ -656,6 +664,10 @@ export const getSessionWeather = (sessionId: number) =>
     revalidate: 600,
   });
 
+// Standings + progressions update on the same hourly cron tick as
+// session results, so the previous 60 s revalidate was burning edge
+// cache for almost no freshness benefit. 5 min covers a comfortable
+// fraction of the cron interval while still feeling near-live.
 export const getDriverStandings = (
   raceClass?: RaceClass,
   year?: number | null,
@@ -665,7 +677,7 @@ export const getDriverStandings = (
       `/api/v1/standings/drivers${raceClass ? `?raceClass=${raceClass}` : ""}`,
       year,
     ),
-    { revalidate: 60 },
+    { revalidate: 300 },
   );
 
 export const getDriverProgression = (
@@ -678,7 +690,7 @@ export const getDriverProgression = (
       `/api/v1/standings/drivers/progression?raceClass=${raceClass}&limit=${limit}`,
       year,
     ),
-    { revalidate: 60 },
+    { revalidate: 300 },
   );
 
 export const getManufacturerProgression = (
@@ -691,7 +703,7 @@ export const getManufacturerProgression = (
       `/api/v1/standings/manufacturers/progression?raceClass=${raceClass}&limit=${limit}`,
       year,
     ),
-    { revalidate: 60 },
+    { revalidate: 300 },
   );
 
 export const getTeamProgression = (
@@ -704,13 +716,13 @@ export const getTeamProgression = (
       `/api/v1/standings/teams/progression?raceClass=${raceClass}&limit=${limit}`,
       year,
     ),
-    { revalidate: 60 },
+    { revalidate: 300 },
   );
 
 export const getRoundPodiums = (raceClass: RaceClass, year?: number | null) =>
   api<RoundPodium[]>(
     withYear(`/api/v1/standings/podiums?raceClass=${raceClass}`, year),
-    { revalidate: 60 },
+    { revalidate: 300 },
   );
 
 export const getTeamStandings = (
@@ -722,7 +734,7 @@ export const getTeamStandings = (
       `/api/v1/standings/teams${raceClass ? `?raceClass=${raceClass}` : ""}`,
       year,
     ),
-    { revalidate: 60 },
+    { revalidate: 300 },
   );
 
 export const getManufacturerStandings = (
@@ -736,7 +748,7 @@ export const getManufacturerStandings = (
       }`,
       year,
     ),
-    { revalidate: 60 },
+    { revalidate: 300 },
   );
 
 // --- Derived helpers (mock-data parity) ---
