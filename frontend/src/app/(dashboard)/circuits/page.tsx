@@ -45,7 +45,7 @@ export default async function CircuitsPage() {
         description={t("description", { count: circuits.length })}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
         {circuits.map((c) => {
           const ev = roundByCircuit.get(c.id);
           const status: EventStatus | null = ev ? eventStatus(ev, today) : null;

@@ -73,7 +73,29 @@ export async function generateMetadata({
   if (!Number.isFinite(numId)) return { title: "Race" };
   try {
     const event = await getEvent(numId);
-    return { title: event.name };
+    const year = event.dateStart ? new Date(event.dateStart).getUTCFullYear() : null;
+    const circuitName = event.circuit?.name ?? null;
+    const facts = [year, circuitName].filter(Boolean).join(" · ");
+    const desc = `${event.name}${facts ? ` (${facts})` : ""} — FIA WEC schedule, qualifying results, race classification, lap chart, pit stops, V-max, sector splits and weather per session.`;
+    const ogImage = event.posterUrl ?? undefined;
+    return {
+      title: event.name,
+      description: desc,
+      alternates: { canonical: `/races/${numId}` },
+      openGraph: {
+        title: `${event.name} · WEC Dashboard`,
+        description: desc,
+        url: `/races/${numId}`,
+        type: "article",
+        ...(ogImage ? { images: [{ url: ogImage }] } : {}),
+      },
+      twitter: {
+        card: ogImage ? "summary_large_image" : "summary",
+        title: event.name,
+        description: desc,
+        ...(ogImage ? { images: [ogImage] } : {}),
+      },
+    };
   } catch {
     return { title: "Race" };
   }

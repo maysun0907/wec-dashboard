@@ -25,6 +25,25 @@ LMP2 / LMGTE Pro / LMGTE Am).
   Commons), country-keyed, served straight from `public/circuits/`.
 - **Rules / BoP** — 2026 regulations summary, success-handicap
   explainer, points tables.
+- **Bilingual (EN / KO)** — full Korean translation catalog covering
+  every page, component, table header, race/circuit/event name, and
+  data label. Toggle via the header switcher (cookie-persisted); first
+  visit auto-detects from `Accept-Language` so Korean searchers land
+  on Korean content. See `frontend/messages/{en,ko}.json` +
+  `frontend/src/i18n/`.
+- **Mobile / tablet / desktop** — responsive end-to-end (320 px → 4K).
+  Mobile-first Tailwind v4 breakpoints, header logo / hero / table /
+  card grids tuned per viewport.
+- **Past-season car photography** — when fiawec.com publishes a new
+  season the previous season's car images vanish. The backfill module
+  walks the Internet Archive (Wayback Machine) per car number across
+  multiple probe dates and rescues the original press shots from
+  `/ecm-prod/` (2018+) and `/ecm/` (2016-2017). Covers 2017 and
+  2022-2025 today. See `backend/app/ingest/fiawec_assets.py`.
+- **SEO** — full sitemap of every static + dynamic route (events,
+  drivers, teams, cars, circuits) across all seasons, robots.txt,
+  per-page OG / Twitter cards with rich descriptions, bilingual
+  keywords, canonical URLs, hreflang.
 
 ## Architecture
 
@@ -44,11 +63,12 @@ LMP2 / LMGTE Pro / LMGTE Am).
 ```
 
 - **`frontend/`** — Next.js 16 (App Router), Tailwind v4, shadcn/ui,
-  Recharts. Server components fetch from the backend with per-resource
-  `revalidate` caching.
+  Recharts, next-intl (EN/KO). Server components fetch from the backend
+  with per-resource `revalidate` caching (detail pages 10 min, lists
+  30 min — 1 hr, live event status 60 s).
 - **`backend/`** — FastAPI 0.115, SQLAlchemy 2, Alembic, Postgres on
   Railway. Ingestion modules pull race data from Wikipedia, Al Kamel
-  CSVs, and fiawec.com.
+  CSVs, fiawec.com, and the Internet Archive (for past-season images).
 
 ## Quick start
 
@@ -98,18 +118,23 @@ wec-dashboard/
 │   ├── railway.toml             # Deploy config (alembic + curators)
 │   └── requirements.txt
 └── frontend/
+    ├── messages/                # next-intl catalogs (en.json, ko.json)
     ├── public/
     │   ├── cars/                # Car-model PNGs/WebPs (slug-keyed)
     │   ├── circuits/            # Track layout SVGs (ISO-3-keyed)
     │   └── drivers/             # Optional driver-photo overrides
     ├── src/
     │   ├── app/(dashboard)/     # Routed pages: home, races, live, ...
+    │   ├── app/sitemap.ts       # Dynamic sitemap (all seasons, all routes)
+    │   ├── app/robots.ts        # robots.txt
     │   ├── components/          # Shared UI + cards
+    │   ├── i18n/                # next-intl config, Accept-Language sniff
     │   └── lib/
     │       ├── api.ts           # Typed API client
     │       ├── car-image.ts     # Server-only public/cars/ lookup
     │       ├── circuit-image.ts # Server-only public/circuits/ lookup
     │       ├── driver-image.ts  # Server-only public/drivers/ lookup
+    │       ├── locale-names.ts  # EN/KO names for circuits & events
     │       └── season.ts        # Selected-season cookie helper
     └── vitest.config.ts
 ```

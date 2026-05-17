@@ -35,7 +35,27 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const car = await fetchCar(slug);
-  return { title: car?.name ?? "Car" };
+  if (!car) return { title: "Car" };
+  const desc = `${car.name} in the FIA World Endurance Championship — specifications, BoP history, drivers and teams running it, and season-by-season race results.`;
+  const ogImage = car.imageUrl ?? undefined;
+  return {
+    title: car.name,
+    description: desc,
+    alternates: { canonical: `/cars/${slug}` },
+    openGraph: {
+      title: `${car.name} · WEC Dashboard`,
+      description: desc,
+      url: `/cars/${slug}`,
+      type: "article",
+      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
+    },
+    twitter: {
+      card: ogImage ? "summary_large_image" : "summary",
+      title: car.name,
+      description: desc,
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
+  };
 }
 
 export default async function CarDetailPage({

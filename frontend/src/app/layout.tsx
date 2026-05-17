@@ -31,18 +31,101 @@ const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
   ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
   : "http://localhost:3000";
 
+const SITE_NAME = "WEC Dashboard";
+const SITE_DESCRIPTION =
+  "Unofficial fan dashboard for the FIA World Endurance Championship — live race weekend countdown, lap-by-lap results, V-max, sector splits, driver/team/manufacturer standings, Hypercar & LMGT3 grids, BoP, circuits, and full season archive from 2012. 한국어 지원.";
+
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: {
-    default: "WEC Dashboard",
-    template: "%s · WEC Dashboard",
+    default: `${SITE_NAME} — FIA WEC Schedule, Results & Standings`,
+    template: `%s · ${SITE_NAME}`,
   },
-  description:
-    "FIA World Endurance Championship — schedule, results, standings, drivers, teams, and circuits.",
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    "FIA WEC",
+    "World Endurance Championship",
+    "Le Mans",
+    "24 Hours of Le Mans",
+    "Hypercar",
+    "LMGT3",
+    "LMP2",
+    "LMP1",
+    "LMGTE Pro",
+    "LMGTE Am",
+    "endurance racing",
+    "WEC standings",
+    "WEC results",
+    "WEC schedule",
+    "WEC drivers",
+    "WEC teams",
+    "Porsche 963",
+    "Ferrari 499P",
+    "Toyota GR010",
+    "BMW M Hybrid V8",
+    "Cadillac V-Series.R",
+    "WEC 한국어",
+    "FIA 세계 내구 챔피언십",
+    "르망 24시",
+    "르망",
+    "하이퍼카",
+    "WEC 일정",
+    "WEC 결과",
+    "WEC 순위",
+    "포르쉐 963",
+    "페라리 499P",
+    "토요타 GR010",
+    "캐딜락 하이퍼카",
+    "현대 제네시스 GMR-001",
+    "WEC 드라이버",
+    "WEC 팀",
+    "WEC 서킷",
+  ],
+  authors: [{ name: "WEC Dashboard" }],
+  creator: "WEC Dashboard",
+  publisher: "WEC Dashboard",
+  category: "sports",
+  alternates: {
+    canonical: "/",
+    languages: {
+      en: "/",
+      ko: "/",
+      "x-default": "/",
+    },
+  },
+  openGraph: {
+    type: "website",
+    url: siteUrl,
+    siteName: SITE_NAME,
+    title: `${SITE_NAME} — FIA WEC Schedule, Results & Standings`,
+    description: SITE_DESCRIPTION,
+    locale: "en_US",
+    alternateLocale: ["ko_KR"],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `${SITE_NAME} — FIA WEC Schedule, Results & Standings`,
+    description: SITE_DESCRIPTION,
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+      "max-video-preview": -1,
+    },
+  },
   appleWebApp: {
     capable: true,
-    title: "WEC Dashboard",
+    title: SITE_NAME,
     statusBarStyle: "black-translucent",
+  },
+  formatDetection: {
+    telephone: false,
   },
 };
 

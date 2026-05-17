@@ -61,7 +61,28 @@ export async function generateMetadata({
   const { id } = await params;
   const year = await getSelectedSeason();
   const m = await fetchManufacturer(id, year);
-  return { title: m?.name ?? "Manufacturer" };
+  if (!m) return { title: "Manufacturer" };
+  const country = m.country ? ` (${m.country})` : "";
+  const desc = `${m.name}${country} — FIA WEC factory programme, race cars, season-by-season manufacturer standings and full race results.`;
+  const ogImage = m.logoUrl ?? undefined;
+  return {
+    title: m.name,
+    description: desc,
+    alternates: { canonical: `/manufacturers/${id}` },
+    openGraph: {
+      title: `${m.name} · WEC Dashboard`,
+      description: desc,
+      url: `/manufacturers/${id}`,
+      type: "article",
+      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
+    },
+    twitter: {
+      card: "summary",
+      title: m.name,
+      description: desc,
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
+  };
 }
 
 export default async function ManufacturerDetailPage({

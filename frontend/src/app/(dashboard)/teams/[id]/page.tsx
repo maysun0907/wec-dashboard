@@ -59,7 +59,28 @@ export async function generateMetadata({
   const { id } = await params;
   const year = await getSelectedSeason();
   const t = await fetchTeam(id, year);
-  return { title: t?.name ?? "Team" };
+  if (!t) return { title: "Team" };
+  const mfr = t.manufacturer ? ` (${t.manufacturer})` : "";
+  const desc = `${t.name}${mfr} — FIA WEC car entries, drivers, season-by-season standings and full race-by-race results.`;
+  const ogImage = t.manufacturerLogoUrl ?? undefined;
+  return {
+    title: t.name,
+    description: desc,
+    alternates: { canonical: `/teams/${id}` },
+    openGraph: {
+      title: `${t.name} · WEC Dashboard`,
+      description: desc,
+      url: `/teams/${id}`,
+      type: "article",
+      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
+    },
+    twitter: {
+      card: "summary",
+      title: t.name,
+      description: desc,
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
+  };
 }
 
 export default async function TeamDetailPage({

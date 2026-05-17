@@ -61,7 +61,28 @@ export async function generateMetadata({
   const { id } = await params;
   const year = await getSelectedSeason();
   const d = await fetchDriver(id, year);
-  return { title: d?.name ?? "Driver" };
+  if (!d) return { title: "Driver" };
+  const nat = d.nationality ? ` (${d.nationality})` : "";
+  const desc = `${d.name}${nat} — FIA World Endurance Championship career stats, season standings, race-by-race results, and team history.`;
+  const ogImage = d.photoUrl ?? undefined;
+  return {
+    title: d.name,
+    description: desc,
+    alternates: { canonical: `/drivers/${id}` },
+    openGraph: {
+      title: `${d.name} · WEC Dashboard`,
+      description: desc,
+      url: `/drivers/${id}`,
+      type: "profile",
+      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
+    },
+    twitter: {
+      card: ogImage ? "summary_large_image" : "summary",
+      title: d.name,
+      description: desc,
+      ...(ogImage ? { images: [ogImage] } : {}),
+    },
+  };
 }
 
 export default async function DriverDetailPage({

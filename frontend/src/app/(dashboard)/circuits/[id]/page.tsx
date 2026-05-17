@@ -37,7 +37,27 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const c = await fetchCircuit(id);
-  return { title: c?.name ?? "Circuit" };
+  if (!c) return { title: "Circuit" };
+  const lengthPart = c.lengthKm ? `${c.lengthKm} km` : null;
+  const lapPart = c.lapRecord ? `lap record ${c.lapRecord}` : null;
+  const facts = [c.country, lengthPart, lapPart].filter(Boolean).join(" · ");
+  const desc = `${c.name}${facts ? ` — ${facts}` : ""}. Track layout, lap record, and full FIA WEC race history at this circuit.`;
+  return {
+    title: c.name,
+    description: desc,
+    alternates: { canonical: `/circuits/${id}` },
+    openGraph: {
+      title: `${c.name} · WEC Dashboard`,
+      description: desc,
+      url: `/circuits/${id}`,
+      type: "article",
+    },
+    twitter: {
+      card: "summary",
+      title: c.name,
+      description: desc,
+    },
+  };
 }
 
 export default async function CircuitDetailPage({
