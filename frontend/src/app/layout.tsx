@@ -65,6 +65,14 @@ export const metadata: Metadata = {
     "Toyota GR010",
     "BMW M Hybrid V8",
     "Cadillac V-Series.R",
+    "Aston Martin Valkyrie",
+    "Peugeot 9X8",
+    "Alpine A424",
+    "Genesis Magma Racing",
+    "Genesis GMR-001",
+    "Hyundai WEC",
+    "Magma Racing",
+    "Magma",
     "WEC 한국어",
     "FIA 세계 내구 챔피언십",
     "르망 24시",
@@ -77,7 +85,15 @@ export const metadata: Metadata = {
     "페라리 499P",
     "토요타 GR010",
     "캐딜락 하이퍼카",
+    "애스턴마틴 발키리",
+    "푸조 9X8",
+    "알핀 A424",
     "현대 제네시스 GMR-001",
+    "제네시스 마그마 레이싱",
+    "제네시스 마그마",
+    "마그마 레이싱",
+    "마그마",
+    "현대 WEC",
     "WEC 드라이버",
     "WEC 팀",
     "WEC 서킷",
@@ -126,6 +142,23 @@ export const metadata: Metadata = {
   },
   formatDetection: {
     telephone: false,
+  },
+  // Verification tokens injected from env so we don't have to commit
+  // them and can swap them per-environment. Set in Vercel:
+  //   NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION = <token from Search Console>
+  //   NEXT_PUBLIC_NAVER_SITE_VERIFICATION  = <token from Naver Search Advisor>
+  verification: {
+    ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+      ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }
+      : {}),
+    ...(process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION
+      ? {
+          other: {
+            "naver-site-verification":
+              process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION,
+          },
+        }
+      : {}),
   },
 };
 
