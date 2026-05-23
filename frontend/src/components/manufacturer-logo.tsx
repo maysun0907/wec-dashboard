@@ -100,7 +100,7 @@ export function ManufacturerLogo({ src, name, size = "sm", className }: Props) {
     >
       <Image
         src={src}
-        alt={name ?? ""}
+        alt={name ? `${name} logo` : ""}
         fill
         sizes={IMG_SIZES[size]}
         className="object-contain"

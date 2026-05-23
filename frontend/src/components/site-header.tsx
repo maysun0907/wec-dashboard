@@ -26,7 +26,7 @@ export async function SiteHeader() {
               so the right-aligned controls have breathing room. */}
           <img
             src="/wec-logo.png"
-            alt="FIA WEC"
+            alt="FIA WEC official logo"
             width={188}
             height={80}
             className="h-6 w-auto transition-opacity group-hover:opacity-80 sm:h-8"

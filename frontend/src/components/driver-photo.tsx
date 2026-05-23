@@ -55,7 +55,7 @@ export function DriverPhoto({ src, name, size = "sm", className }: Props) {
     >
       <Image
         src={src}
-        alt={name ?? ""}
+        alt={name ? `${name}, FIA WEC driver` : ""}
         fill
         sizes="96px"
         className="object-cover"

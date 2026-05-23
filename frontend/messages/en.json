@@ -288,7 +288,9 @@
     "colS2": "S2",
     "colS3": "S3",
     "colLap": "Lap",
-    "colDuration": "Duration"
+    "colDuration": "Duration",
+    "relatedTitle": "Other rounds this season",
+    "relatedSubtitle": "Nearby rounds on the calendar."
   },
   "teams": {
     "title": "Teams",
@@ -305,7 +307,9 @@
     "career": "Career",
     "raceResults": "Race results",
     "noCompletedRaces": "No completed races yet this season.",
-    "resultsSubtitle": "Across all team cars, sorted by round."
+    "resultsSubtitle": "Across all team cars, sorted by round.",
+    "relatedTitle": "Other {raceClass} teams",
+    "relatedSubtitle": "Same class, current season."
   },
   "cars": {
     "title": "Cars",
@@ -329,7 +333,9 @@
     "races": "Races",
     "entriesSubtitle": "Teams running this model this season",
     "noTeamsRunning": "No teams running this model in the selected season.",
-    "noImageYet": "No image yet"
+    "noImageYet": "No image yet",
+    "relatedTitle": "Other {raceClass} cars",
+    "relatedSubtitle": "Same class, current season."
   },
   "circuits": {
     "title": "Circuits",
@@ -344,7 +350,9 @@
     "timesHosted": "Times hosted WEC",
     "wecRaceHistory": "WEC race history",
     "noEvents": "No WEC events recorded at this circuit yet.",
-    "historySubtitle": "Sorted by season, most recent first."
+    "historySubtitle": "Sorted by season, most recent first.",
+    "relatedTitle": "Other circuits",
+    "relatedSubtitle": "Explore more tracks on the WEC calendar."
   },
   "rules": {
     "title": "Rules",
@@ -497,7 +505,9 @@
     "addManufacturer": "Add manufacturer",
     "addManufacturerDesc": "Pick a Hypercar manufacturer to compare",
     "hypercarManufacturers": "Hypercar manufacturers",
-    "maxN": "(max {n})"
+    "maxN": "(max {n})",
+    "relatedTitle": "Other {raceClass} manufacturers",
+    "relatedSubtitle": "Same class, current season."
   },
   "table": {
     "round": "Round",

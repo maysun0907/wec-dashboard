@@ -288,7 +288,9 @@
     "colS2": "S2",
     "colS3": "S3",
     "colLap": "랩",
-    "colDuration": "시간"
+    "colDuration": "시간",
+    "relatedTitle": "이번 시즌 다른 라운드",
+    "relatedSubtitle": "캘린더상 인접한 라운드."
   },
   "teams": {
     "title": "팀",
@@ -305,7 +307,9 @@
     "career": "커리어",
     "raceResults": "경기 결과",
     "noCompletedRaces": "이번 시즌 완료된 경기가 없습니다.",
-    "resultsSubtitle": "모든 차량 합산, 라운드 순."
+    "resultsSubtitle": "모든 차량 합산, 라운드 순.",
+    "relatedTitle": "다른 {raceClass} 팀",
+    "relatedSubtitle": "같은 클래스, 현재 시즌."
   },
   "cars": {
     "title": "차량",
@@ -329,7 +333,9 @@
     "races": "출전",
     "entriesSubtitle": "이번 시즌 이 모델을 운영하는 팀",
     "noTeamsRunning": "선택한 시즌에 이 모델을 운영하는 팀이 없습니다.",
-    "noImageYet": "이미지 없음"
+    "noImageYet": "이미지 없음",
+    "relatedTitle": "다른 {raceClass} 차량",
+    "relatedSubtitle": "같은 클래스, 현재 시즌."
   },
   "circuits": {
     "title": "서킷",
@@ -344,7 +350,9 @@
     "timesHosted": "WEC 개최 횟수",
     "wecRaceHistory": "WEC 경기 이력",
     "noEvents": "아직 이 서킷에서 열린 WEC 경기가 없습니다.",
-    "historySubtitle": "시즌순, 최신 경기부터."
+    "historySubtitle": "시즌순, 최신 경기부터.",
+    "relatedTitle": "다른 서킷",
+    "relatedSubtitle": "WEC 캘린더의 다른 트랙을 둘러보세요."
   },
   "rules": {
     "title": "규정",
@@ -497,7 +505,9 @@
     "addManufacturer": "매뉴팩처 추가",
     "addManufacturerDesc": "비교할 하이퍼카 매뉴팩처를 선택",
     "hypercarManufacturers": "하이퍼카 매뉴팩처",
-    "maxN": "(최대 {n})"
+    "maxN": "(최대 {n})",
+    "relatedTitle": "다른 {raceClass} 매뉴팩처",
+    "relatedSubtitle": "같은 클래스, 현재 시즌."
   },
   "table": {
     "round": "Rd",
