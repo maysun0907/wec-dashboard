@@ -37,6 +37,12 @@ import {
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import {
+  JsonLd,
+  breadcrumbSchema,
+  buildSiteUrl,
+  personSchema,
+} from "@/lib/json-ld";
 
 type Params = { id: string };
 
@@ -63,8 +69,25 @@ export async function generateMetadata({
   const d = await fetchDriver(id, year);
   if (!d) return { title: "Driver" };
   const nat = d.nationality ? ` (${d.nationality})` : "";
-  const desc = `${d.name}${nat} — FIA World Endurance Championship career stats, season standings, race-by-race results, and team history.`;
-  const ogImage = d.photoUrl ?? undefined;
+  const classLabel = d.raceClass ? raceClassLabel(d.raceClass) : null;
+  const titles = d.seasons.filter((s) => s.championshipPosition === 1).length;
+  const totalWins = d.seasons.reduce((a, s) => a + s.wins, 0);
+  const totalPodiums = d.seasons.reduce((a, s) => a + s.podiums, 0);
+  const totalRaces = d.seasons.reduce((a, s) => a + s.races, 0);
+  const yearLabel = year ? ` ${year}` : "";
+  const teamPart = d.team
+    ? ` — ${d.team}${d.carNumber ? ` #${d.carNumber}` : ""}${classLabel ? ` in ${classLabel}` : ""}${yearLabel}.`
+    : ".";
+  const carPart = d.carModel ? ` Driving the ${d.carModel}.` : "";
+  const titlesPart = titles > 0 ? ` ${titles}× WEC champion.` : "";
+  const statsPart = totalRaces > 0
+    ? ` Career: ${totalRaces} races, ${totalWins} wins, ${totalPodiums} podiums.`
+    : "";
+  const desc = `${d.name}${nat}${teamPart}${carPart}${titlesPart}${statsPart} FIA WEC stats, season standings, and race-by-race results.`;
+  // `images` is intentionally omitted from openGraph/twitter so the
+  // colocated `opengraph-image.tsx` route-segment file can supply the
+  // dynamic branded card. A static `images` field here would shallow-
+  // merge ahead of the file convention.
   return {
     title: d.name,
     description: desc,
@@ -74,13 +97,11 @@ export async function generateMetadata({
       description: desc,
       url: `/drivers/${id}`,
       type: "profile",
-      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
     },
     twitter: {
-      card: ogImage ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title: d.name,
       description: desc,
-      ...(ogImage ? { images: [ogImage] } : {}),
     },
   };
 }
@@ -108,8 +129,18 @@ export default async function DriverDetailPage({
   const t = await getTranslations("drivers");
   const tt = await getTranslations("table");
 
+  const schemas = [
+    personSchema(driver),
+    breadcrumbSchema([
+      { name: "Home", url: buildSiteUrl("/") },
+      { name: "Drivers", url: buildSiteUrl("/drivers") },
+      { name: driver.name },
+    ]),
+  ];
+
   return (
     <div className="space-y-6">
+      <JsonLd schema={schemas} />
       <Link
         href="/drivers"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"

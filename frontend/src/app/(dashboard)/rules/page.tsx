@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import {
   Card,
@@ -9,13 +10,56 @@ import {
 } from "@/components/ui/card";
 import { ClassBadge } from "@/components/class-badge";
 import { PageHeader } from "@/components/page-header";
+import {
+  JsonLd,
+  breadcrumbSchema,
+  buildSiteUrl,
+  faqSchema,
+} from "@/lib/json-ld";
 
-export const metadata = { title: "Rules" };
+export const metadata: Metadata = {
+  title: "Rules",
+  description:
+    "FIA WEC technical regulations explained — Hypercar (LMH + LMDh) and LMGT3 class rules, performance envelope (1030 kg, 500 kW, ≥ 190 km/h ERS deploy), Balance of Performance, success handicap, qualifying / Hyperpole format, points scoring (standard 25-18-15… vs. endurance 38-27-23… for Le Mans), and race-length calendar.",
+  alternates: { canonical: "/rules" },
+};
 
 export default async function RulesPage() {
   const t = await getTranslations("rules");
+
+  // FAQPage schema — each card on the page is a question/answer pair.
+  // Strings are pulled from translations so the markup tracks any copy
+  // edits; Google's FAQ rich result is locale-aware so emitting the
+  // current locale's text is fine.
+  const faqItems = [
+    { question: t("hypercarTitle"), answer: t("hypercarDesc") },
+    { question: t("lmgt3Title"), answer: t("lmgt3Desc") },
+    { question: t("envelopeTitle"), answer: t("envelopeDesc") },
+    { question: t("bopTitle"), answer: `${t("bopDesc")} ${t("bopBody1")}` },
+    {
+      question: t("successTitle"),
+      answer: `${t("successDesc")} ${t("successBody1")}`,
+    },
+    { question: t("pointsTitle"), answer: `${t("pointsDesc")} ${t("pointsFootnote")}` },
+    {
+      question: t("qualifyingTitle"),
+      answer: `${t("qualifyingDesc")} ${t("qualifyingFootnote")}`,
+    },
+    { question: t("calendarTitle"), answer: t("calendarDesc") },
+    { question: t("lifecycleTitle"), answer: t("lifecycleDesc") },
+  ];
+
+  const schemas = [
+    faqSchema(faqItems),
+    breadcrumbSchema([
+      { name: "Home", url: buildSiteUrl("/") },
+      { name: "Rules", url: buildSiteUrl("/rules") },
+    ]),
+  ];
+
   return (
     <div className="space-y-6">
+      <JsonLd schema={schemas} />
       <PageHeader
         eyebrow={t("eyebrow")}
         title={t("title")}

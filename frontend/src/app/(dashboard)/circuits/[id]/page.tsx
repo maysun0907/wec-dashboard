@@ -15,8 +15,19 @@ import {
 import { ClassBadge } from "@/components/class-badge";
 import { TeamLink } from "@/components/entity-link";
 import { Flag } from "@/components/flag";
-import { getCircuit, type CircuitDetail } from "@/lib/api";
+import {
+  getCircuit,
+  getCircuits,
+  type Circuit,
+  type CircuitDetail,
+} from "@/lib/api";
 import { localCircuitLayout } from "@/lib/circuit-image";
+import {
+  JsonLd,
+  breadcrumbSchema,
+  buildSiteUrl,
+  placeSchema,
+} from "@/lib/json-ld";
 
 type Params = { id: string };
 
@@ -38,10 +49,18 @@ export async function generateMetadata({
   const { id } = await params;
   const c = await fetchCircuit(id);
   if (!c) return { title: "Circuit" };
-  const lengthPart = c.lengthKm ? `${c.lengthKm} km` : null;
+  const lengthPart = c.lengthKm ? `${c.lengthKm.toFixed(3)} km` : null;
   const lapPart = c.lapRecord ? `lap record ${c.lapRecord}` : null;
-  const facts = [c.country, lengthPart, lapPart].filter(Boolean).join(" · ");
-  const desc = `${c.name}${facts ? ` — ${facts}` : ""}. Track layout, lap record, and full FIA WEC race history at this circuit.`;
+  const hostedSince = c.events.length > 0
+    ? Math.min(...c.events.map((e) => e.seasonYear))
+    : null;
+  const hostedPart = hostedSince
+    ? `hosted ${c.events.length} WEC race${c.events.length === 1 ? "" : "s"} since ${hostedSince}`
+    : null;
+  const facts = [c.country, lengthPart, lapPart, hostedPart]
+    .filter(Boolean)
+    .join(" · ");
+  const desc = `${c.name}${facts ? ` — ${facts}` : ""}. FIA WEC track layout, lap record, class winners and full race-by-race history at this circuit.`;
   return {
     title: c.name,
     description: desc,
@@ -83,8 +102,42 @@ export default async function CircuitDetailPage({
   const layoutSvg = localCircuitLayout(circuit.country) ?? circuit.layoutImage;
   const t = await getTranslations("circuits");
 
+  // "Other circuits" — pick up to 4 tracks deterministically from the
+  // circuits list. Start one slot after the current id (rotation) so
+  // every circuit page surfaces a different sample but stays stable
+  // across renders / cache hits.
+  let relatedCircuits: Circuit[] = [];
+  try {
+    const all = await getCircuits();
+    const others = all.filter((c) => c.id !== circuit.id);
+    if (others.length > 0) {
+      const start =
+        ((circuit.id % others.length) + others.length) % others.length;
+      const picks: Circuit[] = [];
+      for (let i = 0; i < others.length && picks.length < 4; i++) {
+        picks.push(others[(start + i) % others.length]!);
+      }
+      relatedCircuits = picks.map((c) => ({
+        ...c,
+        name: localizeCircuitName(c.name, localeForName),
+      }));
+    }
+  } catch {
+    relatedCircuits = [];
+  }
+
+  const schemas = [
+    placeSchema(circuit),
+    breadcrumbSchema([
+      { name: "Home", url: buildSiteUrl("/") },
+      { name: "Circuits", url: buildSiteUrl("/circuits") },
+      { name: circuit.name },
+    ]),
+  ];
+
   return (
     <div className="space-y-6">
+      <JsonLd schema={schemas} />
       <Link
         href="/circuits"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
@@ -128,7 +181,7 @@ export default async function CircuitDetailPage({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={layoutSvg}
-                alt={`${circuit.name} layout`}
+                alt={`${circuit.name} track layout`}
                 className="h-full w-full object-contain"
                 style={{
                   filter: "invert(1) hue-rotate(180deg)",
@@ -222,6 +275,37 @@ export default async function CircuitDetailPage({
           ))}
         </CardContent>
       </Card>
+
+      {relatedCircuits.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("relatedTitle")}</CardTitle>
+            <CardDescription>{t("relatedSubtitle")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {relatedCircuits.map((r) => (
+                <li key={r.id}>
+                  <Link
+                    href={`/circuits/${r.id}`}
+                    className="flex items-center gap-3 rounded-md border border-border/60 bg-secondary/20 px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
+                  >
+                    <Flag code={r.country} flagOnly />
+                    <span className="min-w-0 flex-1 truncate font-medium">
+                      {r.name}
+                    </span>
+                    {r.lengthKm > 0 && (
+                      <span className="hidden font-mono text-xs tabular-nums text-muted-foreground sm:inline">
+                        {r.lengthKm.toFixed(3)} km
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

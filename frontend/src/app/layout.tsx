@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Saira_Condensed } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
+import { JsonLd, websiteSchema } from "@/lib/json-ld";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,6 +31,21 @@ const sairaCondensed = Saira_Condensed({
 const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
   ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
   : "http://localhost:3000";
+
+// Backend API origin — every page hits this at least once during SSR
+// (and client-side for revalidations). next/font already preconnects
+// to fonts.gstatic.com, so adding the API origin here covers the only
+// other third-party we depend on. React 19 hoists this <link> into
+// <head> regardless of placement in the tree.
+const API_ORIGIN = (() => {
+  const raw = process.env.NEXT_PUBLIC_API_URL;
+  if (!raw) return null;
+  try {
+    return new URL(raw).origin;
+  } catch {
+    return null;
+  }
+})();
 
 const SITE_NAME = "WEC Dashboard";
 const SITE_DESCRIPTION =
@@ -183,10 +199,18 @@ export default async function RootLayout({
       className={`dark ${geistSans.variable} ${geistMono.variable} ${sairaCondensed.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
+        {API_ORIGIN && (
+          <link rel="preconnect" href={API_ORIGIN} crossOrigin="anonymous" />
+        )}
         <NextIntlClientProvider locale={locale} messages={messages}>
           {children}
         </NextIntlClientProvider>
         <Analytics />
+        {/* Global WebSite + SearchAction — declares the site name and
+            the sitelinks search box hint so Google can render rich
+            results on brand SERPs. Kept in English; schema.org is
+            data, not display copy. */}
+        <JsonLd schema={websiteSchema()} />
       </body>
     </html>
   );

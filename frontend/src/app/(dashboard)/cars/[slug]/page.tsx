@@ -13,9 +13,22 @@ import {
 } from "@/components/ui/card";
 import { ClassBadge } from "@/components/class-badge";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
-import { getCarModel, type CarModelDetail, type RaceClass } from "@/lib/api";
+import {
+  getCarModel,
+  getCarModels,
+  raceClassLabel,
+  type CarModelDetail,
+  type CarModelSummary,
+  type RaceClass,
+} from "@/lib/api";
 import { localCarImage } from "@/lib/car-image";
 import { getSelectedSeason } from "@/lib/season";
+import {
+  JsonLd,
+  breadcrumbSchema,
+  buildSiteUrl,
+  carSchema,
+} from "@/lib/json-ld";
 
 type Params = { slug: string };
 
@@ -36,8 +49,21 @@ export async function generateMetadata({
   const { slug } = await params;
   const car = await fetchCar(slug);
   if (!car) return { title: "Car" };
-  const desc = `${car.name} in the FIA World Endurance Championship — specifications, BoP history, drivers and teams running it, and season-by-season race results.`;
-  const ogImage = car.imageUrl ?? undefined;
+  const primaryClass = car.teams.length > 0 ? raceClassLabel(car.teams[0].raceClass) : null;
+  const factParts: string[] = [];
+  if (car.manufacturer) factParts.push(car.manufacturer);
+  if (car.engine) factParts.push(car.engine);
+  if (primaryClass) factParts.push(`${primaryClass} class`);
+  if (car.category) factParts.push(car.category);
+  if (car.yearIntroduced) factParts.push(`debuted ${car.yearIntroduced}`);
+  const facts = factParts.join(", ");
+  const statsPart = car.stats.races > 0
+    ? ` ${car.stats.wins} wins, ${car.stats.podiums} podiums, ${car.stats.poles} poles in ${car.stats.races} races.`
+    : "";
+  const desc = `${car.name}${facts ? ` — ${facts}.` : ""}${statsPart} FIA WEC specifications, BoP history, drivers and teams running it, race-by-race results.`;
+  // `images` is intentionally omitted - the colocated `opengraph-image.tsx`
+  // generates the dynamic branded card and a static `images` here would
+  // shallow-merge ahead of it.
   return {
     title: car.name,
     description: desc,
@@ -47,13 +73,11 @@ export async function generateMetadata({
       description: desc,
       url: `/cars/${slug}`,
       type: "article",
-      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
     },
     twitter: {
-      card: ogImage ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title: car.name,
       description: desc,
-      ...(ogImage ? { images: [ogImage] } : {}),
     },
   };
 }
@@ -72,8 +96,33 @@ export default async function CarDetailPage({
   const imageUrl = car.imageUrl ?? localCarImage(slug);
   const t = await getTranslations("cars");
 
+  // Same-class car-models, capped at 5. Best-effort: render nothing
+  // when the listing endpoint hiccups so the rest of the page stays up.
+  let relatedCars: CarModelSummary[] = [];
+  if (primaryClass) {
+    try {
+      const year = await getSelectedSeason();
+      const all = await getCarModels(year);
+      relatedCars = all
+        .filter((m) => m.raceClass === primaryClass && m.slug !== car.slug)
+        .slice(0, 5);
+    } catch {
+      relatedCars = [];
+    }
+  }
+
+  const schemas = [
+    carSchema(car),
+    breadcrumbSchema([
+      { name: "Home", url: buildSiteUrl("/") },
+      { name: "Cars", url: buildSiteUrl("/cars") },
+      { name: car.name },
+    ]),
+  ];
+
   return (
     <div className="space-y-6">
+      <JsonLd schema={schemas} />
       <Link
         href="/cars"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
@@ -83,7 +132,10 @@ export default async function CarDetailPage({
 
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
-          <CarImage src={imageUrl} alt={car.name} />
+          <CarImage
+            src={imageUrl}
+            alt={car.manufacturer ? `${car.manufacturer} ${car.name}` : car.name}
+          />
           <div className="min-w-0 flex-1 space-y-1">
             <CardTitle className="text-2xl sm:text-3xl">{car.name}</CardTitle>
             <CardDescription className="flex items-center gap-2">
@@ -175,6 +227,43 @@ export default async function CarDetailPage({
           )}
         </CardContent>
       </Card>
+
+      {relatedCars.length > 0 && primaryClass && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {t("relatedTitle", { raceClass: raceClassLabel(primaryClass) })}
+            </CardTitle>
+            <CardDescription>{t("relatedSubtitle")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {relatedCars.map((r) => (
+                <li key={r.slug}>
+                  <Link
+                    href={`/cars/${r.slug}`}
+                    className="flex items-center gap-3 rounded-md border border-border/60 bg-secondary/20 px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
+                  >
+                    <ManufacturerLogo
+                      src={r.manufacturerLogoUrl}
+                      name={r.manufacturer ?? r.name}
+                      size="sm"
+                    />
+                    <span className="min-w-0 flex-1 truncate font-medium">
+                      {r.name}
+                    </span>
+                    {r.manufacturer && (
+                      <span className="hidden truncate text-xs text-muted-foreground sm:inline">
+                        {r.manufacturer}
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

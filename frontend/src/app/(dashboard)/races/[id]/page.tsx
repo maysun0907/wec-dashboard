@@ -36,9 +36,16 @@ import {
   getEvent,
   getEvents,
   getSessionResults,
+  raceClassLabel,
   type EventStatus,
   type SessionResult,
 } from "@/lib/api";
+import {
+  JsonLd,
+  breadcrumbSchema,
+  buildSiteUrl,
+  eventSchema,
+} from "@/lib/json-ld";
 
 type Params = { id: string };
 
@@ -75,9 +82,41 @@ export async function generateMetadata({
     const event = await getEvent(numId);
     const year = event.dateStart ? new Date(event.dateStart).getUTCFullYear() : null;
     const circuitName = event.circuit?.name ?? null;
-    const facts = [year, circuitName].filter(Boolean).join(" · ");
-    const desc = `${event.name}${facts ? ` (${facts})` : ""} — FIA WEC schedule, qualifying results, race classification, lap chart, pit stops, V-max, sector splits and weather per session.`;
-    const ogImage = event.posterUrl ?? undefined;
+    const circuitCountry = event.circuit?.country ?? null;
+    const status = eventStatus(event);
+    // Pull class winners for completed races so the description can
+    // name-drop the actual team — biggest long-tail keyword payoff.
+    let winnerSegment = "";
+    if (status === "completed") {
+      try {
+        const raceSession = event.sessions.find((s) => s.type === "RACE");
+        if (raceSession) {
+          const rows = await getSessionResults(raceSession.id);
+          const byClass = new Map<string, SessionResult>();
+          for (const r of rows) {
+            const cp = r.classPosition || r.position;
+            if (cp !== 1) continue;
+            if (!byClass.has(r.raceClass)) byClass.set(r.raceClass, r);
+          }
+          const parts = Array.from(byClass.entries()).map(
+            ([cls, r]) => `${raceClassLabel(cls as SessionResult["raceClass"])} winner ${r.team} #${r.carNumber}`,
+          );
+          if (parts.length > 0) winnerSegment = ` ${parts.join(", ")}.`;
+        }
+      } catch {
+        // best-effort; description still works without winners.
+      }
+    }
+    const factParts: string[] = [];
+    if (year) factParts.push(String(year));
+    if (event.round) factParts.push(`Round ${event.round}`);
+    if (circuitName) factParts.push(circuitName);
+    if (circuitCountry) factParts.push(circuitCountry);
+    const facts = factParts.join(" · ");
+    const desc = `${event.name}${facts ? ` — ${facts}` : ""}. FIA WEC Hypercar & LMGT3 qualifying, race classification, lap chart, pit stops, V-max, sector splits and weather per session.${winnerSegment}`;
+    // `images` is intentionally omitted - the colocated `opengraph-image.tsx`
+    // generates the dynamic branded card and a static `images` here would
+    // shallow-merge ahead of it.
     return {
       title: event.name,
       description: desc,
@@ -87,13 +126,11 @@ export async function generateMetadata({
         description: desc,
         url: `/races/${numId}`,
         type: "article",
-        ...(ogImage ? { images: [{ url: ogImage }] } : {}),
       },
       twitter: {
-        card: ogImage ? "summary_large_image" : "summary",
+        card: "summary_large_image",
         title: event.name,
         description: desc,
-        ...(ogImage ? { images: [ogImage] } : {}),
       },
     };
   } catch {
@@ -128,6 +165,26 @@ export default async function RaceDetailPage({
   const status = eventStatus(event);
   const sessions = event.sessions; // already in canonical order
 
+  // "Other rounds this season" — pull the season's full schedule and
+  // surface up to 4 chronologically nearby rounds. Best-effort; render
+  // nothing on failure so the rest of the page stays up.
+  const seasonYear = event.dateStart
+    ? new Date(event.dateStart).getUTCFullYear()
+    : null;
+  let nearbyRounds: { id: number; round: number; name: string; circuit: { country: string; name: string } }[] =
+    [];
+  try {
+    const seasonEvents = (await getEvents(seasonYear)).map((e) =>
+      localizeEvent(e, localeForName),
+    );
+    const sorted = seasonEvents
+      .filter((e) => e.id !== event.id)
+      .sort((a, b) => Math.abs(a.round - event.round) - Math.abs(b.round - event.round));
+    nearbyRounds = sorted.slice(0, 4).sort((a, b) => a.round - b.round);
+  } catch {
+    nearbyRounds = [];
+  }
+
   // Pre-fetch results for every session in parallel so each tab is instant.
   const resultsBySession = await Promise.all(
     sessions.map(async (s) => ({
@@ -146,8 +203,18 @@ export default async function RaceDetailPage({
   const t = await getTranslations("raceDetail");
   const tStatus = await getTranslations("eventStatus");
 
+  const schemas = [
+    eventSchema(event),
+    breadcrumbSchema([
+      { name: "Home", url: buildSiteUrl("/") },
+      { name: "Races", url: buildSiteUrl("/races") },
+      { name: event.name },
+    ]),
+  ];
+
   return (
     <div className="space-y-6">
+      <JsonLd schema={schemas} />
       <Link
         href="/races"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
@@ -168,6 +235,7 @@ export default async function RaceDetailPage({
               fill
               sizes="192px"
               className="object-contain p-3"
+              priority
             />
           </span>
         )}
@@ -282,6 +350,35 @@ export default async function RaceDetailPage({
                 : t("resultsNoData")}
             </CardDescription>
           </CardHeader>
+        </Card>
+      )}
+
+      {nearbyRounds.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("relatedTitle")}</CardTitle>
+            <CardDescription>{t("relatedSubtitle")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {nearbyRounds.map((r) => (
+                <li key={r.id}>
+                  <Link
+                    href={`/races/${r.id}`}
+                    className="flex items-center gap-3 rounded-md border border-border/60 bg-secondary/20 px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
+                  >
+                    <span className="w-10 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                      R{r.round}
+                    </span>
+                    <Flag code={r.circuit.country} flagOnly />
+                    <span className="min-w-0 flex-1 truncate font-medium">
+                      {r.name}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
         </Card>
       )}
     </div>

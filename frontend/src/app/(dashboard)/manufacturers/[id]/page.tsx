@@ -31,12 +31,21 @@ import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import {
   describeRounds,
   getManufacturer,
+  getManufacturerStandings,
   raceClassLabel,
   type ManufacturerDetail,
   type ManufacturerResult,
   type ManufacturerSeason,
+  type RaceClass,
+  type StandingManufacturer,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
+import {
+  JsonLd,
+  breadcrumbSchema,
+  buildSiteUrl,
+  manufacturerSchema,
+} from "@/lib/json-ld";
 
 type Params = { id: string };
 
@@ -63,8 +72,23 @@ export async function generateMetadata({
   const m = await fetchManufacturer(id, year);
   if (!m) return { title: "Manufacturer" };
   const country = m.country ? ` (${m.country})` : "";
-  const desc = `${m.name}${country} — FIA WEC factory programme, race cars, season-by-season manufacturer standings and full race results.`;
-  const ogImage = m.logoUrl ?? undefined;
+  const titles = m.seasons.filter((s) => s.championshipPosition === 1).length;
+  const totalWins = m.seasons.reduce((a, s) => a + s.wins, 0);
+  const totalRaces = m.seasons.reduce((a, s) => a + s.races, 0);
+  const totalPodiums = m.seasons.reduce((a, s) => a + s.podiums, 0);
+  const classes = Array.from(new Set(m.cars.map((c) => raceClassLabel(c.raceClass))));
+  const yearLabel = year ? ` ${year}` : "";
+  const programmePart = classes.length > 0
+    ? ` ${m.cars.length} car${m.cars.length === 1 ? "" : "s"} in ${classes.join("/")}${yearLabel}.`
+    : "";
+  const titlesPart = titles > 0 ? ` ${titles}× WEC manufacturer title${titles === 1 ? "" : "s"}.` : "";
+  const statsPart = totalRaces > 0
+    ? ` ${totalRaces} car-races, ${totalWins} wins, ${totalPodiums} podiums.`
+    : "";
+  const desc = `${m.name}${country} — FIA WEC factory programme.${programmePart}${titlesPart}${statsPart} Race cars, drivers, season-by-season manufacturer standings and full race results.`;
+  // `images` is intentionally omitted - the colocated `opengraph-image.tsx`
+  // generates the dynamic branded card and a static `images` here would
+  // shallow-merge ahead of it.
   return {
     title: m.name,
     description: desc,
@@ -74,13 +98,11 @@ export async function generateMetadata({
       description: desc,
       url: `/manufacturers/${id}`,
       type: "article",
-      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
       title: m.name,
       description: desc,
-      ...(ogImage ? { images: [ogImage] } : {}),
     },
   };
 }
@@ -128,8 +150,34 @@ export default async function ManufacturerDetailPage({
     manufacturer.cars.flatMap((c) => c.drivers.map((d) => d.id)),
   ).size;
 
+  // "Other manufacturers in same class" — pull the standings (which is
+  // already class-filtered) and exclude the current brand. Capped at 5.
+  const primaryClass: RaceClass | null =
+    manufacturer.cars[0]?.raceClass ?? manufacturer.standings[0]?.raceClass ?? null;
+  let relatedManufacturers: StandingManufacturer[] = [];
+  if (primaryClass) {
+    try {
+      const standings = await getManufacturerStandings(primaryClass, year);
+      relatedManufacturers = standings
+        .filter((m) => m.manufacturerId !== manufacturer.id)
+        .slice(0, 5);
+    } catch {
+      relatedManufacturers = [];
+    }
+  }
+
+  const schemas = [
+    manufacturerSchema(manufacturer),
+    breadcrumbSchema([
+      { name: "Home", url: buildSiteUrl("/") },
+      { name: "Manufacturers", url: buildSiteUrl("/standings") },
+      { name: manufacturer.name },
+    ]),
+  ];
+
   return (
     <div className="space-y-6">
+      <JsonLd schema={schemas} />
       <div className="flex items-center justify-between">
         <Link
           href="/standings"
@@ -218,7 +266,7 @@ export default async function ManufacturerDetailPage({
               <span className="relative mx-auto block h-24 w-full px-4">
                 <Image
                   src={(c.imageUrl ?? c.carModelImageUrl)!}
-                  alt={`#${c.carNumber} ${c.model ?? ""}`}
+                  alt={`#${c.carNumber} ${manufacturer.name}${c.model ? ` ${c.model}` : ""}`}
                   fill
                   sizes="(max-width: 640px) 100vw, 320px"
                   className="object-contain"
@@ -288,6 +336,41 @@ export default async function ManufacturerDetailPage({
           )}
         </CardContent>
       </Card>
+
+      {relatedManufacturers.length > 0 && primaryClass && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {t("relatedTitle", { raceClass: raceClassLabel(primaryClass) })}
+            </CardTitle>
+            <CardDescription>{t("relatedSubtitle")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {relatedManufacturers.map((r) => (
+                <li key={r.manufacturerId}>
+                  <Link
+                    href={`/manufacturers/${r.manufacturerId}`}
+                    className="flex items-center gap-3 rounded-md border border-border/60 bg-secondary/20 px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
+                  >
+                    <ManufacturerLogo
+                      src={r.manufacturerLogoUrl}
+                      name={r.manufacturerName}
+                      size="sm"
+                    />
+                    <span className="min-w-0 flex-1 truncate font-medium">
+                      {r.manufacturerName}
+                    </span>
+                    <span className="hidden font-mono text-xs tabular-nums text-muted-foreground sm:inline">
+                      P{r.position}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

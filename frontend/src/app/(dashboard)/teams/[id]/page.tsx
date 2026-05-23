@@ -30,11 +30,20 @@ import { BrandLinkPills } from "@/components/brand-link-pills";
 import {
   describeRounds,
   getTeam,
+  getTeams,
   raceClassLabel,
+  type RaceClass,
   type TeamDetail,
+  type TeamEntry,
   type TeamSeason,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
+import {
+  JsonLd,
+  breadcrumbSchema,
+  buildSiteUrl,
+  teamSchema,
+} from "@/lib/json-ld";
 
 type Params = { id: string };
 
@@ -61,8 +70,21 @@ export async function generateMetadata({
   const t = await fetchTeam(id, year);
   if (!t) return { title: "Team" };
   const mfr = t.manufacturer ? ` (${t.manufacturer})` : "";
-  const desc = `${t.name}${mfr} — FIA WEC car entries, drivers, season-by-season standings and full race-by-race results.`;
-  const ogImage = t.manufacturerLogoUrl ?? undefined;
+  const classes = Array.from(new Set(t.cars.map((c) => raceClassLabel(c.raceClass))));
+  const numbers = Array.from(new Set(t.cars.map((c) => `#${c.number}`)));
+  const titles = t.seasons.filter((s) => s.championshipPosition === 1).length;
+  const totalWins = t.seasons.reduce((a, s) => a + s.wins, 0);
+  const totalRaces = t.seasons.reduce((a, s) => a + s.races, 0);
+  const yearLabel = year ? ` ${year}` : "";
+  const carsPart = numbers.length > 0
+    ? ` ${numbers.join(", ")}${classes.length > 0 ? ` in ${classes.join("/")}` : ""}${yearLabel}.`
+    : "";
+  const titlesPart = titles > 0 ? ` ${titles}× WEC title${titles === 1 ? "" : "s"}.` : "";
+  const statsPart = totalRaces > 0 ? ` ${totalWins} wins in ${totalRaces} car-races.` : "";
+  const desc = `${t.name}${mfr}${carsPart}${titlesPart}${statsPart} FIA WEC drivers, season-by-season standings, full race-by-race results.`;
+  // `images` is intentionally omitted - the colocated `opengraph-image.tsx`
+  // generates the dynamic branded card and a static `images` here would
+  // shallow-merge ahead of it.
   return {
     title: t.name,
     description: desc,
@@ -72,13 +94,11 @@ export async function generateMetadata({
       description: desc,
       url: `/teams/${id}`,
       type: "article",
-      ...(ogImage ? { images: [{ url: ogImage }] } : {}),
     },
     twitter: {
-      card: "summary",
+      card: "summary_large_image",
       title: t.name,
       description: desc,
-      ...(ogImage ? { images: [ogImage] } : {}),
     },
   };
 }
@@ -104,8 +124,40 @@ export default async function TeamDetailPage({
   const t = await getTranslations("teams");
   const tt = await getTranslations("table");
 
+  // "Other teams in same class" — same-class peers from the current
+  // season, capped at 5. Falls back silently if the API hop fails so
+  // we don't break the page over a related-links rail.
+  const primaryClass: RaceClass | null = team.cars[0]?.raceClass ?? null;
+  let relatedTeams: TeamEntry[] = [];
+  if (primaryClass) {
+    try {
+      const all = await getTeams(year);
+      const seen = new Set<number>();
+      for (const row of all) {
+        if (row.id === team.id) continue;
+        if (row.raceClass !== primaryClass) continue;
+        if (seen.has(row.id)) continue;
+        seen.add(row.id);
+        relatedTeams.push(row);
+        if (relatedTeams.length >= 5) break;
+      }
+    } catch {
+      relatedTeams = [];
+    }
+  }
+
+  const schemas = [
+    teamSchema(team, "team"),
+    breadcrumbSchema([
+      { name: "Home", url: buildSiteUrl("/") },
+      { name: "Teams", url: buildSiteUrl("/teams") },
+      { name: team.name },
+    ]),
+  ];
+
   return (
     <div className="space-y-6">
+      <JsonLd schema={schemas} />
       <Link
         href="/teams"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
@@ -181,7 +233,7 @@ export default async function TeamDetailPage({
                 <span className="relative mx-auto block h-24 w-full px-4">
                   <Image
                     src={(c.imageUrl ?? c.carModelImageUrl)!}
-                    alt={`#${c.number} ${c.model ?? ""}`}
+                    alt={`${team.name} #${c.number}${c.model ? ` ${c.model}` : ""}`}
                     fill
                     sizes="(max-width: 640px) 100vw, 320px"
                     className="object-contain"
@@ -303,6 +355,43 @@ export default async function TeamDetailPage({
           )}
         </CardContent>
       </Card>
+
+      {relatedTeams.length > 0 && primaryClass && (
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              {t("relatedTitle", { raceClass: raceClassLabel(primaryClass) })}
+            </CardTitle>
+            <CardDescription>{t("relatedSubtitle")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {relatedTeams.map((r) => (
+                <li key={r.id}>
+                  <Link
+                    href={`/teams/${r.id}`}
+                    className="flex items-center gap-3 rounded-md border border-border/60 bg-secondary/20 px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
+                  >
+                    <ManufacturerLogo
+                      src={r.manufacturerLogoUrl}
+                      name={r.manufacturer ?? r.name}
+                      size="sm"
+                    />
+                    <span className="min-w-0 flex-1 truncate font-medium">
+                      {r.name}
+                    </span>
+                    {r.manufacturer && (
+                      <span className="hidden truncate text-xs text-muted-foreground sm:inline">
+                        {r.manufacturer}
+                      </span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
