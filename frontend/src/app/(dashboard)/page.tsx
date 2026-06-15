@@ -20,7 +20,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { ClassBadge } from "@/components/class-badge";
 import { DriversPodium, buildPodiumRows } from "@/components/drivers-podium";
 import { DriverList, TeamLink } from "@/components/entity-link";
 import { localDriverImage } from "@/lib/driver-image";
@@ -35,7 +34,7 @@ import {
   SeasonNumbersStrip,
   type ClassChampions,
 } from "@/components/past-season-sections";
-import { ChampionProgressionMini } from "@/components/champion-progression-mini";
+import { ChampionProgressionMiniLazy } from "@/components/champion-progression-mini-lazy";
 import { getSelectedSeason } from "@/lib/season";
 import {
   RACE_CLASSES,
@@ -198,7 +197,7 @@ export default async function HomePage() {
             classes={recap.classesPresent}
           />
           {recap.progressions.length > 0 && (
-            <ChampionProgressionMini classes={recap.progressions} />
+            <ChampionProgressionMiniLazy classes={recap.progressions} />
           )}
         </>
       )}
