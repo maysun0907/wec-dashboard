@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og";
 import { getTeam, raceClassLabel, type RaceClass } from "@/lib/api";
-import { getSelectedSeason } from "@/lib/season";
 import { OgCard, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og-card";
 import { loadOgFonts } from "@/lib/og-fonts";
 
@@ -14,11 +13,14 @@ export default async function Image({ params }: { params: Promise<Params> }) {
   const { id } = await params;
   const fonts = await loadOgFonts();
 
+  // Always render the latest season here (the tagline falls back to
+  // the newest season the team appears in). Crawlers never carry the
+  // season cookie, so reading it only forced this route dynamic and
+  // defeated CDN caching of the generated card.
   let team: Awaited<ReturnType<typeof getTeam>> | null = null;
-  let year: number | null = null;
+  const year: number | null = null;
   try {
-    year = await getSelectedSeason();
-    team = await getTeam(Number(id), year);
+    team = await getTeam(Number(id), null);
   } catch {
     team = null;
   }

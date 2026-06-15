@@ -1,6 +1,5 @@
 import { ImageResponse } from "next/og";
 import { getDriver, raceClassLabel } from "@/lib/api";
-import { getSelectedSeason } from "@/lib/season";
 import { OgCard, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og-card";
 import { loadOgFonts } from "@/lib/og-fonts";
 
@@ -14,10 +13,12 @@ export default async function Image({ params }: { params: Promise<Params> }) {
   const { id } = await params;
   const fonts = await loadOgFonts();
 
+  // Always render the latest season here. Crawlers never carry the
+  // season cookie, so reading it only forced this route dynamic and
+  // defeated CDN caching of the generated card.
   let driver: Awaited<ReturnType<typeof getDriver>> | null = null;
   try {
-    const year = await getSelectedSeason();
-    driver = await getDriver(Number(id), year);
+    driver = await getDriver(Number(id), null);
   } catch {
     driver = null;
   }

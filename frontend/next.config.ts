@@ -13,6 +13,14 @@ const nextConfig: NextConfig = {
   //     pulled from Wikipedia summaries.
   // Without this whitelist next/image refuses to load the URL.
   images: {
+    // Serve remote assets straight from their source CDN instead of
+    // routing every request through Vercel's image optimizer.
+    // The assets we surface (manufacturer logos, driver headshots,
+    // car renders) are already small and effectively static for a
+    // season, so per-request optimization buys us nothing — and the
+    // optimizer's transform quota was capping out and returning 402s,
+    // which broke every image on the page at once.
+    unoptimized: true,
     remotePatterns: [
       { protocol: "https", hostname: "www.fiawec.com" },
       { protocol: "https", hostname: "fiawec.com" },
