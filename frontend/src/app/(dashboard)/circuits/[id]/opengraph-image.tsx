@@ -6,6 +6,10 @@ import { loadOgFonts } from "@/lib/og-fonts";
 export const alt = "WEC Dashboard - Circuit";
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
+// Cache the generated card for a day. Without an explicit revalidate a
+// dynamic-param route re-runs the Satori render on every scrape; the
+// card only changes when the underlying season data does.
+export const revalidate = 86400;
 
 type Params = { id: string };
 
