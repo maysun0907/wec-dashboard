@@ -85,13 +85,13 @@ export function SeasonChampionsCard({
   classes: ClassChampions[];
   driverPhotoById: Map<number, string | null>;
 }) {
+  const t = useTranslations("home");
   // Hide rows where every championship is missing — and the whole
   // card if no class has anything to show.
   const usable = classes.filter(
     (c) => c.driver || c.team || c.manufacturer,
   );
   if (usable.length === 0) return null;
-  const t = useTranslations("home");
   return (
     <Card>
       <CardHeader>
