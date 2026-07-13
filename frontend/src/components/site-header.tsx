@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { LocaleSwitcher } from "./locale-switcher";
 import { SeasonSwitcher } from "./season-switcher";
@@ -24,11 +25,12 @@ export async function SiteHeader() {
           {/* Official FIA WEC logo (Wikimedia Commons, CC0 / below
               threshold of originality). Aspect 337×144. h-6 on phones
               so the right-aligned controls have breathing room. */}
-          <img
+          <Image
             src="/wec-logo.png"
             alt="FIA WEC official logo"
             width={188}
             height={80}
+            loading="eager"
             className="h-6 w-auto transition-opacity group-hover:opacity-80 sm:h-8"
           />
           <span className="hidden font-heading text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground sm:inline">

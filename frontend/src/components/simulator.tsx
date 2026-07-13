@@ -50,8 +50,8 @@ function pointsFor(eventName: string): number[] {
   return POINTS_STANDARD;
 }
 
-function isUpcoming(event: Event, today: Date): boolean {
-  return event.dateEnd >= today.toISOString().slice(0, 10);
+function isUpcoming(event: Event, todayIso: string): boolean {
+  return event.dateEnd >= todayIso;
 }
 
 type ChampType = "drivers" | "manufacturers" | "teams";
@@ -65,21 +65,9 @@ const CHAMPIONSHIPS_BY_CLASS: Record<RaceClass, ChampType[]> = {
   LMGTE_AM: [],
 };
 
-const CHAMP_LABEL: Record<ChampType, string> = {
-  drivers: "Drivers",
-  manufacturers: "Manufacturers",
-  teams: "Teams",
-};
-
 type PickSlot = "p1" | "p2" | "p3" | "pole";
 
 const SLOT_ORDER: PickSlot[] = ["p1", "p2", "p3", "pole"];
-const SLOT_LABEL: Record<PickSlot, string> = {
-  p1: "Winner",
-  p2: "2nd",
-  p3: "3rd",
-  pole: "Pole",
-};
 
 type RoundPicks = Partial<Record<PickSlot, string>>; // slot -> car number
 type ClassPicks = Record<number, RoundPicks>; // eventId -> RoundPicks
@@ -155,7 +143,13 @@ function decodePicks(param: string | null): Picks | null {
       if (!cls) continue;
       const classPicks: ClassPicks = {};
       for (const [eid, tuple] of Object.entries(rounds)) {
-        if (!Array.isArray(tuple) || tuple.length !== 4) continue;
+        if (
+          !Array.isArray(tuple) ||
+          tuple.length !== 4 ||
+          !tuple.every((value) => typeof value === "string")
+        ) {
+          continue;
+        }
         const slots: RoundPicks = {};
         if (tuple[0]) slots.p1 = tuple[0];
         if (tuple[1]) slots.p2 = tuple[1];
@@ -383,6 +377,8 @@ function simulateTeams(
 // ---------- Component ----------
 
 type Props = {
+  initialPicksParam: string | null;
+  todayIso: string;
   events: Event[];
   drivers: DriverEntry[];
   teams: TeamEntry[];
@@ -392,6 +388,8 @@ type Props = {
 };
 
 export function ChampionshipSimulator({
+  initialPicksParam,
+  todayIso,
   events,
   drivers,
   teams,
@@ -399,40 +397,29 @@ export function ChampionshipSimulator({
   manufacturersByClass,
   teamsByClass,
 }: Props) {
-  const today = useMemo(() => new Date(), []);
   const upcoming = useMemo(
     () =>
       events
-        .filter((e) => isUpcoming(e, today))
+        .filter((e) => isUpcoming(e, todayIso))
         .sort((a, b) => a.round - b.round),
-    [events, today],
+    [events, todayIso],
   );
 
-  const [picks, setPicks] = useState<Picks>(EMPTY_PICKS);
-  const [hydrated, setHydrated] = useState(false);
+  const [picks, setPicks] = useState<Picks>(
+    () => decodePicks(initialPicksParam) ?? EMPTY_PICKS,
+  );
   const [copied, setCopied] = useState(false);
 
-  // Hydrate from ?p=... once after mount. Avoids SSR/CSR state mismatch and
-  // sidesteps the Suspense-boundary requirement of next/navigation's
-  // useSearchParams when the page is otherwise statically renderable.
-  useEffect(() => {
-    if (hydrated) return;
-    const param = new URLSearchParams(window.location.search).get("p");
-    const decoded = decodePicks(param);
-    if (decoded) setPicks(decoded);
-    setHydrated(true);
-  }, [hydrated]);
-
   // Push picks back into the URL — replaceState so we don't pollute history
-  // and so the route doesn't re-render. Skips the first hydration tick.
+  // and so the route doesn't re-render. The page provides the initial query
+  // value, keeping the server and first client render identical.
   useEffect(() => {
-    if (!hydrated) return;
     const encoded = encodePicks(picks);
     const url = new URL(window.location.href);
     if (encoded) url.searchParams.set("p", encoded);
     else url.searchParams.delete("p");
     window.history.replaceState(null, "", url.toString());
-  }, [picks, hydrated]);
+  }, [picks]);
 
   async function copyShareLink() {
     try {

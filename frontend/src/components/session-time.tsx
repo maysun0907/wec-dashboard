@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLocale } from "next-intl";
+import { useViewerTimeZone } from "@/components/use-viewer-time-zone";
 
 /** Render the same instant in two timezones — circuit-local on top
  *  (always known server-side), viewer-local below (filled in client-only
@@ -14,19 +15,12 @@ export function SessionTime({
   circuitTz: string;
   className?: string;
 }) {
-  const [viewerTz, setViewerTz] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      setViewerTz(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    } catch {
-      // Older browsers/locales — leave viewer time hidden.
-    }
-  }, []);
+  const locale = useLocale();
+  const viewerTz = useViewerTimeZone();
 
   const date = new Date(iso);
   const fmt = (tz: string) =>
-    new Intl.DateTimeFormat(undefined, {
+    new Intl.DateTimeFormat(locale, {
       timeZone: tz,
       weekday: "short",
       month: "short",

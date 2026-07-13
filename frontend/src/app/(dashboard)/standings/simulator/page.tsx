@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { getLocale, getTranslations } from "next-intl/server";
 import { ChampionshipSimulator } from "@/components/simulator";
 import { PageHeader } from "@/components/page-header";
@@ -16,7 +17,15 @@ import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Championship simulator" };
 
-export default async function SimulatorPage() {
+export default async function SimulatorPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ p?: string | string[] }>;
+}) {
+  const { p } = await searchParams;
+  const initialPicksParam = Array.isArray(p) ? (p[0] ?? null) : (p ?? null);
+  await connection();
+  const todayIso = new Date().toISOString().slice(0, 10);
   const year = await getSelectedSeason();
   const [
     eventsRaw,
@@ -56,6 +65,9 @@ export default async function SimulatorPage() {
       />
 
       <ChampionshipSimulator
+        key={initialPicksParam ?? ""}
+        initialPicksParam={initialPicksParam}
+        todayIso={todayIso}
         events={events}
         drivers={drivers}
         teams={teams}

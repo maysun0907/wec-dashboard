@@ -128,7 +128,6 @@ export default async function ManufacturerDetailPage({
   const t = await getTranslations("manufacturers");
   const tCommon = await getTranslations("common");
   const tDrivers = await getTranslations("drivers");
-  const tt = await getTranslations("table");
   const tStandings = await getTranslations("standings");
 
   // Single-team brands (Genesis Magma Racing, Alpine Endurance Team,

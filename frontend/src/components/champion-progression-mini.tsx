@@ -42,13 +42,13 @@ export function ChampionProgressionMini({
 }: {
   classes: { raceClass: RaceClass; rows: DriverProgression[] }[];
 }) {
+  const t = useTranslations("home");
   const renderable = classes.filter(({ rows }) => {
     const rounds = new Set<number>();
     for (const r of rows) for (const p of r.points) rounds.add(p.round);
     return rounds.size >= 2;
   });
   if (renderable.length === 0) return null;
-  const t = useTranslations("home");
   return (
     <Card>
       <CardHeader>

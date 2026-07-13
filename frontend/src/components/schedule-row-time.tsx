@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useLocale } from "next-intl";
+import { useViewerTimeZone } from "@/components/use-viewer-time-zone";
 
 type Props = {
   iso: string;
@@ -9,8 +10,8 @@ type Props = {
   status: "past" | "live" | "upcoming";
 };
 
-function fmt(date: Date, tz: string): string {
-  return new Intl.DateTimeFormat(undefined, {
+function fmt(date: Date, tz: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
     timeZone: tz,
     weekday: "short",
     month: "short",
@@ -39,25 +40,19 @@ function relative(diffMin: number, status: Props["status"]): string {
  *  relative offset from now. Viewer tz is read from Intl in the
  *  browser to avoid hydration mismatch. */
 export function ScheduleRowTime({ iso, circuitTz, now, status }: Props) {
-  const [viewerTz, setViewerTz] = useState<string | null>(null);
-  useEffect(() => {
-    try {
-      setViewerTz(Intl.DateTimeFormat().resolvedOptions().timeZone);
-    } catch {
-      // older browsers — leave hidden
-    }
-  }, []);
+  const locale = useLocale();
+  const viewerTz = useViewerTimeZone();
   const date = new Date(iso);
   const startMs = date.getTime();
   const diffMin = Math.round((startMs - now) / 60_000);
   const showViewer = viewerTz !== null && viewerTz !== circuitTz;
   return (
     <span className="inline-flex flex-wrap gap-x-2">
-      <span>{fmt(date, circuitTz)}</span>
+      <span>{fmt(date, circuitTz, locale)}</span>
       {showViewer && (
         <>
           <span className="text-muted-foreground/50">·</span>
-          <span>{fmt(date, viewerTz!)}</span>
+          <span>{fmt(date, viewerTz!, locale)}</span>
         </>
       )}
       <span className="text-muted-foreground/50">·</span>

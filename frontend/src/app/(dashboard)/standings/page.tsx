@@ -33,16 +33,11 @@ import {
   type DriverProgression,
   type ManufacturerProgression,
   type RaceClass,
-  type StandingDriver,
-  type StandingTeam,
-  type StandingManufacturer,
   type TeamProgression,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
 
 export const metadata = { title: "Standings" };
-
-type AnyStanding = StandingDriver | StandingTeam | StandingManufacturer;
 
 function groupByClass<T extends { raceClass: RaceClass }>(rows: T[]) {
   const out: Record<RaceClass, T[]> = {

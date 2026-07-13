@@ -77,9 +77,9 @@ export function DriversPodium({
   classes: ClassPodium[];
   rounds: number;
 }) {
+  const t = useTranslations("common");
   const visible = classes.filter((c) => c.rows.length > 0);
   if (visible.length === 0) return null;
-  const t = useTranslations("common");
 
   return (
     <Card className="flex h-full flex-col">

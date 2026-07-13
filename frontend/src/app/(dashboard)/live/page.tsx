@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { format, parseISO } from "date-fns";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -14,7 +15,6 @@ import {
 } from "@/components/ui/card";
 import { ClassBadge } from "@/components/class-badge";
 import { Flag } from "@/components/flag";
-import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { PageHeader } from "@/components/page-header";
 import { DriverList, TeamLink } from "@/components/entity-link";
 import { RaceCountdown } from "@/components/race-countdown";
@@ -133,7 +133,8 @@ function classifySession(
 export default async function LivePage() {
   const year = await getSelectedSeason();
   const eventsRaw = await getEvents(year);
-  const now = Date.now();
+  await connection();
+  const now = new Date().getTime();
   const todayIso = new Date(now).toISOString().slice(0, 10);
   const rawLocale = await getLocale();
   const localeForName = isLocale(rawLocale) ? rawLocale : "en";
@@ -380,6 +381,7 @@ function LiveSessionPanel({
   now: number;
   tz: string;
 }) {
+  const tl = useTranslations("live");
   if (session.startMs === null) return null;
   const elapsedMin = Math.floor((now - session.startMs) / 60_000);
   const remainingMin =
@@ -390,7 +392,6 @@ function LiveSessionPanel({
     const mm = m % 60;
     return `${h}h ${mm}m`;
   };
-  const tl = useTranslations("live");
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="space-y-1">
