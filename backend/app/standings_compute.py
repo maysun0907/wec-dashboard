@@ -1,21 +1,13 @@
-"""Self-computed driver / team / manufacturer standings.
+"""Legacy self-computed driver / team / manufacturer standings.
 
-Until 2025 we let Wikipedia's standings tables be the source of truth
-and just mirrored them. That broke during the 1-2 day window after a
-race when the Wikipedia editors had updated the per-round
-classifications but not yet rebuilt the standings tables — the
-dashboard was effectively a day behind, which defeats the point of a
-live dashboard.
+This module is intentionally not part of the ingestion pipeline. FIA WEC
+scoring includes championship-specific eligibility, manufacturer-entry,
+pole-bonus, classification and race-duration rules that cannot be derived
+reliably from the dashboard's partial SessionResult rows. Current standings
+are mirrored from FIA WEC's published championship tables instead.
 
-This module computes standings directly from `SessionResult` rows
-using the FIA points table. Output mirrors what Wikipedia would have
-written — one row per driver / per team-car / per manufacturer per
-class, with `after_event_id` set to the event the snapshot is taken
-*after*. Final standings = rows where `after_event_id` is the
-last-completed event in the season.
-
-Run automatically as part of the cron / wikipedia ingest pipeline,
-after race classifications have been ingested.
+The function remains available for development experiments and historical
+comparison only; its output must not replace published standings.
 """
 from __future__ import annotations
 

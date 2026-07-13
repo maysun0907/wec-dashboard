@@ -223,6 +223,8 @@
     "teamsTrophy": "Teams' trophy",
     "cumulativeByRound": "Cumulative points by round.",
     "cumulativeByRoundPerCar": "Cumulative points by round (per car).",
+    "hypercarChampionshipNote": "Hypercar awards championships to drivers and manufacturers; there is no overall factory-team standings table.",
+    "lmgt3ChampionshipNote": "LMGT3 awards its team trophy per car number, so two cars from the same team appear separately.",
     "lmp1TeamsNote": "Privateer Trophy only — factory teams competed for the Manufacturers' Cup."
   },
   "raceDetail": {
