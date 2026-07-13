@@ -22,8 +22,9 @@ import { Flag } from "@/components/flag";
 import { PageHeader } from "@/components/page-header";
 import { eventStatus, getEvents, type EventStatus } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata = { title: "Schedule" };
+export const metadata = pageMetadata({ title: "Schedule", path: "/races" });
 
 const STATUS_VARIANT: Record<
   EventStatus,

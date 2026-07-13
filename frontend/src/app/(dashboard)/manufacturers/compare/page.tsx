@@ -21,8 +21,12 @@ import {
   type StandingManufacturer,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata = { title: "Compare manufacturers" };
+export const metadata = pageMetadata({
+  title: "Compare manufacturers",
+  path: "/manufacturers/compare",
+});
 
 function parseIds(raw: string | string[] | undefined): number[] {
   const text = Array.isArray(raw) ? raw.join(",") : raw ?? "";

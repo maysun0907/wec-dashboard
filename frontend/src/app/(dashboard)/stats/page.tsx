@@ -28,8 +28,9 @@ import {
   type LeMansWinner,
   type StatRow,
 } from "@/lib/api";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata = { title: "All-time stats" };
+export const metadata = pageMetadata({ title: "All-time stats", path: "/stats" });
 
 export default async function StatsPage() {
   const stats = await getAllTimeStats();

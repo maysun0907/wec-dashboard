@@ -20,8 +20,9 @@ import {
   type TeamEntry,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata = { title: "Cars" };
+export const metadata = pageMetadata({ title: "Cars", path: "/cars" });
 
 type CarModelEntry = {
   slug: string | null;

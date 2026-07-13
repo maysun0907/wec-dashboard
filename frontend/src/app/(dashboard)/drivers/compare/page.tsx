@@ -23,8 +23,12 @@ import {
   type RaceClass,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata = { title: "Compare drivers" };
+export const metadata = pageMetadata({
+  title: "Compare drivers",
+  path: "/drivers/compare",
+});
 
 const VALID_CLASSES: RaceClass[] = [
   "HYPERCAR",

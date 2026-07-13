@@ -20,8 +20,9 @@ import {
   type TeamEntry,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata = { title: "Teams" };
+export const metadata = pageMetadata({ title: "Teams", path: "/teams" });
 
 type TeamCardEntry = {
   id: number;

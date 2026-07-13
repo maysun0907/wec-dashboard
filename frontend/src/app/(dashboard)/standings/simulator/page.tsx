@@ -14,8 +14,12 @@ import {
   getTeams,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata = { title: "Championship simulator" };
+export const metadata = pageMetadata({
+  title: "Championship simulator",
+  path: "/standings/simulator",
+});
 
 export default async function SimulatorPage({
   searchParams,
