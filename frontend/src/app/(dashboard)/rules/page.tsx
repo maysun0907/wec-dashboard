@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import { getTranslations } from "next-intl/server";
+import { getLocale, getTranslations } from "next-intl/server";
+import { isLocale } from "@/i18n/config";
 import {
   Card,
   CardContent,
@@ -15,17 +16,18 @@ import {
   buildSiteUrl,
   faqSchema,
 } from "@/lib/json-ld";
-import { pageMetadata } from "@/lib/page-metadata";
+import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
 
-export const metadata = pageMetadata({
-  title: "Rules",
-  path: "/rules",
-  description:
-    "FIA WEC technical regulations explained — Hypercar (LMH + LMDh) and LMGT3 class rules, performance envelope (1030 kg, 500 kW, ≥ 190 km/h ERS deploy), Balance of Performance, success handicap, qualifying / Hyperpole format, points scoring (standard 25-18-15… vs. endurance 38-27-23… for Le Mans), and race-length calendar.",
-});
+export const generateMetadata = () =>
+  dashboardPageMetadata("rules", "/rules");
 
 export default async function RulesPage() {
-  const t = await getTranslations("rules");
+  const [t, rawLocale] = await Promise.all([
+    getTranslations("rules"),
+    getLocale(),
+  ]);
+  const locale = isLocale(rawLocale) ? rawLocale : "en";
+  const schemaContext = { locale, year: new Date().getUTCFullYear() } as const;
 
   // FAQPage schema — each card on the page is a question/answer pair.
   // Strings are pulled from translations so the markup tracks any copy
@@ -52,8 +54,11 @@ export default async function RulesPage() {
   const schemas = [
     faqSchema(faqItems),
     breadcrumbSchema([
-      { name: "Home", url: buildSiteUrl("/") },
-      { name: "Rules", url: buildSiteUrl("/rules") },
+      {
+        name: locale === "ko" ? "홈" : "Home",
+        url: buildSiteUrl("/", schemaContext),
+      },
+      { name: t("title"), url: buildSiteUrl("/rules", schemaContext) },
     ]),
   ];
 

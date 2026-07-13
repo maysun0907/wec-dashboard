@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import {
@@ -10,6 +9,7 @@ import {
 } from "@/components/ui/card";
 import { ManufacturerComparePicker } from "@/components/manufacturer-compare-picker";
 import { PageHeader } from "@/components/page-header";
+import { PublicLink } from "@/components/public-link";
 import {
   ProgressionChart,
   type Series as ProgressionSeries,
@@ -21,12 +21,10 @@ import {
   type StandingManufacturer,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
-import { pageMetadata } from "@/lib/page-metadata";
+import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
 
-export const metadata = pageMetadata({
-  title: "Compare manufacturers",
-  path: "/manufacturers/compare",
-});
+export const generateMetadata = () =>
+  dashboardPageMetadata("manufacturerCompare", "/manufacturers/compare");
 
 function parseIds(raw: string | string[] | undefined): number[] {
   const text = Array.isArray(raw) ? raw.join(",") : raw ?? "";
@@ -46,6 +44,7 @@ export default async function ManufacturerComparePage({
   const sp = await searchParams;
   let ids = parseIds(sp.ids);
   const year = await getSelectedSeason();
+  const seasonYear = year ?? new Date().getUTCFullYear();
 
   // Manufacturer championship is Hypercar-only — no need for a class toggle.
   const [standings, progression] = await Promise.all([
@@ -90,12 +89,13 @@ export default async function ManufacturerComparePage({
   const tStandings = await getTranslations("standings");
   return (
     <div className="space-y-6">
-      <Link
+      <PublicLink
         href="/standings"
+        seasonYear={seasonYear}
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
         ← {tStandings("title")}
-      </Link>
+      </PublicLink>
 
       <PageHeader
         eyebrow={tSeasons("sideBySide")}
@@ -161,12 +161,12 @@ function StatsTable({ rows }: { rows: StandingManufacturer[] }) {
               className="border-b border-border/50 last:border-0"
             >
               <td className="px-4 py-2">
-                <Link
+                <PublicLink
                   href={`/manufacturers/${m.manufacturerId}`}
                   className="font-medium hover:text-[var(--racing-red)]"
                 >
                   {m.manufacturerName}
-                </Link>
+                </PublicLink>
               </td>
               <td className="px-2 py-2 text-right font-mono tabular-nums">
                 P{m.position}

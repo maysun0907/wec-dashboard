@@ -1,5 +1,5 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
+import { PublicLink } from "@/components/public-link";
 import { cn } from "@/lib/utils";
 
 const HOVER = "transition-colors hover:text-[var(--racing-red)]";
@@ -24,9 +24,9 @@ export function TeamLink({
 }) {
   if (id == null) return <span className={className}>{children}</span>;
   return (
-    <Link href={`/teams/${id}`} className={cn(HOVER, className)}>
+    <PublicLink href={`/teams/${id}`} className={cn(HOVER, className)}>
       {children}
-    </Link>
+    </PublicLink>
   );
 }
 
@@ -42,9 +42,9 @@ export function CarModelLink({
 }) {
   if (!slug) return <span className={className}>{children}</span>;
   return (
-    <Link href={`/cars/${slug}`} className={cn(HOVER, className)}>
+    <PublicLink href={`/cars/${slug}`} className={cn(HOVER, className)}>
       {children}
-    </Link>
+    </PublicLink>
   );
 }
 
@@ -87,13 +87,13 @@ export function DriverList({
     return (
       <span className={className}>
         {refs.map((d) => (
-          <Link
+          <PublicLink
             key={d.id}
             href={`/drivers/${d.id}`}
             className={cn("block", HOVER)}
           >
             {d.name}
-          </Link>
+          </PublicLink>
         ))}
       </span>
     );
@@ -105,9 +105,9 @@ export function DriverList({
           {i > 0 && (
             <span className="text-muted-foreground/60">{separator}</span>
           )}
-          <Link href={`/drivers/${d.id}`} className={HOVER}>
+          <PublicLink href={`/drivers/${d.id}`} className={HOVER}>
             {d.name}
-          </Link>
+          </PublicLink>
         </span>
       ))}
     </span>

@@ -1,33 +1,57 @@
 import type { Metadata } from "next";
+import type { Locale } from "@/i18n/config";
+import { buildPublicPath } from "@/lib/public-routing";
 
 const SITE_NAME = "WEC Dashboard";
-const SITE_DESCRIPTION =
-  "Unofficial fan dashboard for the FIA World Endurance Championship — live race weekend countdown, lap-by-lap results, V-max, sector splits, driver/team/manufacturer standings, Hypercar & LMGT3 grids, BoP, circuits, and full season archive from 2012. 한국어 지원.";
-
 type PageMetadataOptions = {
   title: string;
   path: `/${string}`;
-  description?: string;
+  description: string;
+  locale: Locale;
+  year: number;
 };
+
+export function pageMetadataUrls({
+  path,
+  locale,
+  year,
+}: Pick<PageMetadataOptions, "path" | "locale" | "year">) {
+  const en = buildPublicPath(path, "en", year) ?? path;
+  const ko = buildPublicPath(path, "ko", year) ?? path;
+  const canonical = locale === "ko" ? ko : en;
+
+  return {
+    canonical,
+    languages: { en, ko, "x-default": en },
+  };
+}
 
 /** Build self-referencing metadata for static dashboard pages. */
 export function pageMetadata({
   title,
   path,
-  description = SITE_DESCRIPTION,
+  description,
+  locale,
+  year,
 }: PageMetadataOptions): Metadata {
+  const alternateLocale = locale === "ko" ? "en_US" : "ko_KR";
+  const urls = pageMetadataUrls({ path, locale, year });
+
   return {
     title,
     description,
-    alternates: { canonical: path },
+    alternates: {
+      canonical: urls.canonical,
+      languages: urls.languages,
+    },
     openGraph: {
       type: "website",
-      url: path,
+      url: urls.canonical,
       siteName: SITE_NAME,
       title: `${title} · ${SITE_NAME}`,
       description,
-      locale: "en_US",
-      alternateLocale: ["ko_KR"],
+      locale: locale === "ko" ? "ko_KR" : "en_US",
+      alternateLocale: [alternateLocale],
     },
     twitter: {
       card: "summary_large_image",

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import {
@@ -12,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { PageHeader } from "@/components/page-header";
+import { PublicLink } from "@/components/public-link";
 import {
   RACE_CLASSES,
   getTeams,
@@ -20,9 +20,9 @@ import {
   type TeamEntry,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
-import { pageMetadata } from "@/lib/page-metadata";
+import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
 
-export const metadata = pageMetadata({ title: "Cars", path: "/cars" });
+export const generateMetadata = () => dashboardPageMetadata("cars", "/cars");
 
 type CarModelEntry = {
   slug: string | null;
@@ -62,6 +62,7 @@ function groupByModel(teams: TeamEntry[]): CarModelEntry[] {
 
 export default async function CarsPage() {
   const year = await getSelectedSeason();
+  const seasonYear = year ?? new Date().getUTCFullYear();
   const teams = await getTeams(year);
   const all = groupByModel(teams);
   const t = await getTranslations("cars");
@@ -103,6 +104,7 @@ export default async function CarsPage() {
                     <ModelCard
                       key={`${m.raceClass}-${m.slug ?? m.model}`}
                       entry={m}
+                      seasonYear={seasonYear}
                     />
                   ))}
                 </div>
@@ -117,7 +119,13 @@ export default async function CarsPage() {
   );
 }
 
-function ModelCard({ entry }: { entry: CarModelEntry }) {
+function ModelCard({
+  entry,
+  seasonYear,
+}: {
+  entry: CarModelEntry;
+  seasonYear: number;
+}) {
   const t = useTranslations("cars");
   return (
     <Card>
@@ -130,12 +138,13 @@ function ModelCard({ entry }: { entry: CarModelEntry }) {
         <div className="min-w-0 flex-1 space-y-1">
           <CardTitle className="truncate">
             {entry.slug ? (
-              <Link
+              <PublicLink
                 href={`/cars/${entry.slug}`}
+                seasonYear={seasonYear}
                 className="hover:text-[var(--racing-red)]"
               >
                 {entry.model}
-              </Link>
+              </PublicLink>
             ) : (
               entry.model
             )}
@@ -162,12 +171,12 @@ function ModelCard({ entry }: { entry: CarModelEntry }) {
                 <span className="w-10 shrink-0 font-mono text-muted-foreground tabular-nums">
                   #{c.carNumber}
                 </span>
-                <Link
+                <PublicLink
                   href={`/teams/${c.teamId}`}
                   className="truncate hover:text-[var(--racing-red)]"
                 >
                   {c.teamName}
-                </Link>
+                </PublicLink>
               </li>
             ))}
         </ul>

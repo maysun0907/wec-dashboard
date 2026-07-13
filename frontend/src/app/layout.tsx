@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Saira_Condensed } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { JsonLd, websiteSchema } from "@/lib/json-ld";
+import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,9 +30,7 @@ const sairaCondensed = Saira_Condensed({
 // metadataBase makes the OG image URLs absolute on Vercel deploys; falls
 // back to localhost for `bun dev` so the social-share previews still
 // render in tooling that requires an absolute URL.
-const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
-  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-  : "http://localhost:3000";
+const canonicalSiteUrl = siteUrl();
 
 // Backend API origin — every page hits this at least once during SSR
 // (and client-side for revalidations). next/font already preconnects
@@ -52,7 +52,7 @@ const SITE_DESCRIPTION =
   "Unofficial fan dashboard for the FIA World Endurance Championship — live race weekend countdown, lap-by-lap results, V-max, sector splits, driver/team/manufacturer standings, Hypercar & LMGT3 grids, BoP, circuits, and full season archive from 2012. 한국어 지원.";
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  metadataBase: new URL(canonicalSiteUrl),
   title: {
     default: `${SITE_NAME} — FIA WEC Schedule, Results & Standings`,
     template: `%s · ${SITE_NAME}`,
@@ -118,17 +118,8 @@ export const metadata: Metadata = {
   creator: "WEC Dashboard",
   publisher: "WEC Dashboard",
   category: "sports",
-  alternates: {
-    canonical: "/",
-    languages: {
-      en: "/",
-      ko: "/",
-      "x-default": "/",
-    },
-  },
   openGraph: {
     type: "website",
-    url: siteUrl,
     siteName: SITE_NAME,
     title: `${SITE_NAME} — FIA WEC Schedule, Results & Standings`,
     description: SITE_DESCRIPTION,
@@ -206,10 +197,8 @@ export default async function RootLayout({
           {children}
         </NextIntlClientProvider>
         <Analytics />
-        {/* Global WebSite + SearchAction — declares the site name and
-            the sitelinks search box hint so Google can render rich
-            results on brand SERPs. Kept in English; schema.org is
-            data, not display copy. */}
+        <SpeedInsights />
+        {/* Global WebSite entity for consistent brand attribution. */}
         <JsonLd schema={websiteSchema()} />
       </body>
     </html>

@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { track } from "@vercel/analytics";
 import { Search } from "lucide-react";
 import {
   CommandDialog,
@@ -20,6 +21,11 @@ import {
   type DriverEntry,
   type TeamEntry,
 } from "@/lib/api";
+import {
+  buildPublicPath,
+  getDefaultSeasonYear,
+  localeOrDefault,
+} from "@/lib/public-routing";
 
 type Catalog = {
   drivers: DriverEntry[];
@@ -31,6 +37,7 @@ export function SiteSearch() {
   const [open, setOpen] = useState(false);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const router = useRouter();
+  const locale = localeOrDefault(useLocale());
   const t = useTranslations("nav");
 
   // ⌘K / Ctrl+K and the `wec:open-search` custom event used by the
@@ -81,9 +88,13 @@ export function SiteSearch() {
     return out;
   }, [catalog]);
 
-  function navigate(url: string) {
+  function navigate(
+    url: string,
+    entityType: "driver" | "team" | "circuit",
+  ) {
+    track("Search Result Selected", { entity_type: entityType });
     setOpen(false);
-    router.push(url);
+    router.push(buildPublicPath(url, locale, getDefaultSeasonYear()) ?? url);
   }
 
   return (
@@ -116,7 +127,7 @@ export function SiteSearch() {
                   <CommandItem
                     key={`d-${d.id}`}
                     value={`driver ${d.name} ${d.team} ${d.carNumber}`}
-                    onSelect={() => navigate(`/drivers/${d.id}`)}
+                    onSelect={() => navigate(`/drivers/${d.id}`, "driver")}
                   >
                     <span>{d.name}</span>
                     <span className="ml-auto text-xs text-muted-foreground">
@@ -130,7 +141,7 @@ export function SiteSearch() {
                   <CommandItem
                     key={`t-${tm.id}`}
                     value={`team ${tm.name} ${tm.manufacturer ?? ""}`}
-                    onSelect={() => navigate(`/teams/${tm.id}`)}
+                    onSelect={() => navigate(`/teams/${tm.id}`, "team")}
                   >
                     <span>{tm.name}</span>
                     <span className="ml-auto text-xs text-muted-foreground">
@@ -144,7 +155,7 @@ export function SiteSearch() {
                   <CommandItem
                     key={`c-${c.id}`}
                     value={`circuit ${c.name} ${c.country}`}
-                    onSelect={() => navigate(`/circuits/${c.id}`)}
+                    onSelect={() => navigate(`/circuits/${c.id}`, "circuit")}
                   >
                     <span>{c.name}</span>
                     <span className="ml-auto text-xs text-muted-foreground">

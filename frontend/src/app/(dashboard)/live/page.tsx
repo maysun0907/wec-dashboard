@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { connection } from "next/server";
 import { format, parseISO } from "date-fns";
 import { useTranslations } from "next-intl";
@@ -16,6 +15,7 @@ import {
 import { ClassBadge } from "@/components/class-badge";
 import { Flag } from "@/components/flag";
 import { PageHeader } from "@/components/page-header";
+import { PublicLink } from "@/components/public-link";
 import { DriverList, TeamLink } from "@/components/entity-link";
 import { RaceCountdown } from "@/components/race-countdown";
 import { ScheduleRowTime } from "@/components/schedule-row-time";
@@ -25,14 +25,15 @@ import {
   getEvents,
   getNextEvent,
   getSessionResults,
+  isPlausibleSessionTime,
   type SessionResult,
   type Session as SessionT,
 } from "@/lib/api";
 import { tzForCircuit } from "@/lib/circuit-tz";
 import { getSelectedSeason } from "@/lib/season";
-import { pageMetadata } from "@/lib/page-metadata";
+import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
 
-export const metadata = pageMetadata({ title: "Live", path: "/live" });
+export const generateMetadata = () => dashboardPageMetadata("live", "/live");
 
 const FIAWEC_URL = "https://www.fiawec.com/";
 const FIAWEC_TV_URL = "https://plus.fiawec.com/en";
@@ -170,7 +171,7 @@ export default async function LivePage() {
   const tz = tzForCircuit(next.circuit.name);
 
   const sessions = (detail?.sessions ?? [])
-    .filter((s) => s.startTime !== null)
+    .filter((s) => isPlausibleSessionTime(next, s))
     .map((s) => classifySession(s, next.name, now))
     .sort((a, b) => (ORDER[a.type] ?? 99) - (ORDER[b.type] ?? 99));
 
@@ -241,20 +242,20 @@ export default async function LivePage() {
           </div>
           <CardTitle className="mt-2 flex items-center gap-2 text-2xl sm:text-3xl">
             <Flag code={next.circuit.country} flagOnly className="text-2xl" />
-            <Link
+            <PublicLink
               href={`/races/${next.id}`}
               className="hover:text-[var(--racing-red)]"
             >
               {next.name}
-            </Link>
+            </PublicLink>
           </CardTitle>
           <CardDescription>
-            <Link
+            <PublicLink
               href={`/circuits/${next.circuit.id}`}
               className="hover:text-foreground"
             >
               {next.circuit.name}
-            </Link>
+            </PublicLink>
             {" · "}
             {format(parseISO(next.dateStart), "MMM d")}
             {next.dateEnd !== next.dateStart &&
@@ -465,7 +466,7 @@ function ScheduleRow({
   const status = session.status;
   return (
     <li>
-      <Link
+      <PublicLink
         href={`/races/${eventId}?session=${session.type}`}
         className="flex items-center gap-3 px-4 py-2.5 text-sm transition-colors hover:bg-secondary/40"
       >
@@ -500,7 +501,7 @@ function ScheduleRow({
         <span className="text-xs text-muted-foreground/40 transition-colors group-hover:text-muted-foreground">
           →
         </span>
-      </Link>
+      </PublicLink>
     </li>
   );
 }

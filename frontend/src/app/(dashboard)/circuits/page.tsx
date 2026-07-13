@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizeCircuit, localizeEvent } from "@/lib/locale-names";
@@ -12,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Flag } from "@/components/flag";
 import { PageHeader } from "@/components/page-header";
+import { PublicLink } from "@/components/public-link";
 import {
   eventStatus,
   getCircuits,
@@ -19,9 +19,10 @@ import {
   type EventStatus,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
-import { pageMetadata } from "@/lib/page-metadata";
+import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
 
-export const metadata = pageMetadata({ title: "Circuits", path: "/circuits" });
+export const generateMetadata = () =>
+  dashboardPageMetadata("circuits", "/circuits");
 
 export default async function CircuitsPage() {
   const year = await getSelectedSeason();
@@ -51,7 +52,7 @@ export default async function CircuitsPage() {
           const ev = roundByCircuit.get(c.id);
           const status: EventStatus | null = ev ? eventStatus(ev, today) : null;
           return (
-            <Link
+            <PublicLink
               key={c.id}
               href={`/circuits/${c.id}`}
               className="group block [&_[data-slot=card]]:transition-all [&_[data-slot=card]]:duration-200 hover:[&_[data-slot=card]]:-translate-y-0.5 hover:[&_[data-slot=card]]:ring-foreground/30"
@@ -110,7 +111,7 @@ export default async function CircuitsPage() {
                   </dl>
                 </CardContent>
               </Card>
-            </Link>
+            </PublicLink>
           );
         })}
       </div>

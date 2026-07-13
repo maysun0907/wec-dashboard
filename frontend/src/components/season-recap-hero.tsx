@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Trophy } from "lucide-react";
 import {
@@ -11,6 +10,7 @@ import {
 import { DriverPhoto } from "@/components/driver-photo";
 import { TeamLink } from "@/components/entity-link";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import { PublicLink } from "@/components/public-link";
 import {
   type DriverEntry,
   type StandingDriver,
@@ -77,12 +77,12 @@ export function SeasonRecapHero({
                     size="md"
                   />
                   <div className="min-w-0 flex-1">
-                    <Link
+                    <PublicLink
                       href={`/drivers/${c.driverId}`}
                       className="block truncate font-semibold hover:text-[var(--racing-red)]"
                     >
                       {c.driverName}
-                    </Link>
+                    </PublicLink>
                     {c.team && (
                       <TeamLink
                         id={c.teamId}
@@ -105,7 +105,7 @@ export function SeasonRecapHero({
             <div className="text-xs uppercase tracking-wider text-muted-foreground">
               {t("manufacturersChampHypercar")}
             </div>
-            <Link
+            <PublicLink
               href={`/manufacturers/${manufacturerChamp.manufacturerId}`}
               className="flex items-center gap-3 text-sm hover:text-[var(--racing-red)]"
             >
@@ -122,7 +122,7 @@ export function SeasonRecapHero({
                   {t("p1Points", { points: manufacturerChamp.points })}
                 </span>
               </div>
-            </Link>
+            </PublicLink>
           </div>
         )}
       </CardContent>

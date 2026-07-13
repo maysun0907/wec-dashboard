@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import {
   Card,
@@ -9,6 +8,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DriversTableFilter } from "@/components/drivers-table-filter";
 import { PageHeader } from "@/components/page-header";
+import { PublicLink } from "@/components/public-link";
 import { localDriverImage } from "@/lib/driver-image";
 import {
   RACE_CLASSES,
@@ -18,9 +18,10 @@ import {
   type RaceClass,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
-import { pageMetadata } from "@/lib/page-metadata";
+import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
 
-export const metadata = pageMetadata({ title: "Drivers", path: "/drivers" });
+export const generateMetadata = () =>
+  dashboardPageMetadata("drivers", "/drivers");
 
 function groupByClass(
   drivers: DriverEntry[],
@@ -41,6 +42,7 @@ function groupByClass(
 
 export default async function DriversPage() {
   const year = await getSelectedSeason();
+  const seasonYear = year ?? new Date().getUTCFullYear();
   const driversRaw = await getDrivers(year);
   // Apply the public/drivers/{id}.* override server-side so the client
   // table filter doesn't need to import node:fs.
@@ -61,12 +63,13 @@ export default async function DriversPage() {
           title={t("title")}
           description={t("description", { count: drivers.length })}
         />
-        <Link
+        <PublicLink
           href="/drivers/compare"
+          seasonYear={seasonYear}
           className="inline-flex items-center rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-medium hover:bg-secondary"
         >
           {t("compare")} →
-        </Link>
+        </PublicLink>
       </div>
 
       <Tabs defaultValue={defaultTab}>

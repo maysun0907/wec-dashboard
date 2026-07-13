@@ -2,6 +2,7 @@ import { cookies, headers } from "next/headers";
 import { getRequestConfig } from "next-intl/server";
 
 import { DEFAULT_LOCALE, LOCALE_COOKIE, type Locale, isLocale } from "./config";
+import { PUBLIC_ROUTE_LOCALE_HEADER } from "@/lib/public-routing";
 
 /** Pick a locale from the browser's Accept-Language header. We only
  *  honour `ko` and `en` since those are the catalogs we ship — anything
@@ -20,16 +21,24 @@ function localeFromAcceptLanguage(header: string | null): Locale | null {
 }
 
 /** next-intl request config — runs once per server request. Priority:
- *  explicit cookie (user toggled) → Accept-Language sniff → default. */
+ *  locale fixed in the public URL → explicit cookie (user toggled) →
+ *  Accept-Language sniff → default. */
 export default getRequestConfig(async () => {
-  const [store, headerStore] = await Promise.all([cookies(), headers()]);
-  const cookieValue = store.get(LOCALE_COOKIE)?.value;
+  const headerStore = await headers();
+  const routedLocale =
+    headerStore.get(PUBLIC_ROUTE_LOCALE_HEADER) ?? undefined;
   let locale: Locale = DEFAULT_LOCALE;
-  if (isLocale(cookieValue)) {
-    locale = cookieValue;
+  if (isLocale(routedLocale)) {
+    locale = routedLocale;
   } else {
-    const sniff = localeFromAcceptLanguage(headerStore.get("accept-language"));
-    if (sniff) locale = sniff;
+    const store = await cookies();
+    const cookieValue = store.get(LOCALE_COOKIE)?.value;
+    if (isLocale(cookieValue)) {
+      locale = cookieValue;
+    } else {
+      const sniff = localeFromAcceptLanguage(headerStore.get("accept-language"));
+      if (sniff) locale = sniff;
+    }
   }
   const messages = (await import(`../../messages/${locale}.json`)).default;
   return { locale, messages };

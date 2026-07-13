@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Trophy } from "lucide-react";
@@ -21,6 +20,7 @@ import { DriverPhoto } from "@/components/driver-photo";
 import { DriverList } from "@/components/entity-link";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { PageHeader } from "@/components/page-header";
+import { PublicLink } from "@/components/public-link";
 import {
   getAllTimeStats,
   type DriverPodiumStat,
@@ -28,9 +28,10 @@ import {
   type LeMansWinner,
   type StatRow,
 } from "@/lib/api";
-import { pageMetadata } from "@/lib/page-metadata";
+import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
 
-export const metadata = pageMetadata({ title: "All-time stats", path: "/stats" });
+export const generateMetadata = () =>
+  dashboardPageMetadata("stats", "/stats");
 
 export default async function StatsPage() {
   const stats = await getAllTimeStats();
@@ -136,12 +137,12 @@ function TitlesCard({
                 ) : (
                   <ManufacturerLogo src={r.logoUrl} name={r.name} />
                 )}
-                <Link
+                <PublicLink
                   href={`${hrefBase}/${r.id}`}
                   className="min-w-0 flex-1 truncate hover:text-[var(--racing-red)]"
                 >
                   {r.name}
-                </Link>
+                </PublicLink>
                 <span className="inline-flex items-center gap-1 text-[var(--racing-yellow)]">
                   <Trophy className="size-3" fill="currentColor" />
                   <span className="font-mono font-semibold tabular-nums text-foreground">
@@ -181,12 +182,12 @@ function WinsCard<T extends DriverStat | DriverPodiumStat>({
                 {i + 1}
               </span>
               <DriverPhoto src={r.photoUrl} name={r.name} size="sm" />
-              <Link
+              <PublicLink
                 href={`/drivers/${r.id}`}
                 className="min-w-0 flex-1 truncate hover:text-[var(--racing-red)]"
               >
                 {r.name}
-              </Link>
+              </PublicLink>
               <span className="font-mono font-semibold tabular-nums">
                 {countOf(r)}
               </span>
@@ -218,23 +219,23 @@ function LeMansTable({ rows }: { rows: LeMansWinner[] }) {
         {rows.map((r) => (
           <TableRow key={`${r.year}-${r.carNumber}`}>
             <TableCell className="pl-4 font-mono tabular-nums">
-              <Link
+              <PublicLink
                 href={`/races/${r.eventId}`}
                 className="hover:text-[var(--racing-red)]"
               >
                 {r.year}
-              </Link>
+              </PublicLink>
             </TableCell>
             <TableCell className="font-mono tabular-nums">
               {r.carNumber}
             </TableCell>
             <TableCell>
-              <Link
+              <PublicLink
                 href={`/teams/${r.teamId}`}
                 className="hover:text-[var(--racing-red)]"
               >
                 {r.team}
-              </Link>
+              </PublicLink>
             </TableCell>
             <TableCell className="text-muted-foreground">
               <DriverList

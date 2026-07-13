@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { PageHeader } from "@/components/page-header";
+import { PublicLink } from "@/components/public-link";
 import {
   RACE_CLASSES,
   getDriverStandings,
@@ -28,16 +29,18 @@ import {
   type RaceClass,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
-import { pageMetadata } from "@/lib/page-metadata";
+import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
+import {
+  buildChampionshipSnapshot,
+  type ChampionshipSnapshot,
+} from "@/lib/championship-content";
 import {
   teamStandingDetail,
   teamStandingRowKey,
 } from "@/lib/standings";
 
-export const metadata = pageMetadata({
-  title: "Standings",
-  path: "/standings",
-});
+export const generateMetadata = () =>
+  dashboardPageMetadata("standings", "/standings");
 
 function groupByClass<T extends { raceClass: RaceClass }>(rows: T[]) {
   const out: Record<RaceClass, T[]> = {
@@ -62,6 +65,9 @@ export default async function StandingsPage() {
     getManufacturerStandings(undefined, year),
     getEvents(year),
   ]);
+  const seasonYear = year ?? (events[0]?.dateStart
+    ? new Date(events[0].dateStart).getUTCFullYear()
+    : new Date().getUTCFullYear());
 
   const today = new Date().toISOString().slice(0, 10);
   const completedRounds = events.filter((e) => e.dateEnd < today).length;
@@ -80,6 +86,7 @@ export default async function StandingsPage() {
   const driversByClass = groupByClass(drivers);
   const teamsByClass = groupByClass(teams);
   const manufacturersByClass = groupByClass(manufacturers);
+  const snapshot = buildChampionshipSnapshot(drivers, teams, manufacturers);
 
   return (
     <div className="space-y-6">
@@ -90,22 +97,31 @@ export default async function StandingsPage() {
           description={headerDescription}
         />
         <div className="flex items-center gap-4 text-sm">
-          <Link
+          <PublicLink
             href="/seasons/compare"
             className="text-muted-foreground hover:text-foreground"
           >
             {tStandings("compareSeasons")} →
-          </Link>
+          </PublicLink>
           {!isPastSeason && (
-            <Link
+            <PublicLink
               href="/standings/simulator"
+              seasonYear={seasonYear}
               className="text-muted-foreground hover:text-foreground"
             >
               {tStandings("openSimulator")} →
-            </Link>
+            </PublicLink>
           )}
         </div>
       </div>
+
+      {snapshot.length > 0 && (
+        <ChampionshipSnapshotSection
+          items={snapshot}
+          rounds={completedRounds}
+          isFinal={isPastSeason}
+        />
+      )}
 
       {(() => {
         const present = RACE_CLASSES.filter(
@@ -216,6 +232,115 @@ export default async function StandingsPage() {
   );
 }
 
+function ChampionshipSnapshotSection({
+  items,
+  rounds,
+  isFinal,
+}: {
+  items: ChampionshipSnapshot[];
+  rounds: number;
+  isFinal: boolean;
+}) {
+  const t = useTranslations("standings");
+
+  return (
+    <section aria-labelledby="championship-snapshot-title" className="space-y-3">
+      <div>
+        <h2
+          id="championship-snapshot-title"
+          className="font-heading text-2xl font-bold uppercase tracking-tight"
+        >
+          {t("snapshotTitle")}
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          {isFinal
+            ? t("snapshotFinalDescription", { rounds })
+            : t("snapshotDescription", { rounds })}
+        </p>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        {items.map((item) => (
+          <Card key={item.raceClass}>
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle>{item.raceClass}</CardTitle>
+                <ClassBadge raceClass={item.raceClass} />
+              </div>
+              <CardDescription>{t("snapshotLeaders")}</CardDescription>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-3">
+              {item.drivers.length > 0 && (
+                <SnapshotLeaderList
+                  label={t("driversHeading")}
+                  rows={item.drivers.map((row) => ({
+                    key: String(row.driverId),
+                    name: row.driverName,
+                    href: `/drivers/${row.driverId}`,
+                    points: row.points,
+                  }))}
+                />
+              )}
+              {item.teams.length > 0 && (
+                <SnapshotLeaderList
+                  label={t("teamsHeading")}
+                  rows={item.teams.map((row) => ({
+                    key: `${row.teamId}:${row.carNumber ?? ""}`,
+                    name: `${row.teamName}${row.carNumber ? ` #${row.carNumber}` : ""}`,
+                    href: `/teams/${row.teamId}`,
+                    points: row.points,
+                  }))}
+                />
+              )}
+              {item.manufacturers.length > 0 && (
+                <SnapshotLeaderList
+                  label={t("manufacturersHeading")}
+                  rows={item.manufacturers.map((row) => ({
+                    key: String(row.manufacturerId),
+                    name: row.manufacturerName,
+                    href: `/manufacturers/${row.manufacturerId}`,
+                    points: row.points,
+                  }))}
+                />
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function SnapshotLeaderList({
+  label,
+  rows,
+}: {
+  label: string;
+  rows: { key: string; name: string; href: string; points: number }[];
+}) {
+  const t = useTranslations("standings");
+
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+        {label}
+      </p>
+      {rows.map((row) => (
+        <p key={row.key}>
+          <PublicLink
+            href={row.href}
+            className="font-medium hover:text-[var(--racing-red)]"
+          >
+            {row.name}
+          </PublicLink>
+          <span className="ml-2 whitespace-nowrap text-xs text-muted-foreground">
+            {t("snapshotPoints", { points: row.points })}
+          </span>
+        </p>
+      ))}
+    </div>
+  );
+}
+
 type Row = {
   key: string;
   position: number;
@@ -291,12 +416,12 @@ function StandingsTable({
                       <div className="min-w-0">
                         <div className="font-medium">
                           {r.href ? (
-                            <Link
+                            <PublicLink
                               href={r.href}
                               className="hover:text-[var(--racing-red)]"
                             >
                               {r.name}
-                            </Link>
+                            </PublicLink>
                           ) : (
                             r.name
                           )}

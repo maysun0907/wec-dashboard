@@ -88,23 +88,18 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
     return cap;
   }, [chart, visibleCars, mode]);
 
-  if (error) return null;
-  if (!chart) {
+  if (error || !chart || chart.cars.length === 0 || chart.totalLaps === 0) {
+    const message = error || chart ? t("lapDataUnavailable") : t("loadingLapData");
     return (
       <Card>
         <CardHeader>
           <CardTitle>{t("positionChart")}</CardTitle>
         </CardHeader>
-        <CardContent className="py-12 text-center text-sm text-muted-foreground">
-          {t("loadingLapData")}
+        <CardContent className="flex h-[452px] items-center justify-center text-center text-sm text-muted-foreground">
+          {message}
         </CardContent>
       </Card>
     );
-  }
-  // Loaded but no lap rows ingested for this session — render an
-  // explicit empty state instead of an empty chart frame.
-  if (chart.cars.length === 0 || chart.totalLaps === 0) {
-    return null;
   }
 
   const presentClasses = RACE_CLASSES.filter((c) =>
@@ -162,7 +157,7 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="px-2">
+      <CardContent className="min-h-[452px] px-2">
         <div className="h-[420px]">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart

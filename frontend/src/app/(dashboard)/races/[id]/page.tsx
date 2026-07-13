@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -28,15 +27,16 @@ import { Flag } from "@/components/flag";
 import { ClassBadge } from "@/components/class-badge";
 import { QualifyingResultsTable } from "@/components/qualifying-results-table";
 import { PitStopsCard } from "@/components/pit-stops-card";
-import { RaceLapChart } from "@/components/race-lap-chart";
+import { PublicLink } from "@/components/public-link";
+import { RaceLapChartLazy } from "@/components/race-lap-chart-lazy";
 import { SessionWeatherBadge } from "@/components/session-weather-badge";
 import { Dash, DriverList, TeamLink } from "@/components/entity-link";
 import {
   eventStatus,
   getEvent,
   getEvents,
+  hasPlausibleSessionSchedule,
   getSessionResults,
-  raceClassLabel,
   type EventStatus,
   type SessionResult,
 } from "@/lib/api";
@@ -46,6 +46,7 @@ import {
   buildSiteUrl,
   eventSchema,
 } from "@/lib/json-ld";
+import { pageMetadataUrls } from "@/lib/page-metadata";
 
 type Params = { id: string };
 
@@ -76,56 +77,50 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { id } = await params;
+  const rawLocale = await getLocale();
+  const locale = isLocale(rawLocale) ? rawLocale : "en";
+  const metadataYear = new Date().getUTCFullYear();
+  const path = `/races/${id}` as const;
+  const urls = pageMetadataUrls({ path, locale, year: metadataYear });
   const numId = Number(id);
-  if (!Number.isFinite(numId)) return { title: "Race" };
+  if (!Number.isFinite(numId)) {
+    return {
+      title: "Race",
+      alternates: { canonical: urls.canonical, languages: urls.languages },
+      openGraph: { url: urls.canonical, type: "article" },
+    };
+  }
   try {
-    const event = await getEvent(numId);
+    const event = localizeEvent(await getEvent(numId), locale);
     const year = event.dateStart ? new Date(event.dateStart).getUTCFullYear() : null;
     const circuitName = event.circuit?.name ?? null;
-    const circuitCountry = event.circuit?.country ?? null;
-    const status = eventStatus(event);
-    // Pull class winners for completed races so the description can
-    // name-drop the actual team — biggest long-tail keyword payoff.
-    let winnerSegment = "";
-    if (status === "completed") {
-      try {
-        const raceSession = event.sessions.find((s) => s.type === "RACE");
-        if (raceSession) {
-          const rows = await getSessionResults(raceSession.id);
-          const byClass = new Map<string, SessionResult>();
-          for (const r of rows) {
-            const cp = r.classPosition || r.position;
-            if (cp !== 1) continue;
-            if (!byClass.has(r.raceClass)) byClass.set(r.raceClass, r);
-          }
-          const parts = Array.from(byClass.entries()).map(
-            ([cls, r]) => `${raceClassLabel(cls as SessionResult["raceClass"])} winner ${r.team} #${r.carNumber}`,
-          );
-          if (parts.length > 0) winnerSegment = ` ${parts.join(", ")}.`;
-        }
-      } catch {
-        // best-effort; description still works without winners.
-      }
-    }
     const factParts: string[] = [];
     if (year) factParts.push(String(year));
-    if (event.round) factParts.push(`Round ${event.round}`);
+    if (event.round) {
+      factParts.push(locale === "ko" ? `${event.round}라운드` : `Round ${event.round}`);
+    }
     if (circuitName) factParts.push(circuitName);
-    if (circuitCountry) factParts.push(circuitCountry);
     const facts = factParts.join(" · ");
-    const desc = `${event.name}${facts ? ` — ${facts}` : ""}. FIA WEC Hypercar & LMGT3 qualifying, race classification, lap chart, pit stops, V-max, sector splits and weather per session.${winnerSegment}`;
+    const desc = locale === "ko"
+      ? `${event.name}${facts ? ` — ${facts}` : ""}. FIA WEC 하이퍼카·LMGT3 예선 및 결승 순위, 랩 차트, 피트스톱, 최고속도, 섹터 기록과 세션별 날씨를 확인하세요.`
+      : `${event.name}${facts ? ` — ${facts}` : ""}. View FIA WEC Hypercar and LMGT3 qualifying, race classification, lap chart, pit stops, V-max, sector splits and weather by session.`;
     // `images` is intentionally omitted - the colocated `opengraph-image.tsx`
     // generates the dynamic branded card and a static `images` here would
     // shallow-merge ahead of it.
     return {
       title: event.name,
       description: desc,
-      alternates: { canonical: `/races/${numId}` },
+      alternates: {
+        canonical: urls.canonical,
+        languages: urls.languages,
+      },
       openGraph: {
         title: `${event.name} · WEC Dashboard`,
         description: desc,
-        url: `/races/${numId}`,
+        url: urls.canonical,
         type: "article",
+        locale: locale === "ko" ? "ko_KR" : "en_US",
+        alternateLocale: [locale === "ko" ? "en_US" : "ko_KR"],
       },
       twitter: {
         card: "summary_large_image",
@@ -134,7 +129,11 @@ export async function generateMetadata({
       },
     };
   } catch {
-    return { title: "Race" };
+    return {
+      title: "Race",
+      alternates: { canonical: urls.canonical, languages: urls.languages },
+      openGraph: { url: urls.canonical, type: "article" },
+    };
   }
 }
 
@@ -163,7 +162,12 @@ export default async function RaceDetailPage({
   event = localizeEvent(event, localeForName);
 
   const status = eventStatus(event);
-  const sessions = event.sessions; // already in canonical order
+  // A dated session feed whose timestamps all fall outside this event is an
+  // ingestion mismatch. Suppress its associated classifications rather than
+  // presenting another round's results as fact.
+  const sessions = hasPlausibleSessionSchedule(event, event.sessions)
+    ? event.sessions
+    : [];
 
   // "Other rounds this season" — pull the season's full schedule and
   // surface up to 4 chronologically nearby rounds. Best-effort; render
@@ -202,25 +206,39 @@ export default async function RaceDetailPage({
   );
   const t = await getTranslations("raceDetail");
   const tStatus = await getTranslations("eventStatus");
+  const schemaContext = {
+    locale: localeForName,
+    year: seasonYear ?? new Date().getUTCFullYear(),
+  } as const;
 
   const schemas = [
-    eventSchema(event),
+    eventSchema(event, schemaContext),
     breadcrumbSchema([
-      { name: "Home", url: buildSiteUrl("/") },
-      { name: "Races", url: buildSiteUrl("/races") },
-      { name: event.name },
+      {
+        name: localeForName === "ko" ? "홈" : "Home",
+        url: buildSiteUrl("/", schemaContext),
+      },
+      {
+        name: localeForName === "ko" ? "레이스" : "Races",
+        url: buildSiteUrl("/races", schemaContext),
+      },
+      {
+        name: event.name,
+        url: buildSiteUrl(`/races/${event.id}`, schemaContext),
+      },
     ]),
   ];
 
   return (
     <div className="space-y-6">
       <JsonLd schema={schemas} />
-      <Link
+      <PublicLink
         href="/races"
+        seasonYear={seasonYear ?? new Date().getUTCFullYear()}
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
         {t("back")}
-      </Link>
+      </PublicLink>
 
       <Card className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:gap-6">
         {event.posterUrl && (
@@ -235,7 +253,7 @@ export default async function RaceDetailPage({
               fill
               sizes="192px"
               className="object-contain p-3"
-              priority
+              preload
             />
           </span>
         )}
@@ -251,12 +269,12 @@ export default async function RaceDetailPage({
             {event.name}
           </CardTitle>
           <CardDescription>
-            <Link
+            <PublicLink
               href={`/circuits/${event.circuit.id}`}
               className="hover:text-foreground"
             >
               {event.circuit.name}
-            </Link>
+            </PublicLink>
             {event.format && <> · {event.format}</>}
           </CardDescription>
           <p className="text-sm text-muted-foreground">
@@ -321,7 +339,7 @@ export default async function RaceDetailPage({
                       type={s.type}
                       rows={rows}
                     />
-                    <RaceLapChart sessionId={s.id} />
+                    <RaceLapChartLazy sessionId={s.id} />
                     <PitStopsCard sessionId={s.id} />
                   </>
                 ) : isPractice && rows.length <= 3 ? (
@@ -363,7 +381,7 @@ export default async function RaceDetailPage({
             <ul className="grid gap-2 sm:grid-cols-2">
               {nearbyRounds.map((r) => (
                 <li key={r.id}>
-                  <Link
+                  <PublicLink
                     href={`/races/${r.id}`}
                     className="flex items-center gap-3 rounded-md border border-border/60 bg-secondary/20 px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
                   >
@@ -374,7 +392,7 @@ export default async function RaceDetailPage({
                     <span className="min-w-0 flex-1 truncate font-medium">
                       {r.name}
                     </span>
-                  </Link>
+                  </PublicLink>
                 </li>
               ))}
             </ul>

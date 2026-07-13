@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format, parseISO } from "date-fns";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -15,6 +14,7 @@ import {
 import { ClassBadge } from "@/components/class-badge";
 import { TeamLink } from "@/components/entity-link";
 import { Flag } from "@/components/flag";
+import { PublicLink } from "@/components/public-link";
 import {
   getCircuit,
   getCircuits,
@@ -28,6 +28,7 @@ import {
   buildSiteUrl,
   placeSchema,
 } from "@/lib/json-ld";
+import { pageMetadataUrls } from "@/lib/page-metadata";
 
 type Params = { id: string };
 
@@ -47,29 +48,58 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const c = await fetchCircuit(id);
-  if (!c) return { title: "Circuit" };
+  const rawLocale = await getLocale();
+  const locale = isLocale(rawLocale) ? rawLocale : "en";
+  const metadataYear = new Date().getUTCFullYear();
+  const path = `/circuits/${id}` as const;
+  const urls = pageMetadataUrls({ path, locale, year: metadataYear });
+  const circuit = await fetchCircuit(id);
+  if (!circuit) {
+    return {
+      title: "Circuit",
+      alternates: { canonical: urls.canonical, languages: urls.languages },
+      openGraph: { url: urls.canonical, type: "article" },
+    };
+  }
+  const c = {
+    ...circuit,
+    name: localizeCircuitName(circuit.name, locale),
+  };
   const lengthPart = c.lengthKm ? `${c.lengthKm.toFixed(3)} km` : null;
-  const lapPart = c.lapRecord ? `lap record ${c.lapRecord}` : null;
+  const lapPart = c.lapRecord
+    ? locale === "ko"
+      ? `랩 레코드 ${c.lapRecord}`
+      : `lap record ${c.lapRecord}`
+    : null;
   const hostedSince = c.events.length > 0
     ? Math.min(...c.events.map((e) => e.seasonYear))
     : null;
   const hostedPart = hostedSince
-    ? `hosted ${c.events.length} WEC race${c.events.length === 1 ? "" : "s"} since ${hostedSince}`
+    ? locale === "ko"
+      ? `${hostedSince}년부터 WEC ${c.events.length}회 개최`
+      : `hosted ${c.events.length} WEC race${c.events.length === 1 ? "" : "s"} since ${hostedSince}`
     : null;
   const facts = [c.country, lengthPart, lapPart, hostedPart]
     .filter(Boolean)
     .join(" · ");
-  const desc = `${c.name}${facts ? ` — ${facts}` : ""}. FIA WEC track layout, lap record, class winners and full race-by-race history at this circuit.`;
+  const desc =
+    locale === "ko"
+      ? `${c.name}${facts ? ` — ${facts}` : ""}. 이 서킷의 FIA WEC 트랙 레이아웃, 랩 레코드, 클래스별 우승 기록과 역대 레이스 결과를 확인하세요.`
+      : `${c.name}${facts ? ` — ${facts}` : ""}. FIA WEC track layout, lap record, class winners and full race-by-race history at this circuit.`;
   return {
     title: c.name,
     description: desc,
-    alternates: { canonical: `/circuits/${id}` },
+    alternates: {
+      canonical: urls.canonical,
+      languages: urls.languages,
+    },
     openGraph: {
       title: `${c.name} · WEC Dashboard`,
       description: desc,
-      url: `/circuits/${id}`,
+      url: urls.canonical,
       type: "article",
+      locale: locale === "ko" ? "ko_KR" : "en_US",
+      alternateLocale: [locale === "ko" ? "en_US" : "ko_KR"],
     },
     twitter: {
       card: "summary",
@@ -101,6 +131,10 @@ export default async function CircuitDetailPage({
 
   const layoutSvg = localCircuitLayout(circuit.country) ?? circuit.layoutImage;
   const t = await getTranslations("circuits");
+  const schemaContext = {
+    locale: localeForName,
+    year: new Date().getUTCFullYear(),
+  } as const;
 
   // "Other circuits" — pick up to 4 tracks deterministically from the
   // circuits list. Start one slot after the current id (rotation) so
@@ -127,23 +161,32 @@ export default async function CircuitDetailPage({
   }
 
   const schemas = [
-    placeSchema(circuit),
+    placeSchema(circuit, schemaContext),
     breadcrumbSchema([
-      { name: "Home", url: buildSiteUrl("/") },
-      { name: "Circuits", url: buildSiteUrl("/circuits") },
-      { name: circuit.name },
+      {
+        name: localeForName === "ko" ? "홈" : "Home",
+        url: buildSiteUrl("/", schemaContext),
+      },
+      {
+        name: localeForName === "ko" ? "서킷" : "Circuits",
+        url: buildSiteUrl("/circuits", schemaContext),
+      },
+      {
+        name: circuit.name,
+        url: buildSiteUrl(`/circuits/${circuit.id}`, schemaContext),
+      },
     ]),
   ];
 
   return (
     <div className="space-y-6">
       <JsonLd schema={schemas} />
-      <Link
+      <PublicLink
         href="/circuits"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
         ← {t("title")}
-      </Link>
+      </PublicLink>
 
       <Card>
         <CardHeader>
@@ -248,12 +291,12 @@ export default async function CircuitDetailPage({
                   <span>·</span>
                   <span>{format(parseISO(e.dateStart), "MMM d, yyyy")}</span>
                 </div>
-                <Link
+                <PublicLink
                   href={`/races/${e.eventId}`}
                   className="font-medium hover:text-[var(--racing-red)]"
                 >
                   {e.name}
-                </Link>
+                </PublicLink>
               </div>
               {e.winners.length > 0 && (
                 <div className="space-y-1 text-right text-sm">
@@ -286,7 +329,7 @@ export default async function CircuitDetailPage({
             <ul className="grid gap-2 sm:grid-cols-2">
               {relatedCircuits.map((r) => (
                 <li key={r.id}>
-                  <Link
+                  <PublicLink
                     href={`/circuits/${r.id}`}
                     className="flex items-center gap-3 rounded-md border border-border/60 bg-secondary/20 px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
                   >
@@ -299,7 +342,7 @@ export default async function CircuitDetailPage({
                         {r.lengthKm.toFixed(3)} km
                       </span>
                     )}
-                  </Link>
+                  </PublicLink>
                 </li>
               ))}
             </ul>

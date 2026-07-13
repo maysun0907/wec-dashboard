@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -25,6 +24,7 @@ import { DriverList, TeamLink } from "@/components/entity-link";
 import { localDriverImage } from "@/lib/driver-image";
 import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import { PublicLink } from "@/components/public-link";
 import { RaceCountdown } from "@/components/race-countdown";
 import { SeasonRecapHero } from "@/components/season-recap-hero";
 import {
@@ -36,6 +36,11 @@ import {
 } from "@/components/past-season-sections";
 import { ChampionProgressionMiniLazy } from "@/components/champion-progression-mini-lazy";
 import { getSelectedSeason } from "@/lib/season";
+import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
+import {
+  buildGenesisTracker,
+  type GenesisTracker,
+} from "@/lib/championship-content";
 import {
   RACE_CLASSES,
   getDriverProgression,
@@ -50,6 +55,8 @@ import {
   getSessionResults,
   getTeamStandings,
   getUpcomingEvents,
+  hasPlausibleSessionSchedule,
+  isPlausibleSessionTime,
   type DriverProgression,
   type Event,
   type RaceClass,
@@ -57,9 +64,12 @@ import {
   type StandingManufacturer,
 } from "@/lib/api";
 
+export const generateMetadata = () => dashboardPageMetadata("home", "/");
+
 export default async function HomePage() {
   const year = await getSelectedSeason();
   const t = await getTranslations("common");
+  const tHome = await getTranslations("home");
   const tClass = await getTranslations("raceClass");
   const rawLocale = await getLocale();
   const locale = isLocale(rawLocale) ? rawLocale : "en";
@@ -107,6 +117,7 @@ export default async function HomePage() {
   const champions = hypercarStandings.filter((d) => d.position === 1);
   const manufacturerChamp =
     mfrStandings.find((m) => m.position === 1) ?? null;
+  const genesisTracker = buildGenesisTracker(driverEntries, mfrStandings);
 
   // Pull race results for the last completed event in a second hop.
   let lastResultByClass: { label: string; rows: SessionResult[] }[] = [];
@@ -115,7 +126,13 @@ export default async function HomePage() {
     lastEventName = last.name;
     try {
       const detail = await getEvent(last.id);
-      const raceSession = getSessionByType(detail.sessions, "RACE");
+      const scheduleTrusted = hasPlausibleSessionSchedule(
+        last,
+        detail.sessions,
+      );
+      const raceSession = scheduleTrusted
+        ? getSessionByType(detail.sessions, "RACE")
+        : null;
       if (raceSession) {
         const all = await getSessionResults(raceSession.id);
         // Top 5 per class, ordered by class_position. Renders Hypercar
@@ -142,7 +159,12 @@ export default async function HomePage() {
     try {
       const detail = await getEvent(next.id);
       const raceSession = getSessionByType(detail.sessions, "RACE");
-      nextRaceStart = raceSession?.startTime ?? null;
+      nextRaceStart =
+        hasPlausibleSessionSchedule(next, detail.sessions) &&
+        raceSession &&
+        isPlausibleSessionTime(next, raceSession)
+          ? raceSession.startTime
+          : null;
     } catch {
       // ignore — fallback applies
     }
@@ -159,6 +181,16 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-8">
+      <header className="max-w-4xl space-y-3">
+        <p className="eyebrow">{tHome("overviewEyebrow")}</p>
+        <h1 className="text-4xl font-bold uppercase tracking-tight sm:text-5xl">
+          {tHome("overviewTitle", { year: seasonYear })}
+        </h1>
+        <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
+          {tHome("overviewDescription", { year: seasonYear })}
+        </p>
+      </header>
+
       {next && <NextRaceHero event={next} startIso={nextRaceStart} />}
       {isPastSeason && (
         <SeasonRecapHero
@@ -202,10 +234,14 @@ export default async function HomePage() {
         </>
       )}
 
+      {genesisTracker && (
+        <GenesisTrackerCard tracker={genesisTracker} year={seasonYear} />
+      )}
+
       {remaining.length > 0 && (
         <div className="space-y-2">
           <p className="eyebrow">{t("schedule")}</p>
-          <UpcomingCard events={remaining} />
+          <UpcomingCard events={remaining} seasonYear={seasonYear} />
         </div>
       )}
 
@@ -219,6 +255,7 @@ export default async function HomePage() {
                 { label: tClass("LMGT3Title"), rows: lmgt3Podium },
               ]}
               rounds={completedRounds}
+              seasonYear={seasonYear}
             />
             <StandingsCard
               title={t("manufacturers")}
@@ -229,6 +266,7 @@ export default async function HomePage() {
               rowLogo={(r) => r.manufacturerLogoUrl}
               rowHref={(r) => `/manufacturers/${r.manufacturerId}`}
               rounds={completedRounds}
+              seasonYear={seasonYear}
             />
           </section>
         </div>
@@ -241,6 +279,98 @@ export default async function HomePage() {
         />
       )}
     </div>
+  );
+}
+
+function GenesisTrackerCard({
+  tracker,
+  year,
+}: {
+  tracker: GenesisTracker;
+  year: number;
+}) {
+  const t = useTranslations("home");
+
+  return (
+    <Card>
+      <CardHeader className="sm:grid-cols-[1fr_auto]">
+        <div>
+          <CardTitle>{t("genesisTrackerTitle")}</CardTitle>
+          <CardDescription>
+            {t("genesisTrackerDescription", { year })}
+          </CardDescription>
+        </div>
+        <PublicLink
+          href="/genesis-wec"
+          seasonYear={year}
+          className="text-sm font-medium text-muted-foreground hover:text-foreground"
+        >
+          {t("genesisTrackerMore")} →
+        </PublicLink>
+      </CardHeader>
+      <CardContent className="grid gap-5 sm:grid-cols-3">
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            {t("genesisEntries")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {tracker.entries.map((entry) => (
+              <Badge
+                key={`${entry.raceClass}-${entry.carNumber}`}
+                variant="secondary"
+              >
+                #{entry.carNumber} · {entry.raceClass}
+              </Badge>
+            ))}
+          </div>
+          {tracker.teamNames.map((team) => (
+            <p key={team} className="font-medium">
+              {team}
+            </p>
+          ))}
+        </div>
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            {t("genesisDrivers", { count: tracker.drivers.length })}
+          </p>
+          <div className="flex flex-wrap gap-x-3 gap-y-1">
+            {tracker.drivers.map((driver) => (
+              <PublicLink
+                key={driver.id}
+                href={`/drivers/${driver.id}`}
+                className="font-medium hover:text-[var(--racing-red)]"
+              >
+                {driver.name}
+              </PublicLink>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            {t("genesisManufacturerStanding")}
+          </p>
+          {tracker.manufacturerStanding ? (
+            <PublicLink
+              href={`/manufacturers/${tracker.manufacturerStanding.manufacturerId}`}
+              className="inline-flex items-baseline gap-2 hover:text-[var(--racing-red)]"
+            >
+              <span className="font-heading text-3xl font-bold">
+                P{tracker.manufacturerStanding.position}
+              </span>
+              <span className="text-muted-foreground">
+                {t("genesisPoints", {
+                  points: tracker.manufacturerStanding.points,
+                })}
+              </span>
+            </PublicLink>
+          ) : (
+            <p className="text-muted-foreground">
+              {t("genesisStandingPending")}
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -284,6 +414,7 @@ async function buildSeasonRecap(
     events.map(async (e) => {
       try {
         const detail = await getEvent(e.id);
+        if (!hasPlausibleSessionSchedule(e, detail.sessions)) return;
         const race = detail.sessions.find((s) => s.type === "RACE");
         if (!race) return;
         const all = await getSessionResults(race.id);
@@ -488,37 +619,44 @@ function NextRaceFooter({ eventId, dateStart }: { eventId: number; dateStart: st
       <span className="font-medium text-muted-foreground">
         {format(parseISO(dateStart), "EEEE, MMMM d, yyyy")}
       </span>
-      <Link
+      <PublicLink
         href={`/races/${eventId}`}
         className="group inline-flex items-center gap-2 rounded-md border border-[var(--racing-red)]/30 bg-[var(--racing-red)]/10 px-4 py-2 text-sm font-semibold uppercase tracking-widest text-[var(--racing-red)] transition-colors hover:bg-[var(--racing-red)]/20"
       >
         {t("raceWeekend")}
         <span className="transition-transform group-hover:translate-x-0.5">→</span>
-      </Link>
+      </PublicLink>
     </div>
   );
 }
 
-function UpcomingCard({ events }: { events: Event[] }) {
+function UpcomingCard({
+  events,
+  seasonYear,
+}: {
+  events: Event[];
+  seasonYear: number;
+}) {
   const t = useTranslations("home");
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>{t("upNext")}</CardTitle>
-          <Link
+          <PublicLink
             href="/races"
+            seasonYear={seasonYear}
             className="text-xs text-muted-foreground hover:text-foreground"
           >
             {t("fullScheduleArrow")}
-          </Link>
+          </PublicLink>
         </div>
       </CardHeader>
       <CardContent className="px-0">
         <ul className="divide-y divide-border">
           {events.map((e) => (
             <li key={e.id}>
-              <Link
+              <PublicLink
                 href={`/races/${e.id}`}
                 className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-secondary/40"
               >
@@ -538,7 +676,7 @@ function UpcomingCard({ events }: { events: Event[] }) {
                   </span>
                   {e.format && <span className="block">{e.format}</span>}
                 </span>
-              </Link>
+              </PublicLink>
             </li>
           ))}
         </ul>
@@ -556,6 +694,7 @@ function StandingsCard<T extends { position: number; points: number }>({
   rowLogo,
   rowHref,
   rounds,
+  seasonYear,
 }: {
   title: string;
   rows: T[];
@@ -566,6 +705,7 @@ function StandingsCard<T extends { position: number; points: number }>({
   /** When provided, the entire row becomes a Link to this URL. */
   rowHref?: (r: T) => string;
   rounds: number;
+  seasonYear: number;
 }) {
   const t = useTranslations("common");
   const leader = rows[0]?.points ?? 1;
@@ -660,12 +800,12 @@ function StandingsCard<T extends { position: number; points: number }>({
               return (
                 <li key={rowKey(row)} className="relative flex-1">
                   {href ? (
-                    <Link
+                    <PublicLink
                       href={href}
                       className="block h-full transition-colors hover:[&_[data-slot=row-name]]:text-[var(--racing-red)]"
                     >
                       {inner}
-                    </Link>
+                    </PublicLink>
                   ) : (
                     inner
                   )}
@@ -676,12 +816,13 @@ function StandingsCard<T extends { position: number; points: number }>({
         )}
       </CardContent>
       <div className="mt-2 px-4 pt-2 pb-2 text-right text-sm">
-        <Link
+        <PublicLink
           href="/standings"
+          seasonYear={seasonYear}
           className="font-medium text-muted-foreground hover:text-foreground"
         >
           {t("fullStandings")} →
-        </Link>
+        </PublicLink>
       </div>
     </Card>
   );

@@ -15,21 +15,29 @@ import type {
   TeamDetail,
 } from "@/lib/api";
 import { eventStatus } from "@/lib/api";
+import type { Locale } from "@/i18n/config";
+import { buildPublicPath } from "@/lib/public-routing";
+import { siteUrl } from "@/lib/site-url";
 
-// Mirrors the resolution order used by sitemap.ts / robots.ts so the
-// generated absolute URLs match canonical / sitemap entries exactly.
-function siteBase(): string {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-  }
-  return "http://localhost:3000";
-}
+export type JsonLdRouteContext = Readonly<{
+  locale: Locale;
+  year: number;
+}>;
 
-export function buildSiteUrl(path: string): string {
-  const base = siteBase().replace(/\/+$/, "");
-  if (!path) return base + "/";
-  const p = path.startsWith("/") ? path : `/${path}`;
+export function buildSiteUrl(
+  path: string,
+  route?: JsonLdRouteContext,
+): string {
+  const base = siteUrl();
+  const internalPath = path
+    ? path.startsWith("/")
+      ? path
+      : `/${path}`
+    : "/";
+  const routedPath = route
+    ? buildPublicPath(internalPath, route.locale, route.year) ?? internalPath
+    : internalPath;
+  const p = routedPath.startsWith("/") ? routedPath : `/${routedPath}`;
   return `${base}${p}`;
 }
 
@@ -50,18 +58,13 @@ export function websiteSchema(): object {
     name: "WEC Dashboard",
     alternateName: "WEC Dashboard — FIA WEC results, standings, schedule",
     url: base,
-    potentialAction: {
-      "@type": "SearchAction",
-      target: {
-        "@type": "EntryPoint",
-        urlTemplate: `${base.replace(/\/$/, "")}/?q={search_term_string}`,
-      },
-      "query-input": "required name=search_term_string",
-    },
   };
 }
 
-export function eventSchema(event: EventDetail): object {
+export function eventSchema(
+  event: EventDetail,
+  route?: JsonLdRouteContext,
+): object {
   // Map our derived event status to schema.org's enum (omit when "live"
   // — there is no exact 1:1 match; Google treats absence as scheduled).
   const status = eventStatus(event);
@@ -93,11 +96,14 @@ export function eventSchema(event: EventDetail): object {
     },
     organizer: FIA_WEC_ORGANIZER,
     ...(event.posterUrl ? { image: event.posterUrl } : {}),
-    url: buildSiteUrl(`/races/${event.id}`),
+    url: buildSiteUrl(`/races/${event.id}`, route),
   };
 }
 
-export function personSchema(driver: DriverDetail): object {
+export function personSchema(
+  driver: DriverDetail,
+  route?: JsonLdRouteContext,
+): object {
   return {
     "@context": "https://schema.org",
     "@type": "Person",
@@ -113,18 +119,19 @@ export function personSchema(driver: DriverDetail): object {
             "@type": "SportsTeam",
             name: driver.team,
             ...(driver.teamId
-              ? { url: buildSiteUrl(`/teams/${driver.teamId}`) }
+              ? { url: buildSiteUrl(`/teams/${driver.teamId}`, route) }
               : {}),
           },
         }
       : {}),
-    url: buildSiteUrl(`/drivers/${driver.id}`),
+    url: buildSiteUrl(`/drivers/${driver.id}`, route),
   };
 }
 
 export function teamSchema(
   team: TeamDetail,
   kind: "team" | "manufacturer" = "team",
+  route?: JsonLdRouteContext,
 ): object {
   return {
     "@context": "https://schema.org",
@@ -139,16 +146,24 @@ export function teamSchema(
             "@type": "Organization",
             name: team.manufacturer,
             ...(team.manufacturerId
-              ? { url: buildSiteUrl(`/manufacturers/${team.manufacturerId}`) }
+              ? {
+                  url: buildSiteUrl(
+                    `/manufacturers/${team.manufacturerId}`,
+                    route,
+                  ),
+                }
               : {}),
           },
         }
       : {}),
-    url: buildSiteUrl(`/teams/${team.id}`),
+    url: buildSiteUrl(`/teams/${team.id}`, route),
   };
 }
 
-export function manufacturerSchema(m: ManufacturerDetail): object {
+export function manufacturerSchema(
+  m: ManufacturerDetail,
+  route?: JsonLdRouteContext,
+): object {
   // Treat manufacturers as SportsTeam too — every WEC factory programme
   // fields cars, so the team semantics fit. parentOrganization points
   // at the championship organizer to express the entrant relationship.
@@ -171,11 +186,14 @@ export function manufacturerSchema(m: ManufacturerDetail): object {
       : {}),
     ...(sameAs.length > 0 ? { sameAs } : {}),
     parentOrganization: FIA_WEC_ORGANIZER,
-    url: buildSiteUrl(`/manufacturers/${m.id}`),
+    url: buildSiteUrl(`/manufacturers/${m.id}`, route),
   };
 }
 
-export function placeSchema(circuit: CircuitDetail): object {
+export function placeSchema(
+  circuit: CircuitDetail,
+  route?: JsonLdRouteContext,
+): object {
   return {
     "@context": "https://schema.org",
     "@type": "Place",
@@ -185,11 +203,14 @@ export function placeSchema(circuit: CircuitDetail): object {
       addressCountry: circuit.country,
     },
     ...(circuit.layoutImage ? { image: circuit.layoutImage } : {}),
-    url: buildSiteUrl(`/circuits/${circuit.id}`),
+    url: buildSiteUrl(`/circuits/${circuit.id}`, route),
   };
 }
 
-export function carSchema(car: CarModelDetail): object {
+export function carSchema(
+  car: CarModelDetail,
+  route?: JsonLdRouteContext,
+): object {
   // Car keeps the entity specific without opting this informational page
   // into Google's Product rich-result requirements. Add Product as a second
   // type only if the page ever publishes a real offer, review, or rating.
@@ -215,7 +236,7 @@ export function carSchema(car: CarModelDetail): object {
     ...(car.engine ? { vehicleEngine: { "@type": "EngineSpecification", name: car.engine } } : {}),
     ...(car.yearIntroduced ? { productionDate: String(car.yearIntroduced) } : {}),
     ...(car.weightKg ? { weight: { "@type": "QuantitativeValue", value: car.weightKg, unitCode: "KGM" } } : {}),
-    url: buildSiteUrl(`/cars/${car.slug}`),
+    url: buildSiteUrl(`/cars/${car.slug}`, route),
   };
 }
 

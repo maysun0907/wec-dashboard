@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { Trophy } from "lucide-react";
@@ -16,6 +15,7 @@ import {
 import { DriverPhoto } from "@/components/driver-photo";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { PageHeader } from "@/components/page-header";
+import { PublicLink } from "@/components/public-link";
 import { RoundPodiumChart } from "@/components/round-podium-chart";
 import { SeasonComparePicker } from "@/components/season-compare-picker";
 import {
@@ -35,12 +35,10 @@ import {
   type TeamEntry,
   type TeamProgression,
 } from "@/lib/api";
-import { pageMetadata } from "@/lib/page-metadata";
+import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
 
-export const metadata = pageMetadata({
-  title: "Compare seasons",
-  path: "/seasons/compare",
-});
+export const generateMetadata = () =>
+  dashboardPageMetadata("seasonCompare", "/seasons/compare");
 
 function parseYears(raw: string | string[] | undefined): number[] {
   const text = Array.isArray(raw) ? raw.join(",") : raw ?? "";
@@ -132,12 +130,12 @@ export default async function SeasonComparePage({
 
   return (
     <div className="space-y-6">
-      <Link
+      <PublicLink
         href="/standings"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
         ← {tStandings("title")}
-      </Link>
+      </PublicLink>
 
       <PageHeader
         eyebrow={t("sideBySide")}
@@ -235,7 +233,7 @@ function SeasonColumn({ data }: { data: SeasonData }) {
             <div className="text-xs uppercase tracking-wider text-muted-foreground">
               Drivers&rsquo; champion
             </div>
-            <Link
+            <PublicLink
               href={`/drivers/${champion.driverId}`}
               className="flex items-center gap-3 rounded-md p-2 hover:bg-secondary/40"
             >
@@ -261,9 +259,9 @@ function SeasonColumn({ data }: { data: SeasonData }) {
               <span className="font-mono text-sm tabular-nums">
                 {champion.points}
               </span>
-            </Link>
+            </PublicLink>
             {otherChamps.map((c) => (
-              <Link
+              <PublicLink
                 key={c.driverId}
                 href={`/drivers/${c.driverId}`}
                 className="flex items-center gap-3 rounded-md p-2 hover:bg-secondary/40"
@@ -279,7 +277,7 @@ function SeasonColumn({ data }: { data: SeasonData }) {
                 <span className="font-mono text-sm tabular-nums">
                   {c.points}
                 </span>
-              </Link>
+              </PublicLink>
             ))}
           </div>
         )}
@@ -289,7 +287,7 @@ function SeasonColumn({ data }: { data: SeasonData }) {
             <div className="text-xs uppercase tracking-wider text-muted-foreground">
               Manufacturers&rsquo; champion
             </div>
-            <Link
+            <PublicLink
               href={`/manufacturers/${mfrChamp.manufacturerId}`}
               className="flex items-center gap-3 rounded-md p-2 hover:bg-secondary/40"
             >
@@ -304,7 +302,7 @@ function SeasonColumn({ data }: { data: SeasonData }) {
               <span className="font-mono text-sm tabular-nums">
                 {mfrChamp.points}
               </span>
-            </Link>
+            </PublicLink>
           </div>
         )}
 
@@ -322,12 +320,12 @@ function SeasonColumn({ data }: { data: SeasonData }) {
                   <span className="w-6 font-mono tabular-nums text-muted-foreground">
                     {d.position}
                   </span>
-                  <Link
+                  <PublicLink
                     href={`/drivers/${d.driverId}`}
                     className="min-w-0 flex-1 truncate hover:text-[var(--racing-red)]"
                   >
                     {d.driverName}
-                  </Link>
+                  </PublicLink>
                   <span className="font-mono tabular-nums">{d.points}</span>
                 </li>
               ))}
@@ -362,12 +360,12 @@ function SeasonColumn({ data }: { data: SeasonData }) {
                     src={m.manufacturerLogoUrl}
                     name={m.manufacturerName}
                   />
-                  <Link
+                  <PublicLink
                     href={`/manufacturers/${m.manufacturerId}`}
                     className="min-w-0 flex-1 truncate hover:text-[var(--racing-red)]"
                   >
                     {m.manufacturerName}
-                  </Link>
+                  </PublicLink>
                   <span className="font-mono tabular-nums">{m.points}</span>
                 </li>
               ))}

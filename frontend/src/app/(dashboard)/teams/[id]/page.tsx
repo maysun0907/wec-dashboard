@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -27,6 +26,7 @@ import { CarModelLink, Dash } from "@/components/entity-link";
 import { DriverPhoto } from "@/components/driver-photo";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { BrandLinkPills } from "@/components/brand-link-pills";
+import { PublicLink } from "@/components/public-link";
 import {
   describeRounds,
   getTeam,
@@ -44,6 +44,7 @@ import {
   buildSiteUrl,
   teamSchema,
 } from "@/lib/json-ld";
+import { pageMetadataUrls } from "@/lib/page-metadata";
 
 type Params = { id: string };
 
@@ -66,9 +67,22 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const year = await getSelectedSeason();
+  const [year, rawLocale] = await Promise.all([
+    getSelectedSeason(),
+    getLocale(),
+  ]);
+  const locale = isLocale(rawLocale) ? rawLocale : "en";
+  const metadataYear = new Date().getUTCFullYear();
+  const path = `/teams/${id}` as const;
+  const urls = pageMetadataUrls({ path, locale, year: metadataYear });
   const t = await fetchTeam(id, year);
-  if (!t) return { title: "Team" };
+  if (!t) {
+    return {
+      title: "Team",
+      alternates: { canonical: urls.canonical, languages: urls.languages },
+      openGraph: { url: urls.canonical, type: "article" },
+    };
+  }
   const mfr = t.manufacturer ? ` (${t.manufacturer})` : "";
   const classes = Array.from(new Set(t.cars.map((c) => raceClassLabel(c.raceClass))));
   const numbers = Array.from(new Set(t.cars.map((c) => `#${c.number}`)));
@@ -77,23 +91,41 @@ export async function generateMetadata({
   const totalRaces = t.seasons.reduce((a, s) => a + s.races, 0);
   const yearLabel = year ? ` ${year}` : "";
   const carsPart = numbers.length > 0
-    ? ` ${numbers.join(", ")}${classes.length > 0 ? ` in ${classes.join("/")}` : ""}${yearLabel}.`
+    ? locale === "ko"
+      ? ` ${numbers.join(", ")}${classes.length > 0 ? ` · ${classes.join("/")} 클래스` : ""}${yearLabel}.`
+      : ` ${numbers.join(", ")}${classes.length > 0 ? ` in ${classes.join("/")}` : ""}${yearLabel}.`
     : "";
-  const titlesPart = titles > 0 ? ` ${titles}× WEC title${titles === 1 ? "" : "s"}.` : "";
-  const statsPart = totalRaces > 0 ? ` ${totalWins} wins in ${totalRaces} car-races.` : "";
-  const desc = `${t.name}${mfr}${carsPart}${titlesPart}${statsPart} FIA WEC drivers, season-by-season standings, full race-by-race results.`;
+  const titlesPart = titles > 0
+    ? locale === "ko"
+      ? ` WEC 타이틀 ${titles}회.`
+      : ` ${titles}× WEC title${titles === 1 ? "" : "s"}.`
+    : "";
+  const statsPart = totalRaces > 0
+    ? locale === "ko"
+      ? ` 차량 기준 ${totalRaces}경기에서 ${totalWins}승.`
+      : ` ${totalWins} wins in ${totalRaces} car-races.`
+    : "";
+  const desc =
+    locale === "ko"
+      ? `${t.name}${mfr}${carsPart}${titlesPart}${statsPart} FIA WEC 드라이버, 시즌별 순위와 레이스별 결과를 확인하세요.`
+      : `${t.name}${mfr}${carsPart}${titlesPart}${statsPart} FIA WEC drivers, season-by-season standings, full race-by-race results.`;
   // `images` is intentionally omitted - the colocated `opengraph-image.tsx`
   // generates the dynamic branded card and a static `images` here would
   // shallow-merge ahead of it.
   return {
     title: t.name,
     description: desc,
-    alternates: { canonical: `/teams/${id}` },
+    alternates: {
+      canonical: urls.canonical,
+      languages: urls.languages,
+    },
     openGraph: {
       title: `${t.name} · WEC Dashboard`,
       description: desc,
-      url: `/teams/${id}`,
+      url: urls.canonical,
       type: "article",
+      locale: locale === "ko" ? "ko_KR" : "en_US",
+      alternateLocale: [locale === "ko" ? "en_US" : "ko_KR"],
     },
     twitter: {
       card: "summary_large_image",
@@ -123,6 +155,10 @@ export default async function TeamDetailPage({
   };
   const t = await getTranslations("teams");
   const tt = await getTranslations("table");
+  const schemaContext = {
+    locale: localeForName,
+    year: year ?? new Date().getUTCFullYear(),
+  } as const;
 
   // "Other teams in same class" — same-class peers from the current
   // season, capped at 5. Falls back silently if the API hop fails so
@@ -147,23 +183,32 @@ export default async function TeamDetailPage({
   }
 
   const schemas = [
-    teamSchema(team, "team"),
+    teamSchema(team, "team", schemaContext),
     breadcrumbSchema([
-      { name: "Home", url: buildSiteUrl("/") },
-      { name: "Teams", url: buildSiteUrl("/teams") },
-      { name: team.name },
+      {
+        name: localeForName === "ko" ? "홈" : "Home",
+        url: buildSiteUrl("/", schemaContext),
+      },
+      {
+        name: localeForName === "ko" ? "팀" : "Teams",
+        url: buildSiteUrl("/teams", schemaContext),
+      },
+      {
+        name: team.name,
+        url: buildSiteUrl(`/teams/${team.id}`, schemaContext),
+      },
     ]),
   ];
 
   return (
     <div className="space-y-6">
       <JsonLd schema={schemas} />
-      <Link
+      <PublicLink
         href="/teams"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
         ← {t("title")}
-      </Link>
+      </PublicLink>
 
       <Card>
         <CardHeader className="flex flex-col items-start gap-3 space-y-0 sm:flex-row sm:items-center sm:gap-4">
@@ -253,12 +298,12 @@ export default async function TeamDetailPage({
                       return (
                         <li key={d.id} className="flex items-center gap-2">
                           <DriverPhoto src={d.photoUrl} name={d.name} size="sm" />
-                          <Link
+                          <PublicLink
                             href={`/drivers/${d.id}`}
                             className="hover:text-[var(--racing-red)]"
                           >
                             {d.name}
-                          </Link>
+                          </PublicLink>
                           {tag && (
                             <span className="rounded bg-secondary px-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                               {tag}
@@ -319,12 +364,12 @@ export default async function TeamDetailPage({
                       {r.round}
                     </TableCell>
                     <TableCell>
-                      <Link
+                      <PublicLink
                         href={`/races/${r.eventId}`}
                         className="hover:text-[var(--racing-red)]"
                       >
                         {r.eventName}
-                      </Link>
+                      </PublicLink>
                     </TableCell>
                     <TableCell className="font-mono tabular-nums">
                       {r.carNumber}
@@ -368,7 +413,7 @@ export default async function TeamDetailPage({
             <ul className="grid gap-2 sm:grid-cols-2">
               {relatedTeams.map((r) => (
                 <li key={r.id}>
-                  <Link
+                  <PublicLink
                     href={`/teams/${r.id}`}
                     className="flex items-center gap-3 rounded-md border border-border/60 bg-secondary/20 px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
                   >
@@ -385,7 +430,7 @@ export default async function TeamDetailPage({
                         {r.manufacturer}
                       </span>
                     )}
-                  </Link>
+                  </PublicLink>
                 </li>
               ))}
             </ul>

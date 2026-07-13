@@ -13,6 +13,7 @@ import {
 import { ClassBadge } from "@/components/class-badge";
 import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import { PublicLink } from "@/components/public-link";
 import {
   type Event,
   type RaceClass,
@@ -304,7 +305,7 @@ export function LeMansSpotlight({
           </p>
         ) : (
           winnersByClass.map(({ raceClass, row }) => (
-            <Link
+            <PublicLink
               key={raceClass}
               href={`/races/${event.id}`}
               className="flex items-center gap-4 rounded-md border border-border/60 bg-secondary/20 px-4 py-3 transition-colors hover:bg-secondary/40"
@@ -319,7 +320,7 @@ export function LeMansSpotlight({
                   {row.drivers}
                 </div>
               </div>
-            </Link>
+            </PublicLink>
           ))
         )}
       </CardContent>
@@ -373,7 +374,7 @@ export function RoundsGrid({
             );
             return (
               <li key={e.id}>
-                <Link
+                <PublicLink
                   href={`/races/${e.id}`}
                   className="flex flex-col gap-2 px-4 py-3 transition-colors hover:bg-secondary/40 lg:flex-row lg:items-center lg:gap-4"
                 >
@@ -426,7 +427,7 @@ export function RoundsGrid({
                       })}
                     </div>
                   )}
-                </Link>
+                </PublicLink>
               </li>
             );
           })}
