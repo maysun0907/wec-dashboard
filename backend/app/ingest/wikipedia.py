@@ -1693,18 +1693,102 @@ def _ingest_standings(
     after_event_id = _last_completed_event_id(db, season_id)
     # Top-tier class flipped from LMP1 to Hypercar in 2021.
     top_class = "HYPERCAR" if year >= 2021 else "LMP1"
+    strict = year == date.today().year and after_event_id is not None
 
     counts = {"drivers": 0, "manufacturers": 0, "teams": 0}
 
+    driver_tables = _find_standings_tables_for(soup, "drivers", top_class)
+    manufacturer_tables = _find_standings_tables_for(
+        soup, "manufacturers", top_class
+    )
+    team_tables = _find_standings_tables_for(soup, "teams", top_class)
+
+    # Once a round has finished, silently accepting a source-page layout
+    # change would commit an empty championship table after `_clear_season`.
+    # Abort instead so the caller can roll the transaction back and retain
+    # the last known-good standings.
+    if strict and not (
+        driver_tables or manufacturer_tables or team_tables
+    ):
+        raise RuntimeError(
+            f"no standings tables found for completed {year} season data"
+        )
+
+    # The modern WEC championship structure is unambiguous: Hypercar has
+    # drivers + manufacturers, while LMGT3 has drivers + per-car teams.
+    # Check each active class independently so losing just one heading to a
+    # source-page markup change cannot commit an otherwise plausible-looking
+    # partial standings response.
+    if strict:
+        active_classes = {
+            name
+            for (name,) in (
+                db.query(models.RaceClass.name)
+                .join(
+                    models.Car,
+                    models.Car.race_class_id == models.RaceClass.id,
+                )
+                .filter(models.Car.season_id == season_id)
+                .distinct()
+                .all()
+            )
+        }
+        required_tables: dict[str, set[str]] = {
+            "drivers": set(),
+            "manufacturers": set(),
+            "teams": set(),
+        }
+        if "HYPERCAR" in active_classes:
+            required_tables["drivers"].add("HYPERCAR")
+            required_tables["manufacturers"].add("HYPERCAR")
+        if "LMGT3" in active_classes:
+            required_tables["drivers"].add("LMGT3")
+            required_tables["teams"].add("LMGT3")
+
+        discovered_tables = {
+            "drivers": set(driver_tables),
+            "manufacturers": set(manufacturer_tables),
+            "teams": set(team_tables),
+        }
+        missing_tables = [
+            f"{cls} {kind}"
+            for kind, classes in required_tables.items()
+            for cls in sorted(classes - discovered_tables[kind])
+        ]
+        if missing_tables:
+            raise RuntimeError(
+                "missing required standings tables: "
+                + ", ".join(missing_tables)
+            )
+
+    def parsed_rows(kind: str, cls: str, table: Tag) -> list[dict]:
+        parser = {
+            "drivers": parse_standings_drivers,
+            "manufacturers": parse_standings_manufacturers,
+            "teams": parse_standings_teams,
+        }[kind]
+        rows = parser(table, cls)
+        if not rows and strict:
+            raise RuntimeError(
+                f"{year} {cls} {kind} standings table parsed zero rows"
+            )
+        if cls not in race_class_ids:
+            raise RuntimeError(
+                f"race class {cls!r} is missing while ingesting standings"
+            )
+        return rows
+
     # Drivers — every (class, table) pair we can locate.
-    for cls, table in _find_standings_tables_for(
-        soup, "drivers", top_class
-    ).items():
-        for row in parse_standings_drivers(table, cls):
+    for cls, table in driver_tables.items():
+        for row in parsed_rows("drivers", cls, table):
             driver = (
                 db.query(models.Driver).filter_by(name=row["name"]).first()
             )
             if driver is None:
+                if strict:
+                    raise RuntimeError(
+                        f"unmapped {cls} standings driver: {row['name']!r}"
+                    )
                 continue
             db.add(
                 models.StandingDriver(
@@ -1719,16 +1803,18 @@ def _ingest_standings(
             counts["drivers"] += 1
 
     # Manufacturers
-    for cls, table in _find_standings_tables_for(
-        soup, "manufacturers", top_class
-    ).items():
-        for row in parse_standings_manufacturers(table, cls):
+    for cls, table in manufacturer_tables.items():
+        for row in parsed_rows("manufacturers", cls, table):
             manuf = (
                 db.query(models.Manufacturer)
                 .filter_by(name=row["name"])
                 .first()
             )
             if manuf is None:
+                if strict:
+                    raise RuntimeError(
+                        f"unmapped {cls} standings manufacturer: {row['name']!r}"
+                    )
                 continue
             db.add(
                 models.StandingManufacturer(
@@ -1743,12 +1829,14 @@ def _ingest_standings(
             counts["manufacturers"] += 1
 
     # Teams
-    for cls, table in _find_standings_tables_for(
-        soup, "teams", top_class
-    ).items():
-        for row in parse_standings_teams(table, cls):
+    for cls, table in team_tables.items():
+        for row in parsed_rows("teams", cls, table):
             team = db.query(models.Team).filter_by(name=row["name"]).first()
             if team is None:
+                if strict:
+                    raise RuntimeError(
+                        f"unmapped {cls} standings team: {row['name']!r}"
+                    )
                 continue
             db.add(
                 models.StandingTeam(
@@ -1810,9 +1898,25 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
         classified = _ingest_race_classifications(
             soup, db, season.id, race_class_ids
         )
-        standings_counts = _ingest_standings(
-            soup, db, season.id, race_class_ids, year
-        )
+        after_event_id = _last_completed_event_id(db, season.id)
+        if year == date.today().year and after_event_id is not None:
+            # The current official FIA page is server-rendered and carries
+            # the authoritative championship tables, including zero-point
+            # entrants and manufacturer-specific eligibility rules.
+            from app.ingest.fiawec_standings import ingest_fiawec_standings
+
+            standings_counts = ingest_fiawec_standings(
+                db,
+                season.id,
+                year,
+                after_event_id,
+            )
+        else:
+            # Historical FIA pages are not consistently available, so older
+            # seasons continue to use their archived Wikipedia tables.
+            standings_counts = _ingest_standings(
+                soup, db, season.id, race_class_ids, year
+            )
         # Supplement with fiawec.com schedule for any sessions whose
         # start_time we couldn't pull from Wikipedia (typically upcoming
         # rounds whose Wikipedia article is still a stub).
@@ -1844,18 +1948,6 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             alkamel_race_n = 0
             alkamel_weather_n = 0
 
-        # Self-compute the season standings from the (now-up-to-date)
-        # SessionResults. Replaces whatever Wikipedia wrote so the
-        # day-after-race window doesn't show stale points. Best-effort
-        # — failures here shouldn't block the rest of the commit.
-        try:
-            from app.standings_compute import compute_self_standings
-
-            self_standings = compute_self_standings(db, season.id, year)
-        except Exception as exc:  # pragma: no cover
-            print(f"  self-computed standings skipped: {exc}")
-            self_standings = {"drivers": 0, "teams": 0, "manufacturers": 0}
-
         # Mirror FIA-blessed asset URLs (manufacturer logos, car
         # renders, circuit maps) into the DB. Pure URL refresh — no
         # downloads, no migrations.
@@ -1881,9 +1973,9 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             "winners": winners_n,
             "classified_rounds": len(classified),
             "classified_total": sum(classified.values()),
-            "standings_drivers": self_standings["drivers"],
-            "standings_manufacturers": self_standings["manufacturers"],
-            "standings_teams": self_standings["teams"],
+            "standings_drivers": standings_counts["drivers"],
+            "standings_manufacturers": standings_counts["manufacturers"],
+            "standings_teams": standings_counts["teams"],
             "fiawec_schedule_filled": fiawec_filled,
             "alkamel_qualifying_drivers": alkamel_drivers_n,
             "alkamel_practice_rows": alkamel_practice_n,

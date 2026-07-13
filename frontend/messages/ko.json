@@ -223,6 +223,8 @@
     "teamsTrophy": "팀 트로피",
     "cumulativeByRound": "라운드별 누적 점수.",
     "cumulativeByRoundPerCar": "라운드별 누적 점수 (차량별).",
+    "hypercarChampionshipNote": "하이퍼카는 드라이버와 매뉴팩처 챔피언십을 운영하며, 팩토리 팀 전체를 대상으로 한 팀 순위는 없습니다.",
+    "lmgt3ChampionshipNote": "LMGT3 팀 트로피는 차량 번호별로 집계하므로 같은 팀의 두 차량도 각각 표시됩니다.",
     "lmp1TeamsNote": "프라이비터 트로피 한정 — 팩토리 팀은 매뉴팩처 컵에서 경쟁."
   },
   "raceDetail": {

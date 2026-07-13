@@ -27,8 +27,7 @@ def _latest_after_event(
     db: Session, model, season_id: int
 ) -> int | None:
     """Pick the most recent `after_event_id` snapshot for a season.
-    `compute_self_standings` writes one set of rows per completed
-    event so the championship-progression chart can read history;
+    Historical imports can contain one set of rows per completed event;
     the "current standings" endpoints want only the latest snapshot.
     Returns None when no rows exist for the season."""
     return (

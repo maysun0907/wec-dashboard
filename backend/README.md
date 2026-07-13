@@ -71,10 +71,10 @@ app.ingest.wikipedia 2026` — that fans out into the full pipeline:
    timing-portal CSVs.
 3. **fiawec.com schedule** — session start times for upcoming rounds
    whose Wikipedia article is still a stub.
-4. **Self-computed standings** (`app.standings_compute`) — drivers /
-   teams / manufacturers per-class, with pole bonuses and per-event
-   progression snapshots. Replaces whatever Wikipedia wrote so the
-   day-after-race window doesn't show stale points.
+4. **Published standings** — the current season is mirrored from FIA WEC's
+   official championship tables; archived seasons use Wikipedia. Every
+   current table and roster identity is validated before replacement, so a
+   partial source response cannot overwrite the last good standings.
 5. **fiawec.com asset URLs** (`app.ingest.fiawec_assets`) — official
    manufacturer logos, car-render PNGs, circuit-layout PNGs and round
    posters from the FIA's grid + per-race pages.
