@@ -38,10 +38,6 @@ import { ChampionProgressionMiniLazy } from "@/components/champion-progression-m
 import { getSelectedSeason } from "@/lib/season";
 import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
 import {
-  buildGenesisTracker,
-  type GenesisTracker,
-} from "@/lib/championship-content";
-import {
   RACE_CLASSES,
   getDriverProgression,
   getDriverStandings,
@@ -117,7 +113,6 @@ export default async function HomePage() {
   const champions = hypercarStandings.filter((d) => d.position === 1);
   const manufacturerChamp =
     mfrStandings.find((m) => m.position === 1) ?? null;
-  const genesisTracker = buildGenesisTracker(driverEntries, mfrStandings);
 
   // Pull race results for the last completed event in a second hop.
   let lastResultByClass: { label: string; rows: SessionResult[] }[] = [];
@@ -234,10 +229,6 @@ export default async function HomePage() {
         </>
       )}
 
-      {genesisTracker && (
-        <GenesisTrackerCard tracker={genesisTracker} year={seasonYear} />
-      )}
-
       {remaining.length > 0 && (
         <div className="space-y-2">
           <p className="eyebrow">{t("schedule")}</p>
@@ -279,98 +270,6 @@ export default async function HomePage() {
         />
       )}
     </div>
-  );
-}
-
-function GenesisTrackerCard({
-  tracker,
-  year,
-}: {
-  tracker: GenesisTracker;
-  year: number;
-}) {
-  const t = useTranslations("home");
-
-  return (
-    <Card>
-      <CardHeader className="sm:grid-cols-[1fr_auto]">
-        <div>
-          <CardTitle>{t("genesisTrackerTitle")}</CardTitle>
-          <CardDescription>
-            {t("genesisTrackerDescription", { year })}
-          </CardDescription>
-        </div>
-        <PublicLink
-          href="/genesis-wec"
-          seasonYear={year}
-          className="text-sm font-medium text-muted-foreground hover:text-foreground"
-        >
-          {t("genesisTrackerMore")} →
-        </PublicLink>
-      </CardHeader>
-      <CardContent className="grid gap-5 sm:grid-cols-3">
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            {t("genesisEntries")}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {tracker.entries.map((entry) => (
-              <Badge
-                key={`${entry.raceClass}-${entry.carNumber}`}
-                variant="secondary"
-              >
-                #{entry.carNumber} · {entry.raceClass}
-              </Badge>
-            ))}
-          </div>
-          {tracker.teamNames.map((team) => (
-            <p key={team} className="font-medium">
-              {team}
-            </p>
-          ))}
-        </div>
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            {t("genesisDrivers", { count: tracker.drivers.length })}
-          </p>
-          <div className="flex flex-wrap gap-x-3 gap-y-1">
-            {tracker.drivers.map((driver) => (
-              <PublicLink
-                key={driver.id}
-                href={`/drivers/${driver.id}`}
-                className="font-medium hover:text-[var(--racing-red)]"
-              >
-                {driver.name}
-              </PublicLink>
-            ))}
-          </div>
-        </div>
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            {t("genesisManufacturerStanding")}
-          </p>
-          {tracker.manufacturerStanding ? (
-            <PublicLink
-              href={`/manufacturers/${tracker.manufacturerStanding.manufacturerId}`}
-              className="inline-flex items-baseline gap-2 hover:text-[var(--racing-red)]"
-            >
-              <span className="font-heading text-3xl font-bold">
-                P{tracker.manufacturerStanding.position}
-              </span>
-              <span className="text-muted-foreground">
-                {t("genesisPoints", {
-                  points: tracker.manufacturerStanding.points,
-                })}
-              </span>
-            </PublicLink>
-          ) : (
-            <p className="text-muted-foreground">
-              {t("genesisStandingPending")}
-            </p>
-          )}
-        </div>
-      </CardContent>
-    </Card>
   );
 }
 
