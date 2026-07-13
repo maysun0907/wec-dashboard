@@ -1570,6 +1570,7 @@ def _ingest_fiawec_schedule(db: Session, season_id: int, year: int) -> int:
         from app.ingest.fiawec_schedule import (
             discover_race_slugs,
             fetch_schedule_for_event,
+            is_session_time_within_event_window,
         )
     except Exception as exc:  # pragma: no cover
         print(f"  fiawec schedule import failed: {exc}")
@@ -1596,6 +1597,14 @@ def _ingest_fiawec_schedule(db: Session, season_id: int, year: int) -> int:
             print(f"  fiawec R{ev.round} fetch failed: {exc}")
             continue
         for type_, dt in sched:
+            if not is_session_time_within_event_window(
+                ev.date_start, ev.date_end, dt
+            ):
+                print(
+                    f"  fiawec R{ev.round} {type_}: ignored out-of-window "
+                    f"timestamp {dt.isoformat()}"
+                )
+                continue
             sess = (
                 db.query(models.Session)
                 .filter_by(event_id=ev.id, type=type_)

@@ -22,8 +22,9 @@ weeks), and the times are authoritative.
 """
 from __future__ import annotations
 
+import json
 import re
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -126,6 +127,23 @@ _SESSION_LINE_RE = re.compile(
 )
 
 
+def is_session_time_within_event_window(
+    event_start: date,
+    event_end: date,
+    session_start: datetime,
+) -> bool:
+    """Return whether a session belongs to its event's generous weekend window.
+
+    FIA pages occasionally change structure and have previously caused a
+    session timestamp from one round to be assigned to another. Practice can
+    begin before the official event range, and a race can end after midnight,
+    so this deliberately allows four days before and one day after it.
+    """
+    return event_start - timedelta(days=4) <= session_start.date() <= (
+        event_end + timedelta(days=1)
+    )
+
+
 def _session_to_type(name: str) -> str | None:
     n = name.lower().strip()
     if n.startswith("free practice 1") or n == "practice 1":
@@ -141,6 +159,53 @@ def _session_to_type(name: str) -> str | None:
     return None
 
 
+def _schema_schedule(soup: BeautifulSoup, year: int) -> list[tuple[str, datetime]]:
+    """Read FIA's JSON-LD ``SportsEvent`` entries when they are available.
+
+    The rendered text contains the entire season calendar as well as the race
+    timetable. JSON-LD has the session's ISO timestamp (including its UTC
+    offset), so it is both less ambiguous and more resilient to layout changes.
+    """
+    by_type: dict[str, datetime] = {}
+    for script in soup.select('script[type="application/ld+json"]'):
+        try:
+            payload = json.loads(script.string or script.get_text())
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+        nodes: list[object] = [payload]
+        while nodes:
+            node = nodes.pop()
+            if isinstance(node, list):
+                nodes.extend(node)
+                continue
+            if not isinstance(node, dict):
+                continue
+            nodes.extend(node.values())
+
+            name = node.get("name")
+            start_date = node.get("startDate")
+            if not isinstance(name, str) or not isinstance(start_date, str):
+                continue
+            kind = _session_to_type(name)
+            if kind is None:
+                continue
+            try:
+                parsed = datetime.fromisoformat(start_date.replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if parsed.year != year:
+                continue
+            if parsed.tzinfo is None:
+                # JSON-LD is expected to include an offset. Leave a malformed
+                # entry to the text fallback rather than guessing its timezone.
+                continue
+            utc = parsed.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
+            if kind not in by_type or utc < by_type[kind]:
+                by_type[kind] = utc
+    return sorted(by_type.items(), key=lambda kv: kv[1])
+
+
 def parse_race_page(
     html: str, year: int, circuit_tz: str
 ) -> list[tuple[str, datetime]]:
@@ -151,13 +216,16 @@ def parse_race_page(
     Multiple Q sub-sessions (Hyperpole splits) collapse to a single Q
     with the earliest start, matching our 5-bucket schema."""
     soup = BeautifulSoup(html, "lxml")
+    schema_schedule = _schema_schedule(soup, year)
+    if schema_schedule:
+        return schema_schedule
+
     text = soup.get_text(" ", strip=True)
-    # Confine to the schedule block (after race title, before track info).
-    start = text.lower().find("countdown to")
-    if start < 0:
-        start = 0
-    end_idx = text.lower().find("track info", start)
-    block = text[start : end_idx if end_idx > start else len(text)]
+    # The race timetable precedes the first "Track info" heading. Do not
+    # start at "countdown to": FIA's season-calendar countdown is rendered
+    # after the timetable, which used to make this parser skip every session.
+    end_idx = text.lower().find("track info")
+    block = text[:end_idx] if end_idx >= 0 else text
 
     # Walk the block, alternating between date headers and session lines.
     tz = ZoneInfo(circuit_tz) if circuit_tz else ZoneInfo("UTC")

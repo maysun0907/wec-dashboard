@@ -51,8 +51,8 @@ import {
   getSessionResults,
   getTeamStandings,
   getUpcomingEvents,
-  hasPlausibleSessionSchedule,
   isPlausibleSessionTime,
+  sanitizeSessionSchedule,
   type DriverProgression,
   type Event,
   type RaceClass,
@@ -121,13 +121,10 @@ export default async function HomePage() {
     lastEventName = last.name;
     try {
       const detail = await getEvent(last.id);
-      const scheduleTrusted = hasPlausibleSessionSchedule(
-        last,
-        detail.sessions,
+      const raceSession = getSessionByType(
+        sanitizeSessionSchedule(last, detail.sessions),
+        "RACE",
       );
-      const raceSession = scheduleTrusted
-        ? getSessionByType(detail.sessions, "RACE")
-        : null;
       if (raceSession) {
         const all = await getSessionResults(raceSession.id);
         // Top 5 per class, ordered by class_position. Renders Hypercar
@@ -155,7 +152,6 @@ export default async function HomePage() {
       const detail = await getEvent(next.id);
       const raceSession = getSessionByType(detail.sessions, "RACE");
       nextRaceStart =
-        hasPlausibleSessionSchedule(next, detail.sessions) &&
         raceSession &&
         isPlausibleSessionTime(next, raceSession)
           ? raceSession.startTime
@@ -313,8 +309,9 @@ async function buildSeasonRecap(
     events.map(async (e) => {
       try {
         const detail = await getEvent(e.id);
-        if (!hasPlausibleSessionSchedule(e, detail.sessions)) return;
-        const race = detail.sessions.find((s) => s.type === "RACE");
+        const race = sanitizeSessionSchedule(e, detail.sessions).find(
+          (s) => s.type === "RACE",
+        );
         if (!race) return;
         const all = await getSessionResults(race.id);
         const winners: { raceClass: RaceClass; row: SessionResult }[] = [];

@@ -5,9 +5,10 @@ import {
   getLastCompletedEvent,
   getNextEvent,
   getUpcomingEvents,
-  hasPlausibleSessionSchedule,
   isPlausibleSessionTime,
+  sanitizeSessionSchedule,
   type Event,
+  type Session,
 } from "./api";
 
 const ev = (id: number, dateStart: string, dateEnd: string): Event => ({
@@ -87,23 +88,18 @@ describe("isPlausibleSessionTime", () => {
     ).toBe(false);
   });
 
-  it("rejects a dated session feed when every timestamp is unrelated", () => {
-    expect(
-      hasPlausibleSessionSchedule(event, [
-        { startTime: "2026-07-10T08:30:00Z" },
-        { startTime: "2026-06-10T15:00:00Z" },
-        { startTime: null },
-      ]),
-    ).toBe(false);
-    expect(hasPlausibleSessionSchedule(event, [{ startTime: null }])).toBe(
-      true,
-    );
-    expect(
-      hasPlausibleSessionSchedule(event, [
-        { startTime: "2026-04-16T08:30:00Z" },
-        { startTime: "2026-07-10T08:30:00Z" },
-      ]),
-    ).toBe(false);
+  it("keeps valid sessions and clears only unrelated timestamps", () => {
+    const sessions: Session[] = [
+      { id: 1, type: "FP1", startTime: "2026-04-16T08:30:00Z" },
+      { id: 2, type: "RACE", startTime: "2026-07-10T08:30:00Z" },
+      { id: 3, type: "Q", startTime: null },
+    ];
+
+    expect(sanitizeSessionSchedule(event, sessions)).toEqual([
+      sessions[0],
+      { ...sessions[1], startTime: null },
+      sessions[2],
+    ]);
   });
 });
 

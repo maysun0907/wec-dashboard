@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
-from app.scoring import class_position_for
+from app.scoring import class_position_for, preload_class_positions
 from app.season import YearParam, resolve_season
 
 router = APIRouter(prefix="/cars", tags=["cars"])
@@ -21,6 +21,7 @@ def _model_stats(
         .filter(models.Session.type.in_(["RACE", "Q"]))
         .all()
     )
+    preload_class_positions(db, (sess.id for _sr, sess, _car in rows))
     races = wins = podiums = poles = 0
     for sr, sess, car in rows:
         cp = class_position_for(db, sess.id, car.race_class_id, sr.position)

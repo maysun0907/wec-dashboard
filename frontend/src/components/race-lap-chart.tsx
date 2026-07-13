@@ -42,22 +42,28 @@ type Mode = "overall" | "class";
 export function RaceLapChart({ sessionId }: { sessionId: number }) {
   const t = useTranslations("raceDetail");
   const [chart, setChart] = useState<LapChart | null>(null);
-  const [error, setError] = useState(false);
+  const [failedSessionId, setFailedSessionId] = useState<number | null>(null);
   const [classes, setClasses] = useState<Set<RaceClass>>(new Set());
   const [mode, setMode] = useState<Mode>("overall");
   const [hovered, setHovered] = useState<string | null>(null);
 
   const apiUrl =
     process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+  const error = failedSessionId === sessionId;
   useEffect(() => {
     let cancelled = false;
-    fetch(`${apiUrl}/api/v1/sessions/${sessionId}/lap-chart`)
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 10_000);
+    fetch(`${apiUrl}/api/v1/sessions/${sessionId}/lap-chart`, {
+      signal: controller.signal,
+    })
       .then((r) => {
         if (!r.ok) throw new Error(String(r.status));
         return r.json() as Promise<LapChart>;
       })
       .then((data) => {
         if (cancelled) return;
+        setFailedSessionId(null);
         setChart(data);
         // Default: show every class in the field.
         const present = new Set<RaceClass>(
@@ -66,10 +72,12 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
         setClasses(present);
       })
       .catch(() => {
-        if (!cancelled) setError(true);
+        if (!cancelled) setFailedSessionId(sessionId);
       });
     return () => {
       cancelled = true;
+      window.clearTimeout(timeout);
+      controller.abort();
     };
   }, [sessionId, apiUrl]);
 

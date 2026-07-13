@@ -87,16 +87,23 @@ export function isPlausibleSessionTime(
   return start >= eventStart - 4 * day && start <= eventEnd + day;
 }
 
-/** Treat an undated legacy feed as unknown, but reject a dated feed when any
- * timestamp clearly belongs to another event. */
-export function hasPlausibleSessionSchedule(
+/**
+ * Preserve a session and its results when only its timestamp is corrupt.
+ *
+ * A session ID belongs to its event in the database, whereas its timestamp is
+ * imported separately. Dropping every session because one timestamp is stale
+ * hid valid race classifications from completed rounds. Nulling only the bad
+ * time keeps that data available while preventing an incorrect countdown or
+ * timetable from rendering.
+ */
+export function sanitizeSessionSchedule(
   event: Pick<Event, "dateStart" | "dateEnd">,
-  sessions: readonly Pick<Session, "startTime">[],
-): boolean {
-  const dated = sessions.filter((session) => session.startTime !== null);
-  return (
-    dated.length === 0 ||
-    dated.every((session) => isPlausibleSessionTime(event, session))
+  sessions: readonly Session[],
+): Session[] {
+  return sessions.map((session) =>
+    session.startTime !== null && !isPlausibleSessionTime(event, session)
+      ? { ...session, startTime: null }
+      : session,
   );
 }
 

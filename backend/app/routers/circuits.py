@@ -1,5 +1,7 @@
+from collections import defaultdict
+
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.db import get_db
@@ -47,39 +49,64 @@ def get_circuit(
         .all()
     )
 
+    # Fetch every race session and its class winners in two bounded queries.
+    # The old per-event loop performed two additional queries for each past
+    # visit to a circuit, making long-lived tracks progressively slower.
+    event_ids = [ev.id for ev, _ in event_rows]
+    race_session_ids_by_event: dict[int, int] = {}
+    if event_ids:
+        for session in (
+            db.query(models.Session)
+            .filter(
+                models.Session.event_id.in_(event_ids),
+                models.Session.type == "RACE",
+            )
+            .all()
+        ):
+            race_session_ids_by_event.setdefault(session.event_id, session.id)
+
+    winners_by_event: dict[int, list[schemas.CircuitWinnerOut]] = defaultdict(
+        list
+    )
+    race_session_ids = list(race_session_ids_by_event.values())
+    if race_session_ids:
+        seen_classes_by_event: dict[int, set[str]] = defaultdict(set)
+        rows = (
+            db.query(
+                models.Session.event_id,
+                models.SessionResult,
+                models.Car,
+                models.Team,
+                models.RaceClass,
+            )
+            .select_from(models.SessionResult)
+            .join(
+                models.Session,
+                models.SessionResult.session_id == models.Session.id,
+            )
+            .join(models.Car, models.SessionResult.car_id == models.Car.id)
+            .join(models.Team, models.Car.team_id == models.Team.id)
+            .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
+            .filter(models.SessionResult.session_id.in_(race_session_ids))
+            .order_by(models.Session.event_id, models.SessionResult.position)
+            .all()
+        )
+        for event_id, _, car, team, race_class in rows:
+            seen_classes = seen_classes_by_event[event_id]
+            if race_class.name in seen_classes:
+                continue
+            seen_classes.add(race_class.name)
+            winners_by_event[event_id].append(
+                schemas.CircuitWinnerOut(
+                    race_class=race_class.name,
+                    car_number=car.number,
+                    team=team.name,
+                    team_id=team.id,
+                )
+            )
+
     events_out: list[schemas.CircuitEventOut] = []
     for ev, season in event_rows:
-        # Winners per class for this event's RACE session
-        winners: list[schemas.CircuitWinnerOut] = []
-        race_session = (
-            db.query(models.Session)
-            .filter_by(event_id=ev.id, type="RACE")
-            .first()
-        )
-        if race_session is not None:
-            # First-place finisher per class
-            seen_classes: set[str] = set()
-            rows = (
-                db.query(models.SessionResult, models.Car, models.Team, models.RaceClass)
-                .join(models.Car, models.SessionResult.car_id == models.Car.id)
-                .join(models.Team, models.Car.team_id == models.Team.id)
-                .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
-                .filter(models.SessionResult.session_id == race_session.id)
-                .order_by(models.SessionResult.position)
-                .all()
-            )
-            for sr, car, team, rc in rows:
-                if rc.name in seen_classes:
-                    continue
-                seen_classes.add(rc.name)
-                winners.append(
-                    schemas.CircuitWinnerOut(
-                        race_class=rc.name,
-                        car_number=car.number,
-                        team=team.name,
-                        team_id=team.id,
-                    )
-                )
         events_out.append(
             schemas.CircuitEventOut(
                 event_id=ev.id,
@@ -88,7 +115,7 @@ def get_circuit(
                 name=ev.name,
                 date_start=ev.date_start,
                 date_end=ev.date_end,
-                winners=winners,
+                winners=winners_by_event[ev.id],
             )
         )
 

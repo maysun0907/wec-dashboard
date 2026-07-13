@@ -35,8 +35,8 @@ import {
   eventStatus,
   getEvent,
   getEvents,
-  hasPlausibleSessionSchedule,
   getSessionResults,
+  sanitizeSessionSchedule,
   type EventStatus,
   type SessionResult,
 } from "@/lib/api";
@@ -162,12 +162,7 @@ export default async function RaceDetailPage({
   event = localizeEvent(event, localeForName);
 
   const status = eventStatus(event);
-  // A dated session feed whose timestamps all fall outside this event is an
-  // ingestion mismatch. Suppress its associated classifications rather than
-  // presenting another round's results as fact.
-  const sessions = hasPlausibleSessionSchedule(event, event.sessions)
-    ? event.sessions
-    : [];
+  const sessions = sanitizeSessionSchedule(event, event.sessions);
 
   // "Other rounds this season" — pull the season's full schedule and
   // surface up to 4 chronologically nearby rounds. Best-effort; render

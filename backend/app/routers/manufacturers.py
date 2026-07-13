@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
-from app.scoring import class_position_for, points_for
+from app.scoring import class_position_for, points_for, preload_class_positions
 from app.season import YearParam, resolve_season
 
 router = APIRouter(prefix="/manufacturers", tags=["manufacturers"])
@@ -62,6 +62,7 @@ def _manufacturer_career(
             .filter(models.Session.type == "RACE")
             .all()
         )
+        preload_class_positions(db, (sr.session_id for sr in result_rows))
         races = len(result_rows)
         wins = 0
         podiums = 0
@@ -174,6 +175,7 @@ def get_manufacturer(
             .order_by(models.Event.round, models.SessionResult.position)
             .all()
         )
+    preload_class_positions(db, (sr.session_id for sr, *_rest in result_rows))
 
     # Manufacturers' championship rows (Hypercar only in WEC).
     standing_rows = (
