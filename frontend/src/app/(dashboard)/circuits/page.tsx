@@ -1,4 +1,5 @@
 import { format, parseISO } from "date-fns";
+import Image from "next/image";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizeCircuit, localizeEvent } from "@/lib/locale-names";
 import { isLocale } from "@/i18n/config";
@@ -12,6 +13,7 @@ import {
 import { Flag } from "@/components/flag";
 import { PageHeader } from "@/components/page-header";
 import { PublicLink } from "@/components/public-link";
+import { localCircuitLayout } from "@/lib/circuit-image";
 import {
   eventStatus,
   getCircuits,
@@ -51,11 +53,12 @@ export default async function CircuitsPage() {
         {circuits.map((c) => {
           const ev = roundByCircuit.get(c.id);
           const status: EventStatus | null = ev ? eventStatus(ev, today) : null;
+          const layoutSvg = localCircuitLayout(c.country);
           return (
             <PublicLink
               key={c.id}
               href={`/circuits/${c.id}`}
-              className="group block [&_[data-slot=card]]:transition-all [&_[data-slot=card]]:duration-200 hover:[&_[data-slot=card]]:-translate-y-0.5 hover:[&_[data-slot=card]]:ring-foreground/30"
+              className="group block [&_[data-slot=card]]:transition-all [&_[data-slot=card]]:duration-200 hover:[&_[data-slot=card]]:-translate-y-0.5 hover:[&_[data-slot=card]]:border-[var(--racing-red)]/65"
             >
               <Card>
                 <CardHeader>
@@ -69,7 +72,7 @@ export default async function CircuitsPage() {
                     {ev && (
                       <span
                         className={
-                          "shrink-0 rounded-md border px-2 py-1 text-center font-heading text-xs font-bold uppercase tracking-wider " +
+                          "shrink-0 rounded-sm border px-2 py-1 text-center font-heading text-xs font-bold uppercase tracking-wider " +
                           (status === "live"
                             ? "border-[var(--racing-red)]/60 bg-[var(--racing-red)]/10 text-[var(--racing-red)]"
                             : status === "completed"
@@ -83,7 +86,19 @@ export default async function CircuitsPage() {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <dl className="grid grid-cols-2 gap-x-2 gap-y-2 text-sm">
+                  <div className="flex gap-3">
+                    {layoutSvg && (
+                      <div className="relative hidden h-20 w-28 shrink-0 border border-border/55 bg-black/20 p-2 sm:block">
+                        <Image
+                          src={layoutSvg}
+                          alt=""
+                          fill
+                          sizes="112px"
+                          className="object-contain p-2 opacity-80 [filter:brightness(0)_invert(1)]"
+                        />
+                      </div>
+                    )}
+                  <dl className="grid flex-1 grid-cols-2 gap-x-2 gap-y-2 text-sm">
                     {c.lengthKm > 0 && (
                       <>
                         <dt className="text-muted-foreground">{t("length")}</dt>
@@ -109,6 +124,7 @@ export default async function CircuitsPage() {
                       </>
                     )}
                   </dl>
+                  </div>
                 </CardContent>
               </Card>
             </PublicLink>

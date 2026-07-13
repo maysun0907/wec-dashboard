@@ -23,7 +23,7 @@ export function ClassBadge({
   return (
     <span
       className={cn(
-        "inline-flex h-5 items-center whitespace-nowrap rounded px-1.5 text-[10px] font-semibold tracking-wider uppercase",
+        "inline-flex h-5 items-center whitespace-nowrap rounded-sm border border-current/20 px-1.5 text-[10px] font-bold tracking-[0.1em] uppercase",
         STYLES[raceClass],
         className,
       )}

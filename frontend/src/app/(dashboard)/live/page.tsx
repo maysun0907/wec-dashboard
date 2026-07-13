@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import type { ReactNode } from "react";
 import { format, parseISO } from "date-fns";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -13,6 +14,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { ClassBadge } from "@/components/class-badge";
+import { RaceClassFilter } from "@/components/race-class-filter";
 import { Flag } from "@/components/flag";
 import { PageHeader } from "@/components/page-header";
 import { PublicLink } from "@/components/public-link";
@@ -26,6 +28,7 @@ import {
   getNextEvent,
   getSessionResults,
   isPlausibleSessionTime,
+  RACE_CLASSES,
   type SessionResult,
   type Session as SessionT,
 } from "@/lib/api";
@@ -517,9 +520,10 @@ function SessionRecap({
     // Top 3 per class — pole highlighted.
     const byClass = groupByClass(rows);
     return (
+      <SessionClassFilter rows={rows}>
       <div className="space-y-4 px-4 pb-4">
         {Array.from(byClass.entries()).map(([cls, list]) => (
-          <div key={cls}>
+          <div key={cls} data-race-class={cls}>
             <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
               {cls}
             </div>
@@ -559,14 +563,17 @@ function SessionRecap({
           </div>
         ))}
       </div>
+      </SessionClassFilter>
     );
   }
   if (session.type === "FP1" || session.type === "FP2" || session.type === "FP3") {
     return (
+      <SessionClassFilter rows={rows}>
       <ul className="divide-y divide-border">
         {rows.map((r) => (
           <li
             key={`${r.position}-${r.carNumber}`}
+            data-race-class={r.raceClass}
             className="flex items-center gap-3 px-4 py-2 text-sm"
           >
             <ClassBadge raceClass={r.raceClass} />
@@ -592,14 +599,16 @@ function SessionRecap({
           </li>
         ))}
       </ul>
+      </SessionClassFilter>
     );
   }
   // RACE — top 5 per class
   const byClass = groupByClass(rows);
   return (
+    <SessionClassFilter rows={rows}>
     <div className="space-y-4 px-4 pb-4">
       {Array.from(byClass.entries()).map(([cls, list]) => (
-        <div key={cls}>
+        <div key={cls} data-race-class={cls}>
           <div className="mb-1 text-xs uppercase tracking-wider text-muted-foreground">
             {cls}
           </div>
@@ -630,7 +639,21 @@ function SessionRecap({
         </div>
       ))}
     </div>
+    </SessionClassFilter>
   );
+}
+
+function SessionClassFilter({
+  rows,
+  children,
+}: {
+  rows: SessionResult[];
+  children: ReactNode;
+}) {
+  const presentClasses = RACE_CLASSES.filter((raceClass) =>
+    rows.some((row) => row.raceClass === raceClass),
+  );
+  return <RaceClassFilter classes={presentClasses}>{children}</RaceClassFilter>;
 }
 
 function groupByClass(rows: SessionResult[]) {

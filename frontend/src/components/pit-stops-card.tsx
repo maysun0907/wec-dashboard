@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/table";
 import { ClassBadge } from "@/components/class-badge";
 import { TeamLink } from "@/components/entity-link";
-import { getPitStops, type PitStop } from "@/lib/api";
+import { RaceClassFilter } from "@/components/race-class-filter";
+import { getPitStops, RACE_CLASSES, type PitStop } from "@/lib/api";
 
 function formatDuration(ms: number | null): string {
   if (ms == null) return "—";
@@ -47,6 +48,9 @@ export async function PitStopsCard({ sessionId }: { sessionId: number }) {
   }
   if (stops.length === 0) return null;
   const t = await getTranslations("raceDetail");
+  const presentClasses = RACE_CLASSES.filter((raceClass) =>
+    stops.some((stop) => stop.raceClass === raceClass),
+  );
 
   return (
     <Card>
@@ -57,43 +61,48 @@ export async function PitStopsCard({ sessionId }: { sessionId: number }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12 pl-4">{t("colLap")}</TableHead>
-              <TableHead className="w-12">{t("colCar")}</TableHead>
-              <TableHead>{t("colTeam")}</TableHead>
-              <TableHead>{t("colRaceClass")}</TableHead>
-              <TableHead className="pr-4 text-right">{t("colDuration")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {stops.map((s, i) => (
-              <TableRow key={`${s.lap}-${s.carNumber}-${i}`}>
-                <TableCell className="pl-4 font-mono tabular-nums">
-                  {s.lap}
-                </TableCell>
-                <TableCell className="font-mono tabular-nums">
-                  {s.carNumber}
-                </TableCell>
-                <TableCell className="truncate">
-                  <TeamLink id={s.teamId}>{s.team}</TeamLink>
-                </TableCell>
-                <TableCell>
-                  <ClassBadge raceClass={s.raceClass} />
-                </TableCell>
-                <TableCell
-                  className={
-                    "pr-4 text-right font-mono tabular-nums " +
-                    durationTone(s.durationMs)
-                  }
-                >
-                  {formatDuration(s.durationMs)}
-                </TableCell>
+        <RaceClassFilter classes={presentClasses}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12 pl-4">{t("colLap")}</TableHead>
+                <TableHead className="w-12">{t("colCar")}</TableHead>
+                <TableHead>{t("colTeam")}</TableHead>
+                <TableHead>{t("colRaceClass")}</TableHead>
+                <TableHead className="pr-4 text-right">{t("colDuration")}</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {stops.map((s, i) => (
+                <TableRow
+                  key={`${s.lap}-${s.carNumber}-${i}`}
+                  data-race-class={s.raceClass}
+                >
+                  <TableCell className="pl-4 font-mono tabular-nums">
+                    {s.lap}
+                  </TableCell>
+                  <TableCell className="font-mono tabular-nums">
+                    {s.carNumber}
+                  </TableCell>
+                  <TableCell className="truncate">
+                    <TeamLink id={s.teamId}>{s.team}</TeamLink>
+                  </TableCell>
+                  <TableCell>
+                    <ClassBadge raceClass={s.raceClass} />
+                  </TableCell>
+                  <TableCell
+                    className={
+                      "pr-4 text-right font-mono tabular-nums " +
+                      durationTone(s.durationMs)
+                    }
+                  >
+                    {formatDuration(s.durationMs)}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </RaceClassFilter>
       </CardContent>
     </Card>
   );

@@ -57,6 +57,55 @@ export default async function RacesPage() {
         })}
       />
 
+      {events.length > 0 && (
+        <section className="overflow-hidden rounded-md border border-border/85 bg-card/80">
+          <div className="flex items-center justify-between border-b border-border/65 px-4 py-3">
+            <span className="data-kicker">{t("allRounds")}</span>
+            <span className="font-mono text-xs tabular-nums text-muted-foreground">
+              {events.length} ROUNDS
+            </span>
+          </div>
+          <div className="overflow-x-auto px-4 py-4 no-scrollbar">
+            <ol className="flex min-w-max">
+              {events.map((event, index) => {
+                const status = eventStatus(event, today);
+                const markerTone =
+                  status === "live"
+                    ? "border-[var(--racing-red)] bg-[var(--racing-red)] shadow-[0_0_0_3px_color-mix(in_oklab,var(--racing-red)_18%,transparent)]"
+                    : status === "completed"
+                      ? "border-foreground/70 bg-foreground"
+                      : "border-muted-foreground bg-background";
+                return (
+                  <li
+                    key={event.id}
+                    className="relative w-28 shrink-0 pr-3 last:pr-0 sm:w-36"
+                  >
+                    {index < events.length - 1 && (
+                      <span className="absolute top-[5px] left-3 right-0 h-px bg-border" />
+                    )}
+                    <PublicLink
+                      href={`/races/${event.id}`}
+                      className="group relative block space-y-2"
+                    >
+                      <span className={`block size-3 rounded-full border-2 ${markerTone}`} />
+                      <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                        R{event.round}
+                      </span>
+                      <span className="block truncate text-xs font-semibold group-hover:text-[var(--racing-red)]">
+                        {event.circuit.name}
+                      </span>
+                      <span className="block text-[10px] text-muted-foreground">
+                        {format(parseISO(event.dateStart), "MMM d")}
+                      </span>
+                    </PublicLink>
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        </section>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>{t("allRounds")}</CardTitle>

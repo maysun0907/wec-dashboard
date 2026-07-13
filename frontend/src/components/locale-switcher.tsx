@@ -30,7 +30,7 @@ export function LocaleSwitcher() {
 
   return (
     <div
-      className="inline-flex h-8 items-center overflow-hidden rounded-md border border-border bg-secondary/40 text-[11px] font-semibold"
+      className="inline-flex h-8 items-center overflow-hidden rounded-sm border border-border bg-secondary/40 text-[11px] font-semibold"
       aria-label="Language"
     >
       {OPTIONS.map((opt) => {

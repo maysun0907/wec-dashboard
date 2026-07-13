@@ -11,13 +11,13 @@ type Props = {
 
 export function PageHeader({ eyebrow, title, description }: Props) {
   return (
-    <header className="space-y-2">
+    <header className="dashboard-page-header space-y-2">
       {eyebrow && <p className="eyebrow">{eyebrow}</p>}
-      <h1 className="text-4xl font-bold uppercase tracking-tight sm:text-5xl">
+      <h1 className="font-heading text-4xl font-extrabold uppercase tracking-[0.01em] sm:text-5xl lg:text-6xl">
         {title}
       </h1>
       {description && (
-        <p className="text-muted-foreground">{description}</p>
+        <p className="max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">{description}</p>
       )}
     </header>
   );

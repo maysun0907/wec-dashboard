@@ -322,6 +322,8 @@
     "colS3": "S3",
     "colLap": "Lap",
     "colDuration": "Duration",
+    "classView": "Class view",
+    "allClasses": "All",
     "relatedTitle": "Other rounds this season",
     "relatedSubtitle": "Nearby rounds on the calendar."
   },

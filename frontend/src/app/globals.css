@@ -151,34 +151,34 @@
 }
 
 .dark {
-  --background: oklch(0.085 0 0);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.16 0 0);
+  --background: oklch(0.07 0.008 255);
+  --foreground: oklch(0.965 0.006 255);
+  --card: oklch(0.115 0.01 255);
   --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.16 0 0);
+  --popover: oklch(0.125 0.012 255);
   --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.95 0 0);
-  --primary-foreground: oklch(0.16 0 0);
-  --secondary: oklch(0.22 0 0);
+  --primary: oklch(0.62 0.24 27);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.18 0.012 255);
   --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.22 0 0);
-  --muted-foreground: oklch(0.68 0 0);
+  --muted: oklch(0.16 0.012 255);
+  --muted-foreground: oklch(0.7 0.012 255);
   --accent: oklch(0.62 0.24 27);
   --accent-foreground: oklch(0.98 0 0);
   --destructive: oklch(0.65 0.22 27);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
+  --border: oklch(0.72 0.012 255 / 22%);
+  --input: oklch(0.23 0.015 255 / 92%);
   --ring: oklch(0.62 0.24 27);
   --chart-1: oklch(0.62 0.24 27);
   --chart-2: oklch(0.86 0.19 95);
   --chart-3: oklch(0.66 0.18 230);
   --chart-4: oklch(0.78 0.18 145);
   --chart-5: oklch(0.7 0.2 320);
-  --sidebar: oklch(0.13 0 0);
+  --sidebar: oklch(0.095 0.01 255);
   --sidebar-foreground: oklch(0.98 0 0);
   --sidebar-primary: oklch(0.62 0.24 27);
   --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.22 0 0);
+  --sidebar-accent: oklch(0.18 0.012 255);
   --sidebar-accent-foreground: oklch(0.98 0 0);
   --sidebar-border: oklch(1 0 0 / 12%);
   --sidebar-ring: oklch(0.62 0.24 27);
@@ -193,30 +193,21 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    background: var(--background);
+    text-rendering: optimizeLegibility;
+  }
   body {
     @apply bg-background text-foreground;
+    min-width: 320px;
     background-image:
-      radial-gradient(
-        ellipse 70% 60% at 50% -10%,
-        oklch(0.62 0.24 27 / 0.14),
-        transparent 65%
-      ),
-      radial-gradient(
-        ellipse 80% 50% at 100% 110%,
-        oklch(0.66 0.18 230 / 0.08),
-        transparent 70%
-      ),
-      /* Faint diagonal racing stripes — gives the dark canvas grain
-         instead of being a flat oklch swatch. */
-      repeating-linear-gradient(
-        115deg,
-        oklch(1 0 0 / 0.012) 0 1px,
-        transparent 1px 14px
-      );
+      linear-gradient(oklch(0.06 0.008 255 / 0.9), oklch(0.06 0.008 255 / 0.9)),
+      linear-gradient(oklch(1 0 0 / 0.028) 1px, transparent 1px),
+      linear-gradient(90deg, oklch(1 0 0 / 0.024) 1px, transparent 1px),
+      radial-gradient(ellipse 72% 48% at 50% -16%, oklch(0.62 0.24 27 / 0.18), transparent 68%),
+      radial-gradient(ellipse 55% 38% at 100% 100%, oklch(0.66 0.18 230 / 0.08), transparent 70%);
+    background-size: auto, 44px 44px, 44px 44px, auto, auto;
     background-attachment: fixed;
-  }
-  html {
-    @apply font-sans;
   }
   h1,
   h2,
@@ -224,12 +215,16 @@
     font-family: var(--font-heading);
     letter-spacing: -0.01em;
   }
+  ::selection {
+    background: color-mix(in oklab, var(--racing-red) 70%, transparent);
+    color: white;
+  }
 }
 
 /* Section eyebrows — small uppercase labels with a red accent bar.
    Use as <p className="eyebrow">Standings</p> over big titles. */
 .eyebrow {
-  @apply inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground;
+  @apply inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground;
 }
 .eyebrow::before {
   content: "";
@@ -237,4 +232,61 @@
   width: 1.25rem;
   height: 2px;
   background: var(--racing-red);
+}
+
+/* Shared dashboard chrome.  The design deliberately uses slim rules and
+   layered surfaces instead of generic rounded SaaS cards, so dense race data
+   stays easy to scan on wide screens and still stacks cleanly on phones. */
+.dashboard-main {
+  position: relative;
+}
+
+.dashboard-main::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  content: "";
+  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--racing-red) 70%, transparent), transparent);
+}
+
+.dashboard-page-header {
+  position: relative;
+  border-bottom: 1px solid color-mix(in oklab, var(--border) 78%, transparent);
+  padding-bottom: 1.25rem;
+}
+
+.dashboard-page-header::after {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 4.5rem;
+  height: 2px;
+  content: "";
+  background: var(--racing-red);
+}
+
+.data-kicker {
+  @apply text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground;
+}
+
+.metric-value {
+  @apply font-mono font-semibold tracking-tight tabular-nums;
+}
+
+/* Client-side race-class filters set this attribute. Marking rows/cards
+   with data-race-class lets the selector work without a round trip while
+   preserving the server-rendered tables and their deep links. */
+[data-race-class-filter="HYPERCAR"] [data-race-class]:not([data-race-class="HYPERCAR"]),
+[data-race-class-filter="LMP1"] [data-race-class]:not([data-race-class="LMP1"]),
+[data-race-class-filter="LMP2"] [data-race-class]:not([data-race-class="LMP2"]),
+[data-race-class-filter="LMGT3"] [data-race-class]:not([data-race-class="LMGT3"]),
+[data-race-class-filter="LMGTE_PRO"] [data-race-class]:not([data-race-class="LMGTE_PRO"]),
+[data-race-class-filter="LMGTE_AM"] [data-race-class]:not([data-race-class="LMGTE_AM"]) {
+  display: none !important;
+}
+
+@media (max-width: 639px) {
+  body {
+    background-size: auto, 32px 32px, 32px 32px, auto, auto;
+  }
 }

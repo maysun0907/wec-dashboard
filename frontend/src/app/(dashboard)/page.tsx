@@ -1,4 +1,5 @@
 import { format, parseISO } from "date-fns";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizeEvent } from "@/lib/locale-names";
@@ -22,10 +23,12 @@ import { Badge } from "@/components/ui/badge";
 import { DriversPodium, buildPodiumRows } from "@/components/drivers-podium";
 import { DriverList, TeamLink } from "@/components/entity-link";
 import { localDriverImage } from "@/lib/driver-image";
+import { localCircuitLayout } from "@/lib/circuit-image";
 import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { PublicLink } from "@/components/public-link";
 import { RaceCountdown } from "@/components/race-countdown";
+import { RaceClassFilter } from "@/components/race-class-filter";
 import { SeasonRecapHero } from "@/components/season-recap-hero";
 import {
   LeMansSpotlight,
@@ -52,6 +55,7 @@ import {
   getTeamStandings,
   getUpcomingEvents,
   isPlausibleSessionTime,
+  raceClassLabel,
   sanitizeSessionSchedule,
   type DriverProgression,
   type Event,
@@ -115,7 +119,7 @@ export default async function HomePage() {
     mfrStandings.find((m) => m.position === 1) ?? null;
 
   // Pull race results for the last completed event in a second hop.
-  let lastResultByClass: { label: string; rows: SessionResult[] }[] = [];
+  let lastResultByClass: { raceClass: RaceClass; label: string; rows: SessionResult[] }[] = [];
   let lastEventName = "";
   if (last) {
     lastEventName = last.name;
@@ -127,17 +131,24 @@ export default async function HomePage() {
       );
       if (raceSession) {
         const all = await getSessionResults(raceSession.id);
-        // Top 5 per class, ordered by class_position. Renders Hypercar
-        // above LMGT3 even when an LMGT3 car beat a hypercar overall.
-        const topPerClass = (cls: string) =>
+        // Top 5 per class, ordered by class position. LMP2 is intentionally
+        // included here when an event (notably Le Mans) has it, even though
+        // it does not have a current full-season WEC championship table.
+        const topPerClass = (cls: RaceClass) =>
           all
             .filter((r) => r.raceClass === cls)
             .sort((a, b) => a.classPosition - b.classPosition)
             .slice(0, 5);
-        lastResultByClass = [
-          { label: tClass("Hypercar"), rows: topPerClass("HYPERCAR") },
-          { label: tClass("LMGT3Title"), rows: topPerClass("LMGT3") },
-        ].filter((c) => c.rows.length > 0);
+        lastResultByClass = RACE_CLASSES.map((raceClass) => ({
+          raceClass,
+          label:
+            raceClass === "HYPERCAR"
+              ? tClass("Hypercar")
+              : raceClass === "LMGT3"
+                ? tClass("LMGT3Title")
+                : raceClassLabel(raceClass),
+          rows: topPerClass(raceClass),
+        })).filter((item) => item.rows.length > 0);
       }
     } catch {
       // best-effort — leave empty if endpoint fails
@@ -172,12 +183,12 @@ export default async function HomePage() {
 
   return (
     <div className="space-y-8">
-      <header className="max-w-4xl space-y-3">
+      <header className="dashboard-page-header max-w-4xl space-y-3">
         <p className="eyebrow">{tHome("overviewEyebrow")}</p>
-        <h1 className="text-4xl font-bold uppercase tracking-tight sm:text-5xl">
+        <h1 className="font-heading text-4xl font-extrabold uppercase tracking-[0.01em] sm:text-5xl lg:text-6xl">
           {tHome("overviewTitle", { year: seasonYear })}
         </h1>
-        <p className="text-base leading-relaxed text-muted-foreground sm:text-lg">
+        <p className="text-sm leading-relaxed text-muted-foreground sm:text-lg">
           {tHome("overviewDescription", { year: seasonYear })}
         </p>
       </header>
@@ -416,6 +427,7 @@ function NextRaceHero({
   startIso: string | null;
 }) {
   const startIso = raceStartIso ?? `${event.dateStart}T13:00:00Z`;
+  const circuitLayout = localCircuitLayout(event.circuit.country);
 
   return (
     <Card className="relative overflow-hidden border-transparent bg-card/40 p-0">
@@ -449,7 +461,8 @@ function NextRaceHero({
         <Flag code={event.circuit.country} flagOnly />
       </div>
 
-      <div className="relative flex flex-col gap-6 p-5 sm:gap-8 sm:p-10 lg:p-12">
+      <div className="relative grid gap-6 p-5 sm:gap-8 sm:p-10 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,0.62fr)] lg:p-12">
+        <div className="flex min-w-0 flex-col gap-6 sm:gap-8">
         {/* Eyebrow row */}
         <NextRaceEyebrow round={event.round} year={parseISO(event.dateStart).getFullYear()} />
 
@@ -475,6 +488,41 @@ function NextRaceHero({
 
         {/* Footer row */}
         <NextRaceFooter eventId={event.id} dateStart={event.dateStart} />
+        </div>
+
+        <aside className="relative hidden min-h-[23rem] overflow-hidden rounded-sm border border-border/70 bg-black/20 p-5 lg:flex lg:flex-col">
+          <div className="flex items-center justify-between gap-3">
+            <span className="data-kicker">Circuit telemetry</span>
+            <Flag code={event.circuit.country} flagOnly />
+          </div>
+          <div className="relative flex flex-1 items-center justify-center py-6">
+            {circuitLayout ? (
+              <Image
+                src={circuitLayout}
+                alt={`${event.circuit.name} circuit layout`}
+                width={540}
+                height={340}
+                className="max-h-60 w-full object-contain opacity-90 [filter:brightness(0)_invert(1)]"
+              />
+            ) : (
+              <span className="text-8xl opacity-20">
+                <Flag code={event.circuit.country} flagOnly />
+              </span>
+            )}
+          </div>
+          <dl className="grid grid-cols-2 gap-3 border-t border-border/60 pt-4 text-xs">
+            <div>
+              <dt className="data-kicker">Length</dt>
+              <dd className="metric-value mt-1 text-lg">
+                {event.circuit.lengthKm.toFixed(3)} km
+              </dd>
+            </div>
+            <div>
+              <dt className="data-kicker">Round</dt>
+              <dd className="metric-value mt-1 text-lg">R{event.round}</dd>
+            </div>
+          </dl>
+        </aside>
       </div>
     </Card>
   );
@@ -729,7 +777,7 @@ function LastResultCard({
   classes,
 }: {
   eventName: string;
-  classes: { label: string; rows: SessionResult[] }[];
+  classes: { raceClass: RaceClass; label: string; rows: SessionResult[] }[];
 }) {
   const t = useTranslations("home");
   const td = useTranslations("raceDetail");
@@ -744,9 +792,11 @@ function LastResultCard({
           <Badge variant="secondary">{t("topN", { n: 5 })}</Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-6 px-0">
+      <CardContent className="px-0">
+        <RaceClassFilter classes={classes.map((item) => item.raceClass)}>
+        <div className="space-y-6">
         {classes.map((cls) => (
-          <div key={cls.label}>
+          <div key={cls.label} data-race-class={cls.raceClass}>
             <div className="flex items-center gap-3 px-4 pb-2">
               <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground">
                 {cls.label}
@@ -789,6 +839,8 @@ function LastResultCard({
             </Table>
           </div>
         ))}
+        </div>
+        </RaceClassFilter>
       </CardContent>
     </Card>
   );

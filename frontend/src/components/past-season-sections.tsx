@@ -14,6 +14,7 @@ import { ClassBadge } from "@/components/class-badge";
 import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { PublicLink } from "@/components/public-link";
+import { RaceClassFilter } from "@/components/race-class-filter";
 import {
   type Event,
   type RaceClass,
@@ -298,30 +299,35 @@ export function LeMansSpotlight({
           </div>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent>
         {winnersByClass.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             {t("noRaceResults")}
           </p>
         ) : (
-          winnersByClass.map(({ raceClass, row }) => (
-            <PublicLink
-              key={raceClass}
-              href={`/races/${event.id}`}
-              className="flex items-center gap-4 rounded-md border border-border/60 bg-secondary/20 px-4 py-3 transition-colors hover:bg-secondary/40"
-            >
-              <ClassBadge raceClass={raceClass} className="shrink-0" />
-              <span className="w-12 shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
-                #{row.carNumber}
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-semibold">{row.team}</div>
-                <div className="truncate text-xs text-muted-foreground">
-                  {row.drivers}
-                </div>
-              </div>
-            </PublicLink>
-          ))
+          <RaceClassFilter classes={winnersByClass.map((winner) => winner.raceClass)}>
+            <div className="space-y-3">
+              {winnersByClass.map(({ raceClass, row }) => (
+                <PublicLink
+                  key={raceClass}
+                  href={`/races/${event.id}`}
+                  data-race-class={raceClass}
+                  className="flex items-center gap-4 rounded-sm border border-border/60 bg-secondary/20 px-4 py-3 transition-colors hover:bg-secondary/40"
+                >
+                  <ClassBadge raceClass={raceClass} className="shrink-0" />
+                  <span className="w-12 shrink-0 font-mono text-sm tabular-nums text-muted-foreground">
+                    #{row.carNumber}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-semibold">{row.team}</div>
+                    <div className="truncate text-xs text-muted-foreground">
+                      {row.drivers}
+                    </div>
+                  </div>
+                </PublicLink>
+              ))}
+            </div>
+          </RaceClassFilter>
         )}
       </CardContent>
     </Card>
