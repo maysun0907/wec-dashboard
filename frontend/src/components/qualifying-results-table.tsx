@@ -16,9 +16,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import Link from "next/link";
 import { ClassBadge } from "@/components/class-badge";
 import { TeamLink } from "@/components/entity-link";
+import { PublicLink } from "@/components/public-link";
 import { type SessionResult } from "@/lib/api";
 
 type SortMode = "grid" | "q" | "hyperpole";
@@ -82,12 +82,12 @@ function DriversCell({
           <span key={`${name}-${i}`}>
             {i > 0 && " / "}
             {id !== undefined ? (
-              <Link
+              <PublicLink
                 href={`/drivers/${id}`}
                 className="hover:text-[var(--racing-red)]"
               >
                 {inner}
-              </Link>
+              </PublicLink>
             ) : (
               inner
             )}

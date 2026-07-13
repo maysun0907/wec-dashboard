@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import {
@@ -11,6 +10,7 @@ import {
 import { DriverComparePicker } from "@/components/driver-compare-picker";
 import { FormCompareChart, type FormSeries } from "@/components/form-compare-chart";
 import { PageHeader } from "@/components/page-header";
+import { PublicLink } from "@/components/public-link";
 import {
   ProgressionChart,
   type Series as ProgressionSeries,
@@ -23,12 +23,10 @@ import {
   type RaceClass,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
-import { pageMetadata } from "@/lib/page-metadata";
+import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
 
-export const metadata = pageMetadata({
-  title: "Compare drivers",
-  path: "/drivers/compare",
-});
+export const generateMetadata = () =>
+  dashboardPageMetadata("driverCompare", "/drivers/compare");
 
 const VALID_CLASSES: RaceClass[] = [
   "HYPERCAR",
@@ -66,6 +64,7 @@ export default async function ComparePage({
   const raceClass = parseClass(sp.class);
   let ids = parseIds(sp.ids);
   const year = await getSelectedSeason();
+  const seasonYear = year ?? new Date().getUTCFullYear();
 
   // Default: top 3 in the chosen class so the page is useful on first load.
   if (ids.length === 0) {
@@ -113,12 +112,13 @@ export default async function ComparePage({
   const tDrivers = await getTranslations("drivers");
   return (
     <div className="space-y-6">
-      <Link
+      <PublicLink
         href="/drivers"
+        seasonYear={seasonYear}
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
         ← {tDrivers("title")}
-      </Link>
+      </PublicLink>
 
       <PageHeader
         eyebrow={tSeasons("sideBySide")}
@@ -234,12 +234,12 @@ function StatsTable({ drivers }: { drivers: DriverDetail[] }) {
             return (
               <tr key={d.id} className="border-b border-border/50 last:border-0">
                 <td className="px-4 py-2 font-medium">
-                  <Link
+                  <PublicLink
                     href={`/drivers/${d.id}`}
                     className="hover:text-[var(--racing-red)]"
                   >
                     {d.name}
-                  </Link>
+                  </PublicLink>
                 </td>
                 <td className="px-2 py-2 text-right font-mono tabular-nums">
                   {d.standing ? `P${d.standing.position}` : "—"}
@@ -413,12 +413,12 @@ function HeadToHeadMatrix({ drivers }: { drivers: DriverDetail[] }) {
             return (
               <tr key={d.id} className="border-b border-border/50 last:border-0">
                 <td className="px-4 py-2 font-medium">
-                  <Link
+                  <PublicLink
                     href={`/drivers/${d.id}`}
                     className="hover:text-[var(--racing-red)]"
                   >
                     {d.name}
-                  </Link>
+                  </PublicLink>
                 </td>
                 {drivers.map((_, j) => (
                   <td

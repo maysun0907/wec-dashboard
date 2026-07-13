@@ -1,131 +1,247 @@
 import type { MetadataRoute } from "next";
+import { LOCALES, type Locale } from "@/i18n/config";
 import {
   getCarModels,
   getCircuits,
   getDrivers,
   getEvents,
+  getManufacturerStandings,
   getSeasons,
   getTeams,
 } from "@/lib/api";
+import {
+  LOCALE_ONLY_PATHS,
+  SEASON_SCOPED_PATHS,
+  buildPublicPath,
+} from "@/lib/public-routing";
+import { siteUrl } from "@/lib/site-url";
 
 export const revalidate = 3600;
 
-const STATIC_ROUTES: ReadonlyArray<{
-  path: string;
-  priority: number;
-  changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"];
-}> = [
-  { path: "/", priority: 1.0, changeFrequency: "hourly" },
-  { path: "/live", priority: 0.9, changeFrequency: "hourly" },
-  { path: "/races", priority: 0.9, changeFrequency: "daily" },
-  { path: "/standings", priority: 0.9, changeFrequency: "daily" },
-  { path: "/drivers", priority: 0.8, changeFrequency: "daily" },
-  { path: "/teams", priority: 0.8, changeFrequency: "daily" },
-  { path: "/cars", priority: 0.8, changeFrequency: "weekly" },
-  { path: "/circuits", priority: 0.7, changeFrequency: "monthly" },
-  { path: "/rules", priority: 0.6, changeFrequency: "monthly" },
-  { path: "/stats", priority: 0.6, changeFrequency: "weekly" },
-  { path: "/standings/simulator", priority: 0.5, changeFrequency: "weekly" },
-  { path: "/drivers/compare", priority: 0.5, changeFrequency: "monthly" },
-  { path: "/manufacturers/compare", priority: 0.5, changeFrequency: "monthly" },
-  { path: "/seasons/compare", priority: 0.5, changeFrequency: "monthly" },
-];
+type SitemapEntry = MetadataRoute.Sitemap[number];
+type Frequency = SitemapEntry["changeFrequency"];
 
-function siteUrl(): string {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-  if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
-    return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
-  }
-  return "http://localhost:3000";
+const PRIORITY: Record<string, number> = {
+  "/": 1,
+  "/live": 0.9,
+  "/races": 0.9,
+  "/standings": 0.9,
+  "/genesis-wec": 0.85,
+  "/drivers": 0.8,
+  "/teams": 0.8,
+  "/cars": 0.8,
+  "/circuits": 0.7,
+  "/rules": 0.6,
+  "/stats": 0.6,
+  "/standings/simulator": 0.5,
+  "/drivers/compare": 0.5,
+  "/manufacturers/compare": 0.5,
+  "/seasons/compare": 0.5,
+};
+
+const FREQUENCY: Record<string, Frequency> = {
+  "/": "hourly",
+  "/live": "hourly",
+  "/races": "daily",
+  "/standings": "daily",
+  "/genesis-wec": "daily",
+  "/drivers": "daily",
+  "/teams": "daily",
+  "/cars": "weekly",
+  "/circuits": "monthly",
+  "/rules": "monthly",
+  "/stats": "weekly",
+  "/standings/simulator": "weekly",
+  "/drivers/compare": "monthly",
+  "/manufacturers/compare": "monthly",
+  "/seasons/compare": "monthly",
+};
+
+function lastModifiedForSeason(year: number, latestYear: number, now: Date) {
+  return year === latestYear ? now : new Date(`${year}-12-31T00:00:00.000Z`);
 }
 
-async function safe<T>(p: Promise<T>, fallback: T): Promise<T> {
-  try {
-    return await p;
-  } catch {
-    return fallback;
-  }
+function publicPath(
+  internalPath: string,
+  locale: Locale,
+  year: number,
+): string {
+  const path = buildPublicPath(internalPath, locale, year);
+  if (!path) throw new Error(`No public route for ${internalPath}`);
+  return path;
+}
+
+function localizedEntries({
+  base,
+  internalPath,
+  year,
+  lastModified,
+  changeFrequency,
+  priority,
+}: {
+  base: string;
+  internalPath: string;
+  year: number;
+  lastModified: Date;
+  changeFrequency: Frequency;
+  priority: number;
+}): SitemapEntry[] {
+  const paths = Object.fromEntries(
+    LOCALES.map((locale) => [locale, publicPath(internalPath, locale, year)]),
+  ) as Record<Locale, string>;
+  const languages = {
+    en: `${base}${paths.en}`,
+    ko: `${base}${paths.ko}`,
+    "x-default": `${base}${paths.en}`,
+  };
+
+  return LOCALES.map((locale) => ({
+    url: `${base}${paths[locale]}`,
+    lastModified,
+    changeFrequency,
+    priority,
+    alternates: { languages },
+  }));
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const base = siteUrl();
+  const base = siteUrl().replace(/\/+$/, "");
   const now = new Date();
+  // Sitemap regeneration is atomic: if a critical API call fails, throw so
+  // ISR keeps serving the last successful complete sitemap instead of
+  // publishing a truncated document with valid 200 status.
+  const seasons = await getSeasons();
+  const years = [...new Set(seasons.map((season) => season.year))].sort(
+    (a, b) => b - a,
+  );
+  if (years.length === 0) {
+    throw new Error("Cannot generate a complete sitemap without season data");
+  }
+  const latestYear = years[0]!;
+  const entries: SitemapEntry[] = [];
 
-  const entries: MetadataRoute.Sitemap = STATIC_ROUTES.map((r) => ({
-    url: `${base}${r.path}`,
-    lastModified: now,
-    changeFrequency: r.changeFrequency,
-    priority: r.priority,
-  }));
+  for (const year of years) {
+    for (const internalPath of SEASON_SCOPED_PATHS) {
+      // Genesis entered the championship in 2026. Earlier URLs are valid for
+      // user navigation but intentionally stay out of search as empty archives.
+      if (internalPath === "/genesis-wec" && year < 2026) continue;
+      entries.push(
+        ...localizedEntries({
+          base,
+          internalPath,
+          year,
+          lastModified: lastModifiedForSeason(year, latestYear, now),
+          changeFrequency: FREQUENCY[internalPath] ?? "weekly",
+          priority: PRIORITY[internalPath] ?? 0.5,
+        }),
+      );
+    }
+  }
 
-  // Iterate every season we have so historical race pages also get
-  // crawled — those are the long-tail-keyword goldmine (e.g. "WEC
-  // Le Mans 2018 results").
-  const seasons = await safe(getSeasons(), []);
-  const years = seasons.map((s) => s.year);
+  for (const internalPath of LOCALE_ONLY_PATHS) {
+    entries.push(
+      ...localizedEntries({
+        base,
+        internalPath,
+        year: latestYear,
+        lastModified: now,
+        changeFrequency: FREQUENCY[internalPath] ?? "weekly",
+        priority: PRIORITY[internalPath] ?? 0.5,
+      }),
+    );
+  }
 
+  // Events are stable, locale-only detail URLs: the event itself already
+  // identifies its season. Walking every season keeps long-tail race history
+  // discoverable without multiplying the same event by a year segment.
   const eventsByYear = await Promise.all(
-    years.map((y) => safe(getEvents(y), [])),
+    years.map((year) => getEvents(year)),
   );
   for (const events of eventsByYear) {
-    for (const ev of events) {
-      entries.push({
-        url: `${base}/races/${ev.id}`,
-        lastModified: new Date(ev.dateEnd ?? ev.dateStart ?? now),
-        changeFrequency: "weekly",
-        priority: 0.7,
-      });
+    for (const event of events) {
+      entries.push(
+        ...localizedEntries({
+          base,
+          internalPath: `/races/${event.id}`,
+          year: latestYear,
+          lastModified: new Date(event.dateEnd ?? event.dateStart ?? now),
+          changeFrequency: "weekly",
+          priority: 0.7,
+        }),
+      );
     }
   }
 
-  // Current-season drivers / teams / cars — detail pages include
-  // historical data, so one URL per entity is enough.
-  const [drivers, teams, carModels, circuits] = await Promise.all([
-    safe(getDrivers(), []),
-    safe(getTeams(), []),
-    safe(getCarModels(), []),
-    safe(getCircuits(), []),
-  ]);
+  // Detail pages contain career/history data, so each current entity needs one
+  // URL per language rather than one copy for every season.
+  const [drivers, teams, circuits, manufacturers, carModelsByYear] =
+    await Promise.all([
+      getDrivers(latestYear),
+      getTeams(latestYear),
+      getCircuits(latestYear),
+      getManufacturerStandings("HYPERCAR", latestYear),
+      Promise.all(years.map((year) => getCarModels(year))),
+    ]);
 
-  for (const d of drivers) {
-    entries.push({
-      url: `${base}/drivers/${d.id}`,
-      lastModified: now,
-      changeFrequency: "weekly",
+  const details: Array<{
+    path: string;
+    frequency: Frequency;
+    priority: number;
+  }> = [
+    ...drivers.map((driver) => ({
+      path: `/drivers/${driver.id}`,
+      frequency: "weekly" as const,
       priority: 0.6,
-    });
-  }
-  for (const t of teams) {
-    entries.push({
-      url: `${base}/teams/${t.id}`,
-      lastModified: now,
-      changeFrequency: "weekly",
+    })),
+    ...teams.map((team) => ({
+      path: `/teams/${team.id}`,
+      frequency: "weekly" as const,
       priority: 0.6,
-    });
-  }
-  for (const c of carModels) {
-    entries.push({
-      url: `${base}/cars/${c.slug}`,
-      lastModified: now,
-      changeFrequency: "monthly",
+    })),
+    ...circuits.map((circuit) => ({
+      path: `/circuits/${circuit.id}`,
+      frequency: "monthly" as const,
       priority: 0.5,
-    });
-  }
-  for (const c of circuits) {
-    entries.push({
-      url: `${base}/circuits/${c.id}`,
-      lastModified: now,
-      changeFrequency: "monthly",
-      priority: 0.5,
-    });
+    })),
+    ...manufacturers.map((manufacturer) => ({
+      path: `/manufacturers/${manufacturer.manufacturerId}`,
+      frequency: "weekly" as const,
+      priority: 0.6,
+    })),
+  ];
+
+  for (const detail of details) {
+    entries.push(
+      ...localizedEntries({
+        base,
+        internalPath: detail.path,
+        year: latestYear,
+        lastModified: now,
+        changeFrequency: detail.frequency,
+        priority: detail.priority,
+      }),
+    );
   }
 
-  const uniqueEntries = new Map<string, MetadataRoute.Sitemap[number]>();
+  for (const [index, carModels] of carModelsByYear.entries()) {
+    const year = years[index]!;
+    for (const car of carModels) {
+      entries.push(
+        ...localizedEntries({
+          base,
+          internalPath: `/cars/${car.slug}`,
+          year,
+          lastModified: lastModifiedForSeason(year, latestYear, now),
+          changeFrequency: "monthly",
+          priority: 0.5,
+        }),
+      );
+    }
+  }
+
+  const uniqueEntries = new Map<string, SitemapEntry>();
   for (const entry of entries) {
-    if (!uniqueEntries.has(entry.url)) {
-      uniqueEntries.set(entry.url, entry);
-    }
+    if (!uniqueEntries.has(entry.url)) uniqueEntries.set(entry.url, entry);
   }
-
   return [...uniqueEntries.values()];
 }

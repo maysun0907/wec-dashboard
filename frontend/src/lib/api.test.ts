@@ -5,6 +5,8 @@ import {
   getLastCompletedEvent,
   getNextEvent,
   getUpcomingEvents,
+  hasPlausibleSessionSchedule,
+  isPlausibleSessionTime,
   type Event,
 } from "./api";
 
@@ -61,6 +63,47 @@ describe("eventStatus", () => {
   it("flags in-flight events as live", () => {
     expect(eventStatus(ev(3, "2026-04-29", "2026-05-01"), today)).toBe("live");
     expect(eventStatus(ev(4, "2026-04-30", "2026-04-30"), today)).toBe("live");
+  });
+});
+
+describe("isPlausibleSessionTime", () => {
+  const event = ev(1, "2026-04-17", "2026-04-19");
+
+  it("accepts sessions around the event weekend", () => {
+    expect(
+      isPlausibleSessionTime(event, {
+        startTime: "2026-04-16T08:30:00Z",
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects missing, invalid, and clearly unrelated timestamps", () => {
+    expect(isPlausibleSessionTime(event, { startTime: null })).toBe(false);
+    expect(isPlausibleSessionTime(event, { startTime: "invalid" })).toBe(false);
+    expect(
+      isPlausibleSessionTime(event, {
+        startTime: "2026-07-10T08:30:00Z",
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects a dated session feed when every timestamp is unrelated", () => {
+    expect(
+      hasPlausibleSessionSchedule(event, [
+        { startTime: "2026-07-10T08:30:00Z" },
+        { startTime: "2026-06-10T15:00:00Z" },
+        { startTime: null },
+      ]),
+    ).toBe(false);
+    expect(hasPlausibleSessionSchedule(event, [{ startTime: null }])).toBe(
+      true,
+    );
+    expect(
+      hasPlausibleSessionSchedule(event, [
+        { startTime: "2026-04-16T08:30:00Z" },
+        { startTime: "2026-07-10T08:30:00Z" },
+      ]),
+    ).toBe(false);
   });
 });
 

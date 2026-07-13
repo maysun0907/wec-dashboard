@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -27,6 +26,7 @@ import { localDriverImage } from "@/lib/driver-image";
 import { CarModelLink, Dash, TeamLink } from "@/components/entity-link";
 import { Flag } from "@/components/flag";
 import { FormChart } from "@/components/form-chart";
+import { PublicLink } from "@/components/public-link";
 import {
   describeRounds,
   getDriver,
@@ -43,6 +43,7 @@ import {
   buildSiteUrl,
   personSchema,
 } from "@/lib/json-ld";
+import { pageMetadataUrls } from "@/lib/page-metadata";
 
 type Params = { id: string };
 
@@ -65,9 +66,22 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const year = await getSelectedSeason();
+  const [year, rawLocale] = await Promise.all([
+    getSelectedSeason(),
+    getLocale(),
+  ]);
+  const locale = isLocale(rawLocale) ? rawLocale : "en";
+  const metadataYear = new Date().getUTCFullYear();
+  const path = `/drivers/${id}` as const;
+  const urls = pageMetadataUrls({ path, locale, year: metadataYear });
   const d = await fetchDriver(id, year);
-  if (!d) return { title: "Driver" };
+  if (!d) {
+    return {
+      title: "Driver",
+      alternates: { canonical: urls.canonical, languages: urls.languages },
+      openGraph: { url: urls.canonical, type: "profile" },
+    };
+  }
   const nat = d.nationality ? ` (${d.nationality})` : "";
   const classLabel = d.raceClass ? raceClassLabel(d.raceClass) : null;
   const titles = d.seasons.filter((s) => s.championshipPosition === 1).length;
@@ -76,14 +90,29 @@ export async function generateMetadata({
   const totalRaces = d.seasons.reduce((a, s) => a + s.races, 0);
   const yearLabel = year ? ` ${year}` : "";
   const teamPart = d.team
-    ? ` — ${d.team}${d.carNumber ? ` #${d.carNumber}` : ""}${classLabel ? ` in ${classLabel}` : ""}${yearLabel}.`
+    ? locale === "ko"
+      ? ` — ${d.team}${d.carNumber ? ` #${d.carNumber}` : ""}${classLabel ? ` ${classLabel} 클래스` : ""}${yearLabel}.`
+      : ` — ${d.team}${d.carNumber ? ` #${d.carNumber}` : ""}${classLabel ? ` in ${classLabel}` : ""}${yearLabel}.`
     : ".";
-  const carPart = d.carModel ? ` Driving the ${d.carModel}.` : "";
-  const titlesPart = titles > 0 ? ` ${titles}× WEC champion.` : "";
-  const statsPart = totalRaces > 0
-    ? ` Career: ${totalRaces} races, ${totalWins} wins, ${totalPodiums} podiums.`
+  const carPart = d.carModel
+    ? locale === "ko"
+      ? ` ${d.carModel} 차량으로 출전합니다.`
+      : ` Driving the ${d.carModel}.`
     : "";
-  const desc = `${d.name}${nat}${teamPart}${carPart}${titlesPart}${statsPart} FIA WEC stats, season standings, and race-by-race results.`;
+  const titlesPart = titles > 0
+    ? locale === "ko"
+      ? ` WEC 챔피언 ${titles}회.`
+      : ` ${titles}× WEC champion.`
+    : "";
+  const statsPart = totalRaces > 0
+    ? locale === "ko"
+      ? ` 통산 ${totalRaces}경기, ${totalWins}승, 포디움 ${totalPodiums}회.`
+      : ` Career: ${totalRaces} races, ${totalWins} wins, ${totalPodiums} podiums.`
+    : "";
+  const desc =
+    locale === "ko"
+      ? `${d.name}${nat}${teamPart}${carPart}${titlesPart}${statsPart} FIA WEC 통계와 시즌 순위, 레이스별 결과를 확인하세요.`
+      : `${d.name}${nat}${teamPart}${carPart}${titlesPart}${statsPart} FIA WEC stats, season standings, and race-by-race results.`;
   // `images` is intentionally omitted from openGraph/twitter so the
   // colocated `opengraph-image.tsx` route-segment file can supply the
   // dynamic branded card. A static `images` field here would shallow-
@@ -91,12 +120,17 @@ export async function generateMetadata({
   return {
     title: d.name,
     description: desc,
-    alternates: { canonical: `/drivers/${id}` },
+    alternates: {
+      canonical: urls.canonical,
+      languages: urls.languages,
+    },
     openGraph: {
       title: `${d.name} · WEC Dashboard`,
       description: desc,
-      url: `/drivers/${id}`,
+      url: urls.canonical,
       type: "profile",
+      locale: locale === "ko" ? "ko_KR" : "en_US",
+      alternateLocale: [locale === "ko" ? "en_US" : "ko_KR"],
     },
     twitter: {
       card: "summary_large_image",
@@ -128,25 +162,38 @@ export default async function DriverDetailPage({
   };
   const t = await getTranslations("drivers");
   const tt = await getTranslations("table");
+  const schemaContext = {
+    locale: localeForName,
+    year: year ?? new Date().getUTCFullYear(),
+  } as const;
 
   const schemas = [
-    personSchema(driver),
+    personSchema(driver, schemaContext),
     breadcrumbSchema([
-      { name: "Home", url: buildSiteUrl("/") },
-      { name: "Drivers", url: buildSiteUrl("/drivers") },
-      { name: driver.name },
+      {
+        name: localeForName === "ko" ? "홈" : "Home",
+        url: buildSiteUrl("/", schemaContext),
+      },
+      {
+        name: localeForName === "ko" ? "드라이버" : "Drivers",
+        url: buildSiteUrl("/drivers", schemaContext),
+      },
+      {
+        name: driver.name,
+        url: buildSiteUrl(`/drivers/${driver.id}`, schemaContext),
+      },
     ]),
   ];
 
   return (
     <div className="space-y-6">
       <JsonLd schema={schemas} />
-      <Link
+      <PublicLink
         href="/drivers"
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
         ← {t("title")}
-      </Link>
+      </PublicLink>
 
       <Card className="relative overflow-hidden">
         <CardHeader className="flex flex-col items-start gap-3 space-y-0 sm:flex-row sm:gap-4">
@@ -290,12 +337,12 @@ export default async function DriverDetailPage({
                   return (
                     <li key={c.id} className="flex items-center gap-2">
                       <DriverPhoto src={c.photoUrl} name={c.name} size="sm" />
-                      <Link
+                      <PublicLink
                         href={`/drivers/${c.id}`}
                         className="hover:text-[var(--racing-red)]"
                       >
                         {c.name}
-                      </Link>
+                      </PublicLink>
                       {tag && (
                         <span className="rounded bg-secondary px-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                           {tag}
@@ -340,12 +387,12 @@ export default async function DriverDetailPage({
                         {r.round}
                       </TableCell>
                       <TableCell>
-                        <Link
+                        <PublicLink
                           href={`/races/${r.eventId}`}
                           className="hover:text-[var(--racing-red)]"
                         >
                           {r.eventName}
-                        </Link>
+                        </PublicLink>
                       </TableCell>
                       <TableCell className="text-right font-mono tabular-nums">
                         P{r.classPosition}

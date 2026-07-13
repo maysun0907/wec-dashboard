@@ -1,9 +1,15 @@
 "use client";
 
 import { useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
+import { track } from "@vercel/analytics";
 
 import { setLocale } from "@/i18n/actions";
+import {
+  getDefaultSeasonYear,
+  switchLocaleInPublicHref,
+} from "@/lib/public-routing";
 import { cn } from "@/lib/utils";
 
 const OPTIONS = [
@@ -18,6 +24,8 @@ const OPTIONS = [
  *  response. */
 export function LocaleSwitcher() {
   const current = useLocale();
+  const pathname = usePathname();
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   return (
@@ -35,6 +43,14 @@ export function LocaleSwitcher() {
             onClick={() =>
               startTransition(async () => {
                 await setLocale(opt.code);
+                const currentHref = `${pathname}${window.location.search}${window.location.hash}`;
+                const nextHref = switchLocaleInPublicHref(
+                  currentHref,
+                  opt.code,
+                  getDefaultSeasonYear(),
+                );
+                track("Locale Changed", { from: current, to: opt.code });
+                router.replace(nextHref, { scroll: false });
               })
             }
             aria-pressed={active}

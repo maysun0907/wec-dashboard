@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { connection } from "next/server";
 import { getLocale, getTranslations } from "next-intl/server";
 import { ChampionshipSimulator } from "@/components/simulator";
 import { PageHeader } from "@/components/page-header";
+import { PublicLink } from "@/components/public-link";
 import { localizeEvent } from "@/lib/locale-names";
 import { isLocale } from "@/i18n/config";
 import {
@@ -14,12 +14,10 @@ import {
   getTeams,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
-import { pageMetadata } from "@/lib/page-metadata";
+import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
 
-export const metadata = pageMetadata({
-  title: "Championship simulator",
-  path: "/standings/simulator",
-});
+export const generateMetadata = () =>
+  dashboardPageMetadata("standingsSimulator", "/standings/simulator");
 
 export default async function SimulatorPage({
   searchParams,
@@ -48,6 +46,9 @@ export default async function SimulatorPage({
     getManufacturerStandings("HYPERCAR", year),
     getTeamStandings("LMGT3", year),
   ]);
+  const seasonYear = year ?? (eventsRaw[0]?.dateStart
+    ? new Date(eventsRaw[0].dateStart).getUTCFullYear()
+    : new Date().getUTCFullYear());
   const rawLocale = await getLocale();
   const locale = isLocale(rawLocale) ? rawLocale : "en";
   const events = eventsRaw.map((e) => localizeEvent(e, locale));
@@ -55,12 +56,13 @@ export default async function SimulatorPage({
 
   return (
     <div className="space-y-6">
-      <Link
+      <PublicLink
         href="/standings"
+        seasonYear={seasonYear}
         className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
       >
         {t("back")}
-      </Link>
+      </PublicLink>
 
       <PageHeader
         eyebrow={t("eyebrow")}

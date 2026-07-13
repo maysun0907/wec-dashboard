@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Trophy } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { DriverPhoto } from "@/components/driver-photo";
+import { PublicLink } from "@/components/public-link";
 import { type StandingDriver } from "@/lib/api";
 
 type StepStyle = {
@@ -71,11 +71,13 @@ type ClassPodium = {
 export function DriversPodium({
   classes,
   rounds,
+  seasonYear,
 }: {
   /** One entry per class (Hypercar, LMGT3, …) — renders stacked in
    *  the same card. Empty `rows` arrays are skipped. */
   classes: ClassPodium[];
   rounds: number;
+  seasonYear: number;
 }) {
   const t = useTranslations("common");
   const visible = classes.filter((c) => c.rows.length > 0);
@@ -105,12 +107,13 @@ export function DriversPodium({
         ))}
       </CardContent>
       <div className="mt-auto px-4 pb-3 text-right text-sm">
-        <Link
+        <PublicLink
           href="/standings"
+          seasonYear={seasonYear}
           className="font-medium text-muted-foreground hover:text-foreground"
         >
           {t("fullStandings")} →
-        </Link>
+        </PublicLink>
       </div>
     </Card>
   );
@@ -122,7 +125,7 @@ function PodiumRow({ rows }: { rows: Driver[] }) {
       {rows.map((r) => {
         const step = stepFor(r.position);
         return (
-          <Link
+          <PublicLink
             key={r.id}
             href={`/drivers/${r.id}`}
             className="group flex flex-col items-center text-center"
@@ -170,7 +173,7 @@ function PodiumRow({ rows }: { rows: Driver[] }) {
                 pts · P{r.position}
               </span>
             </div>
-          </Link>
+          </PublicLink>
         );
       })}
     </div>

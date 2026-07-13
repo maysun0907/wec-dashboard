@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { CarModelDetail } from "./api";
-import { JsonLd, carSchema } from "./json-ld";
+import { JsonLd, buildSiteUrl, carSchema } from "./json-ld";
 
 const car: CarModelDetail = {
   id: 1,
@@ -27,6 +27,23 @@ describe("car structured data", () => {
     expect(schema).not.toHaveProperty("offers");
     expect(schema).not.toHaveProperty("review");
     expect(schema).not.toHaveProperty("aggregateRating");
+  });
+
+  it("uses the localized public URL for an entity", () => {
+    const schema = carSchema(car, { locale: "ko", year: 2026 }) as Record<
+      string,
+      unknown
+    >;
+
+    expect(schema.url).toMatch(/\/ko\/2026\/cars\/ferrari-499p$/);
+  });
+});
+
+describe("localized structured-data URLs", () => {
+  it("adds locale and season to collection URLs", () => {
+    expect(buildSiteUrl("/cars", { locale: "ko", year: 2026 })).toMatch(
+      /\/ko\/2026\/cars$/,
+    );
   });
 });
 

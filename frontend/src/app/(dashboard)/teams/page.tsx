@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import {
@@ -12,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClassBadge } from "@/components/class-badge";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { PageHeader } from "@/components/page-header";
+import { PublicLink } from "@/components/public-link";
 import {
   RACE_CLASSES,
   getTeams,
@@ -20,9 +20,10 @@ import {
   type TeamEntry,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
-import { pageMetadata } from "@/lib/page-metadata";
+import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
 
-export const metadata = pageMetadata({ title: "Teams", path: "/teams" });
+export const generateMetadata = () =>
+  dashboardPageMetadata("teams", "/teams");
 
 type TeamCardEntry = {
   id: number;
@@ -93,13 +94,13 @@ export default async function TeamsPage() {
               ) : (
                 <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {inClass.map((t) => (
-                    <Link
+                    <PublicLink
                       key={`${t.raceClass}-${t.id}`}
                       href={`/teams/${t.id}`}
                       className="group block [&_[data-slot=card]]:transition-all [&_[data-slot=card]]:duration-200 hover:[&_[data-slot=card]]:-translate-y-0.5 hover:[&_[data-slot=card]]:ring-foreground/30"
                     >
                       <TeamCard entry={t} />
-                    </Link>
+                    </PublicLink>
                   ))}
                 </div>
               )}

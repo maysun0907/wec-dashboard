@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { format, parseISO } from "date-fns";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizeEvent } from "@/lib/locale-names";
@@ -20,11 +19,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Flag } from "@/components/flag";
 import { PageHeader } from "@/components/page-header";
+import { PublicLink } from "@/components/public-link";
 import { eventStatus, getEvents, type EventStatus } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
-import { pageMetadata } from "@/lib/page-metadata";
+import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
 
-export const metadata = pageMetadata({ title: "Schedule", path: "/races" });
+export const generateMetadata = () =>
+  dashboardPageMetadata("races", "/races");
 
 const STATUS_VARIANT: Record<
   EventStatus,
@@ -80,22 +81,22 @@ export default async function RacesPage() {
                       {e.round}
                     </TableCell>
                     <TableCell className="font-medium">
-                      <Link
+                      <PublicLink
                         href={`/races/${e.id}`}
                         className="hover:text-[var(--racing-red)]"
                       >
                         {e.name}
-                      </Link>
+                      </PublicLink>
                     </TableCell>
                     <TableCell className="hidden text-muted-foreground md:table-cell">
                       <span className="inline-flex items-center gap-2">
                         <Flag code={e.circuit.country} flagOnly />
-                        <Link
+                        <PublicLink
                           href={`/circuits/${e.circuit.id}`}
                           className="hover:text-foreground"
                         >
                           {e.circuit.name}
-                        </Link>
+                        </PublicLink>
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">

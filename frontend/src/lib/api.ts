@@ -67,6 +67,39 @@ export type Session = {
 
 export type EventDetail = Event & { sessions: Session[] };
 
+/**
+ * Reject obviously mis-associated session timestamps before they reach a
+ * countdown or schedule. Practice can begin several days before the listed
+ * race window, so the guard is deliberately generous; it only catches dates
+ * that clearly belong to another event.
+ */
+export function isPlausibleSessionTime(
+  event: Pick<Event, "dateStart" | "dateEnd">,
+  session: Pick<Session, "startTime">,
+): boolean {
+  if (!session.startTime) return false;
+  const start = Date.parse(session.startTime);
+  const eventStart = Date.parse(`${event.dateStart}T00:00:00Z`);
+  const eventEnd = Date.parse(`${event.dateEnd}T23:59:59Z`);
+  if (![start, eventStart, eventEnd].every(Number.isFinite)) return false;
+
+  const day = 24 * 60 * 60 * 1000;
+  return start >= eventStart - 4 * day && start <= eventEnd + day;
+}
+
+/** Treat an undated legacy feed as unknown, but reject a dated feed when any
+ * timestamp clearly belongs to another event. */
+export function hasPlausibleSessionSchedule(
+  event: Pick<Event, "dateStart" | "dateEnd">,
+  sessions: readonly Pick<Session, "startTime">[],
+): boolean {
+  const dated = sessions.filter((session) => session.startTime !== null);
+  return (
+    dated.length === 0 ||
+    dated.every((session) => isPlausibleSessionTime(event, session))
+  );
+}
+
 export type SessionResultDriverRef = {
   id: number;
   name: string;

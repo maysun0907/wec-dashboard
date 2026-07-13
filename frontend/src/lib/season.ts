@@ -1,17 +1,26 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
-const COOKIE = "wec_season";
+import {
+  PUBLIC_ROUTE_SEASON_HEADER,
+  isSeasonYear,
+} from "@/lib/public-routing";
+
+export const SEASON_COOKIE = "wec_season";
 /** Sentinel for "use whatever the API treats as latest". Lets the user
  *  reset to the auto-rolling default after exploring an old season. */
 export const LATEST_SENTINEL = "latest";
 
-/** Server-side: read the user's selected season (year) from cookies.
- *  Returns null when no season is pinned — getters should omit the
- *  `?year=` query so the API picks the latest ingested season. */
+/** Server-side: read the season fixed by the public URL, then the cookie.
+ *  `latest` on locale-only routes intentionally wins over a historical
+ *  browser cookie so one canonical detail URL always renders the same view. */
 export async function getSelectedSeason(): Promise<number | null> {
-  const c = await cookies();
-  const raw = c.get(COOKIE)?.value;
+  const headerStore = await headers();
+  const routed = headerStore.get(PUBLIC_ROUTE_SEASON_HEADER);
+  if (routed === LATEST_SENTINEL) return null;
+  if (routed && isSeasonYear(routed)) return Number(routed);
+
+  const cookieStore = await cookies();
+  const raw = cookieStore.get(SEASON_COOKIE)?.value;
   if (!raw || raw === LATEST_SENTINEL) return null;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : null;
+  return isSeasonYear(raw) ? Number(raw) : null;
 }

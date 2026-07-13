@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizeEventName } from "@/lib/locale-names";
@@ -28,6 +28,7 @@ import { DriverPhoto } from "@/components/driver-photo";
 import { CarModelLink, Dash, TeamLink } from "@/components/entity-link";
 import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import { PublicLink } from "@/components/public-link";
 import {
   describeRounds,
   getManufacturer,
@@ -46,6 +47,7 @@ import {
   buildSiteUrl,
   manufacturerSchema,
 } from "@/lib/json-ld";
+import { pageMetadataUrls } from "@/lib/page-metadata";
 
 type Params = { id: string };
 
@@ -68,9 +70,22 @@ export async function generateMetadata({
   params: Promise<Params>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const year = await getSelectedSeason();
+  const [year, rawLocale] = await Promise.all([
+    getSelectedSeason(),
+    getLocale(),
+  ]);
+  const locale = isLocale(rawLocale) ? rawLocale : "en";
+  const metadataYear = new Date().getUTCFullYear();
+  const path = `/manufacturers/${id}` as const;
+  const urls = pageMetadataUrls({ path, locale, year: metadataYear });
   const m = await fetchManufacturer(id, year);
-  if (!m) return { title: "Manufacturer" };
+  if (!m) {
+    return {
+      title: "Manufacturer",
+      alternates: { canonical: urls.canonical, languages: urls.languages },
+      openGraph: { url: urls.canonical, type: "article" },
+    };
+  }
   const country = m.country ? ` (${m.country})` : "";
   const titles = m.seasons.filter((s) => s.championshipPosition === 1).length;
   const totalWins = m.seasons.reduce((a, s) => a + s.wins, 0);
@@ -79,25 +94,41 @@ export async function generateMetadata({
   const classes = Array.from(new Set(m.cars.map((c) => raceClassLabel(c.raceClass))));
   const yearLabel = year ? ` ${year}` : "";
   const programmePart = classes.length > 0
-    ? ` ${m.cars.length} car${m.cars.length === 1 ? "" : "s"} in ${classes.join("/")}${yearLabel}.`
+    ? locale === "ko"
+      ? ` ${classes.join("/")} 클래스에 차량 ${m.cars.length}대${yearLabel}.`
+      : ` ${m.cars.length} car${m.cars.length === 1 ? "" : "s"} in ${classes.join("/")}${yearLabel}.`
     : "";
-  const titlesPart = titles > 0 ? ` ${titles}× WEC manufacturer title${titles === 1 ? "" : "s"}.` : "";
+  const titlesPart = titles > 0
+    ? locale === "ko"
+      ? ` WEC 매뉴팩처 타이틀 ${titles}회.`
+      : ` ${titles}× WEC manufacturer title${titles === 1 ? "" : "s"}.`
+    : "";
   const statsPart = totalRaces > 0
-    ? ` ${totalRaces} car-races, ${totalWins} wins, ${totalPodiums} podiums.`
+    ? locale === "ko"
+      ? ` 차량 기준 ${totalRaces}경기, ${totalWins}승, 포디움 ${totalPodiums}회.`
+      : ` ${totalRaces} car-races, ${totalWins} wins, ${totalPodiums} podiums.`
     : "";
-  const desc = `${m.name}${country} — FIA WEC factory programme.${programmePart}${titlesPart}${statsPart} Race cars, drivers, season-by-season manufacturer standings and full race results.`;
+  const desc =
+    locale === "ko"
+      ? `${m.name}${country} — FIA WEC 팩토리 프로그램.${programmePart}${titlesPart}${statsPart} 출전 차량과 드라이버, 시즌별 매뉴팩처 순위 및 레이스 결과를 확인하세요.`
+      : `${m.name}${country} — FIA WEC factory programme.${programmePart}${titlesPart}${statsPart} Race cars, drivers, season-by-season manufacturer standings and full race results.`;
   // `images` is intentionally omitted - the colocated `opengraph-image.tsx`
   // generates the dynamic branded card and a static `images` here would
   // shallow-merge ahead of it.
   return {
     title: m.name,
     description: desc,
-    alternates: { canonical: `/manufacturers/${id}` },
+    alternates: {
+      canonical: urls.canonical,
+      languages: urls.languages,
+    },
     openGraph: {
       title: `${m.name} · WEC Dashboard`,
       description: desc,
-      url: `/manufacturers/${id}`,
+      url: urls.canonical,
       type: "article",
+      locale: locale === "ko" ? "ko_KR" : "en_US",
+      alternateLocale: [locale === "ko" ? "en_US" : "ko_KR"],
     },
     twitter: {
       card: "summary_large_image",
@@ -129,20 +160,10 @@ export default async function ManufacturerDetailPage({
   const tCommon = await getTranslations("common");
   const tDrivers = await getTranslations("drivers");
   const tStandings = await getTranslations("standings");
-
-  // Single-team brands (Genesis Magma Racing, Alpine Endurance Team,
-  // etc.) — the manufacturer page would just be a near-duplicate of
-  // the team page, so jump straight to the team. Multi-team brands
-  // (Ferrari with AF Corse + Vista AF Corse + Ferrari AF Corse, BMW
-  // with M Team WRT + Team WRT, ...) keep their own page since it
-  // unifies entries across teams.
-  const teamIds = new Set(manufacturer.cars.map((c) => c.teamId));
-  if (teamIds.size === 1) {
-    const onlyTeamId = manufacturer.cars[0]?.teamId;
-    if (onlyTeamId !== undefined) {
-      redirect(`/teams/${onlyTeamId}`);
-    }
-  }
+  const schemaContext = {
+    locale: localeForName,
+    year: year ?? new Date().getUTCFullYear(),
+  } as const;
 
   const totalCars = manufacturer.cars.length;
   const totalDrivers = new Set(
@@ -166,11 +187,23 @@ export default async function ManufacturerDetailPage({
   }
 
   const schemas = [
-    manufacturerSchema(manufacturer),
+    manufacturerSchema(manufacturer, schemaContext),
     breadcrumbSchema([
-      { name: "Home", url: buildSiteUrl("/") },
-      { name: "Manufacturers", url: buildSiteUrl("/standings") },
-      { name: manufacturer.name },
+      {
+        name: localeForName === "ko" ? "홈" : "Home",
+        url: buildSiteUrl("/", schemaContext),
+      },
+      {
+        name: localeForName === "ko" ? "매뉴팩처" : "Manufacturers",
+        url: buildSiteUrl("/standings", schemaContext),
+      },
+      {
+        name: manufacturer.name,
+        url: buildSiteUrl(
+          `/manufacturers/${manufacturer.id}`,
+          schemaContext,
+        ),
+      },
     ]),
   ];
 
@@ -178,12 +211,12 @@ export default async function ManufacturerDetailPage({
     <div className="space-y-6">
       <JsonLd schema={schemas} />
       <div className="flex items-center justify-between">
-        <Link
+        <PublicLink
           href="/standings"
           className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
         >
           ← {tStandings("title")}
-        </Link>
+        </PublicLink>
         <Link
           href={`/manufacturers/compare?ids=${manufacturer.id}`}
           className="inline-flex items-center rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-medium hover:bg-secondary"
@@ -243,12 +276,12 @@ export default async function ManufacturerDetailPage({
             <CardHeader className="space-y-1">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">
-                  <Link
+                  <PublicLink
                     href={`/teams/${c.teamId}`}
                     className="hover:text-[var(--racing-red)]"
                   >
                     {c.teamName}
-                  </Link>
+                  </PublicLink>
                 </CardTitle>
                 <ClassBadge raceClass={c.raceClass} />
               </div>
@@ -285,12 +318,12 @@ export default async function ManufacturerDetailPage({
                     return (
                       <li key={d.id} className="flex items-center gap-2">
                         <DriverPhoto src={d.photoUrl} name={d.name} size="sm" />
-                        <Link
+                        <PublicLink
                           href={`/drivers/${d.id}`}
                           className="hover:text-[var(--racing-red)]"
                         >
                           {d.name}
-                        </Link>
+                        </PublicLink>
                         {tag && (
                           <span className="rounded bg-secondary px-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                             {tag}
@@ -348,7 +381,7 @@ export default async function ManufacturerDetailPage({
             <ul className="grid gap-2 sm:grid-cols-2">
               {relatedManufacturers.map((r) => (
                 <li key={r.manufacturerId}>
-                  <Link
+                  <PublicLink
                     href={`/manufacturers/${r.manufacturerId}`}
                     className="flex items-center gap-3 rounded-md border border-border/60 bg-secondary/20 px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
                   >
@@ -363,7 +396,7 @@ export default async function ManufacturerDetailPage({
                     <span className="hidden font-mono text-xs tabular-nums text-muted-foreground sm:inline">
                       P{r.position}
                     </span>
-                  </Link>
+                  </PublicLink>
                 </li>
               ))}
             </ul>
@@ -478,12 +511,12 @@ function ResultsTable({ rows }: { rows: ManufacturerResult[] }) {
               {r.round}
             </TableCell>
             <TableCell>
-              <Link
+              <PublicLink
                 href={`/races/${r.eventId}`}
                 className="hover:text-[var(--racing-red)]"
               >
                 {r.eventName}
-              </Link>
+              </PublicLink>
             </TableCell>
             <TableCell className="hidden text-muted-foreground md:table-cell">
               <TeamLink id={r.teamId}>{r.teamName}</TeamLink>

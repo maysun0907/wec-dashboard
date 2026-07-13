@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -17,6 +16,7 @@ import { ClassBadge } from "@/components/class-badge";
 import { DriverPhoto } from "@/components/driver-photo";
 import { Flag } from "@/components/flag";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
+import { PublicLink } from "@/components/public-link";
 import { type DriverEntry } from "@/lib/api";
 
 function matches(d: DriverEntry, q: string): boolean {
@@ -92,12 +92,12 @@ export function DriversTableFilter({ drivers }: { drivers: DriverEntry[] }) {
                 <TableCell className="font-medium">
                   <span className="inline-flex items-center gap-2">
                     <DriverPhoto src={d.photoUrl} name={d.name} size="md" />
-                    <Link
+                    <PublicLink
                       href={`/drivers/${d.id}`}
                       className="hover:text-[var(--racing-red)]"
                     >
                       {d.name}
-                    </Link>
+                    </PublicLink>
                   </span>
                 </TableCell>
                 <TableCell className="hidden text-muted-foreground md:table-cell">
