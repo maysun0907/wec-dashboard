@@ -28,12 +28,16 @@ import {
   type RaceClass,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
+import { pageMetadata } from "@/lib/page-metadata";
 import {
   teamStandingDetail,
   teamStandingRowKey,
 } from "@/lib/standings";
 
-export const metadata = { title: "Standings" };
+export const metadata = pageMetadata({
+  title: "Standings",
+  path: "/standings",
+});
 
 function groupByClass<T extends { raceClass: RaceClass }>(rows: T[]) {
   const out: Record<RaceClass, T[]> = {

@@ -35,8 +35,12 @@ import {
   type TeamEntry,
   type TeamProgression,
 } from "@/lib/api";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata = { title: "Compare seasons" };
+export const metadata = pageMetadata({
+  title: "Compare seasons",
+  path: "/seasons/compare",
+});
 
 function parseYears(raw: string | string[] | undefined): number[] {
   const text = Array.isArray(raw) ? raw.join(",") : raw ?? "";

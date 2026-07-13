@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import {
   Card,
@@ -16,13 +15,14 @@ import {
   buildSiteUrl,
   faqSchema,
 } from "@/lib/json-ld";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata: Metadata = {
+export const metadata = pageMetadata({
   title: "Rules",
+  path: "/rules",
   description:
     "FIA WEC technical regulations explained — Hypercar (LMH + LMDh) and LMGT3 class rules, performance envelope (1030 kg, 500 kW, ≥ 190 km/h ERS deploy), Balance of Performance, success handicap, qualifying / Hyperpole format, points scoring (standard 25-18-15… vs. endurance 38-27-23… for Le Mans), and race-length calendar.",
-  alternates: { canonical: "/rules" },
-};
+});
 
 export default async function RulesPage() {
   const t = await getTranslations("rules");

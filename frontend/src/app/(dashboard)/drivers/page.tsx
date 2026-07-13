@@ -18,8 +18,9 @@ import {
   type RaceClass,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata = { title: "Drivers" };
+export const metadata = pageMetadata({ title: "Drivers", path: "/drivers" });
 
 function groupByClass(
   drivers: DriverEntry[],

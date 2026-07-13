@@ -24,7 +24,6 @@ const STATIC_ROUTES: ReadonlyArray<{
   { path: "/cars", priority: 0.8, changeFrequency: "weekly" },
   { path: "/circuits", priority: 0.7, changeFrequency: "monthly" },
   { path: "/rules", priority: 0.6, changeFrequency: "monthly" },
-  { path: "/bop", priority: 0.6, changeFrequency: "weekly" },
   { path: "/stats", priority: 0.6, changeFrequency: "weekly" },
   { path: "/standings/simulator", priority: 0.5, changeFrequency: "weekly" },
   { path: "/drivers/compare", priority: 0.5, changeFrequency: "monthly" },
@@ -121,5 +120,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   }
 
-  return entries;
+  const uniqueEntries = new Map<string, MetadataRoute.Sitemap[number]>();
+  for (const entry of entries) {
+    if (!uniqueEntries.has(entry.url)) {
+      uniqueEntries.set(entry.url, entry);
+    }
+  }
+
+  return [...uniqueEntries.values()];
 }

@@ -19,8 +19,9 @@ import {
   type EventStatus,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata = { title: "Circuits" };
+export const metadata = pageMetadata({ title: "Circuits", path: "/circuits" });
 
 export default async function CircuitsPage() {
   const year = await getSelectedSeason();

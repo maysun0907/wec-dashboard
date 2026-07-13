@@ -30,8 +30,9 @@ import {
 } from "@/lib/api";
 import { tzForCircuit } from "@/lib/circuit-tz";
 import { getSelectedSeason } from "@/lib/season";
+import { pageMetadata } from "@/lib/page-metadata";
 
-export const metadata = { title: "Live" };
+export const metadata = pageMetadata({ title: "Live", path: "/live" });
 
 const FIAWEC_URL = "https://www.fiawec.com/";
 const FIAWEC_TV_URL = "https://plus.fiawec.com/en";
