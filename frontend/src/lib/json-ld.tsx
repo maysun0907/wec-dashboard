@@ -190,11 +190,12 @@ export function placeSchema(circuit: CircuitDetail): object {
 }
 
 export function carSchema(car: CarModelDetail): object {
-  // Vehicle covers model-level metadata — engine, debut year, class.
-  // We add brand + manufacturer for richer entity-graph linkage.
+  // Car keeps the entity specific without opting this informational page
+  // into Google's Product rich-result requirements. Add Product as a second
+  // type only if the page ever publishes a real offer, review, or rating.
   return {
     "@context": "https://schema.org",
-    "@type": "Vehicle",
+    "@type": "Car",
     name: car.name,
     ...(car.imageUrl ? { image: car.imageUrl } : {}),
     ...(car.manufacturer
@@ -264,7 +265,9 @@ export function JsonLd({ schema }: { schema: object | object[] }) {
           // Static array — index keys are fine and avoid stringify churn.
           key={i}
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(s) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(s).replace(/</g, "\\u003c"),
+          }}
         />
       ))}
     </>
