@@ -102,7 +102,7 @@ export function SiteSearch() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-border bg-secondary/40 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+        className="inline-flex size-8 shrink-0 items-center justify-center rounded-sm border border-border bg-secondary/40 text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-secondary hover:text-foreground"
         aria-label="Search drivers, teams, circuits"
         title="Search (⌘K)"
       >

@@ -322,6 +322,8 @@
     "colS3": "S3",
     "colLap": "랩",
     "colDuration": "시간",
+    "classView": "클래스 보기",
+    "allClasses": "전체",
     "relatedTitle": "이번 시즌 다른 라운드",
     "relatedSubtitle": "캘린더상 인접한 라운드."
   },

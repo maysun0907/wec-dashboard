@@ -40,7 +40,7 @@ export function SiteNav({ seasonYear }: { seasonYear: number }) {
   const activePathname = parsePublicPath(pathname)?.internalPath ?? pathname;
   const t = useTranslations("nav");
   return (
-    <nav className="hidden flex-1 items-center gap-1 overflow-x-auto text-sm scrollbar-none md:flex">
+    <nav className="hidden min-w-0 flex-1 items-center gap-0.5 overflow-x-auto text-[11px] font-semibold uppercase tracking-[0.08em] scrollbar-none lg:flex">
       {NAV_LINKS.map(({ href, key }) => {
         const active = isActive(activePathname, href);
         return (
@@ -49,10 +49,10 @@ export function SiteNav({ seasonYear }: { seasonYear: number }) {
             href={href}
             seasonYear={seasonYear}
             className={cn(
-              "shrink-0 rounded-md px-3 py-1.5 transition-colors",
+              "shrink-0 border-b-2 border-transparent px-2.5 py-2 transition-colors xl:px-3",
               active
-                ? "bg-secondary text-foreground"
-                : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+                ? "border-[var(--racing-red)] text-foreground"
+                : "text-muted-foreground hover:border-foreground/25 hover:text-foreground",
             )}
           >
             {t(key)}
@@ -78,13 +78,13 @@ export function MobileMenu({ seasonYear }: { seasonYear: number }) {
         <Button
           variant="ghost"
           size="icon"
-          className="md:hidden"
+          className="lg:hidden"
           aria-label={t("openMenu")}
         >
           <Menu className="size-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="w-72">
+      <SheetContent side="right" className="w-80 border-l border-border bg-popover">
         <SheetTitle className="sr-only">{t("navigation")}</SheetTitle>
         <nav className="flex flex-col gap-1 p-4 pt-12">
           <button
@@ -98,7 +98,7 @@ export function MobileMenu({ seasonYear }: { seasonYear: number }) {
                 150,
               );
             }}
-            className="mb-2 flex items-center gap-2 rounded-md border border-border bg-secondary/40 px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          className="mb-3 flex items-center gap-2 rounded-sm border border-border bg-secondary/40 px-3 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <Search className="size-4" />
             <span>{t("search")}</span>
@@ -112,10 +112,10 @@ export function MobileMenu({ seasonYear }: { seasonYear: number }) {
                 seasonYear={seasonYear}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  "rounded-md px-3 py-2 text-base transition-colors",
+                  "border-l-2 border-transparent px-3 py-2.5 text-base transition-colors",
                   active
-                    ? "bg-secondary text-foreground"
-                    : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+                    ? "border-[var(--racing-red)] bg-secondary/60 text-foreground"
+                    : "text-muted-foreground hover:border-foreground/25 hover:bg-secondary/60 hover:text-foreground",
                 )}
               >
                 {t(key)}

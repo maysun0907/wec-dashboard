@@ -6,10 +6,24 @@ import {
   getNextEvent,
   getUpcomingEvents,
   isPlausibleSessionTime,
+  RACE_CLASSES,
+  raceClassLabel,
   sanitizeSessionSchedule,
   type Event,
   type Session,
 } from "./api";
+
+describe("race class catalogue", () => {
+  it("keeps LMP2 selectable between prototype and GT classes", () => {
+    expect(RACE_CLASSES).toContain("HYPERCAR");
+    expect(RACE_CLASSES).toContain("LMP2");
+    expect(RACE_CLASSES).toContain("LMGT3");
+    expect(RACE_CLASSES.indexOf("LMP2")).toBeLessThan(
+      RACE_CLASSES.indexOf("LMGT3"),
+    );
+    expect(raceClassLabel("LMP2")).toBe("LMP2");
+  });
+});
 
 const ev = (id: number, dateStart: string, dateEnd: string): Event => ({
   id,

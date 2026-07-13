@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Flag } from "@/components/flag";
 import { ClassBadge } from "@/components/class-badge";
+import { RaceClassFilter } from "@/components/race-class-filter";
 import { QualifyingResultsTable } from "@/components/qualifying-results-table";
 import { PitStopsCard } from "@/components/pit-stops-card";
 import { PublicLink } from "@/components/public-link";
@@ -36,6 +37,7 @@ import {
   getEvent,
   getEvents,
   getSessionResults,
+  RACE_CLASSES,
   sanitizeSessionSchedule,
   type EventStatus,
   type SessionResult,
@@ -441,83 +443,86 @@ function SessionWinnersCard({
         <p className="text-xs text-muted-foreground">{sub}</p>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {winners.map((r) => (
-            <div
-              key={`${r.raceClass}-${r.carNumber}`}
-              className="rounded-lg border border-border bg-secondary/30 p-4"
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <ClassBadge raceClass={r.raceClass} />
-                <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                  #{r.carNumber}
-                </span>
-              </div>
-              <TeamLink id={r.teamId} className="block font-semibold">
-                {r.team}
-              </TeamLink>
-              {r.drivers && (
-                <DriverList
-                  refs={r.driverRefs}
-                  text={r.drivers}
-                  className="block text-sm text-muted-foreground"
-                />
-              )}
-              {isQuali && (r.hyperpoleLap || r.qualifyingLap) && (
-                <div className="mt-3 space-y-0.5">
-                  <div className="font-mono text-2xl font-bold tabular-nums">
-                    {r.hyperpoleLap ?? r.qualifyingLap}
-                  </div>
-                  {r.hyperpoleLap && r.qualifyingLap && (
-                    <div className="text-xs text-muted-foreground">
-                      <span className="font-mono tabular-nums">
-                        Q {r.qualifyingLap}
-                      </span>
-                      {" → "}
-                      <span className="font-mono tabular-nums">
-                        Hyperpole {r.hyperpoleLap}
-                      </span>
+        <RaceClassFilter classes={RACE_CLASSES.filter((raceClass) => winners.some((winner) => winner.raceClass === raceClass))}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {winners.map((r) => (
+              <div
+                key={`${r.raceClass}-${r.carNumber}`}
+                data-race-class={r.raceClass}
+                className="rounded-sm border border-border bg-secondary/30 p-4"
+              >
+                <div className="mb-3 flex items-center justify-between">
+                  <ClassBadge raceClass={r.raceClass} />
+                  <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                    #{r.carNumber}
+                  </span>
+                </div>
+                <TeamLink id={r.teamId} className="block font-semibold">
+                  {r.team}
+                </TeamLink>
+                {r.drivers && (
+                  <DriverList
+                    refs={r.driverRefs}
+                    text={r.drivers}
+                    className="block text-sm text-muted-foreground"
+                  />
+                )}
+                {isQuali && (r.hyperpoleLap || r.qualifyingLap) && (
+                  <div className="mt-3 space-y-0.5">
+                    <div className="font-mono text-2xl font-bold tabular-nums">
+                      {r.hyperpoleLap ?? r.qualifyingLap}
                     </div>
-                  )}
-                  {r.poleSectors && r.poleSectors.length === 3 && (
-                    <div className="flex gap-3 pt-1 text-xs text-muted-foreground">
-                      {r.poleSectors.map((s, i) => (
-                        <span
-                          key={`s${i + 1}`}
-                          className="font-mono tabular-nums"
-                        >
-                          <span className="mr-1 text-[10px] uppercase tracking-wider">
-                            S{i + 1}
-                          </span>
-                          {s}
+                    {r.hyperpoleLap && r.qualifyingLap && (
+                      <div className="text-xs text-muted-foreground">
+                        <span className="font-mono tabular-nums">
+                          Q {r.qualifyingLap}
                         </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-              {isRace && (
-                <div className="mt-3 flex items-baseline gap-2">
-                  {r.laps !== null && (
-                    <span className="font-mono text-2xl font-bold tabular-nums">
-                      {r.laps}
-                    </span>
-                  )}
-                  {r.laps !== null && (
-                    <span className="text-xs uppercase tracking-wider text-muted-foreground">
-                      {t("lapsLower")}
-                    </span>
-                  )}
-                  {r.gap && (
-                    <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">
-                      {r.gap}
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
+                        {" → "}
+                        <span className="font-mono tabular-nums">
+                          Hyperpole {r.hyperpoleLap}
+                        </span>
+                      </div>
+                    )}
+                    {r.poleSectors && r.poleSectors.length === 3 && (
+                      <div className="flex gap-3 pt-1 text-xs text-muted-foreground">
+                        {r.poleSectors.map((s, i) => (
+                          <span
+                            key={`s${i + 1}`}
+                            className="font-mono tabular-nums"
+                          >
+                            <span className="mr-1 text-[10px] uppercase tracking-wider">
+                              S{i + 1}
+                            </span>
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {isRace && (
+                  <div className="mt-3 flex items-baseline gap-2">
+                    {r.laps !== null && (
+                      <span className="font-mono text-2xl font-bold tabular-nums">
+                        {r.laps}
+                      </span>
+                    )}
+                    {r.laps !== null && (
+                      <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                        {t("lapsLower")}
+                      </span>
+                    )}
+                    {r.gap && (
+                      <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">
+                        {r.gap}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </RaceClassFilter>
       </CardContent>
     </Card>
   );
@@ -545,36 +550,39 @@ function PracticeFastestCard({
             {t("noFastestLap")}
           </p>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {rows.map((r) => (
-              <div
-                key={`${r.raceClass}-${r.carNumber}`}
-                className="rounded-lg border border-border bg-secondary/30 p-4"
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <ClassBadge raceClass={r.raceClass} />
-                  <span className="font-mono text-xs text-muted-foreground tabular-nums">
-                    #{r.carNumber}
-                  </span>
-                </div>
-                <TeamLink id={r.teamId} className="block font-semibold">
-                  {r.team}
-                </TeamLink>
-                {r.drivers && (
-                  <DriverList
-                    refs={r.driverRefs}
-                    text={r.drivers}
-                    className="block text-sm text-muted-foreground"
-                  />
-                )}
-                {r.bestLap && (
-                  <div className="mt-3 font-mono text-2xl font-bold tabular-nums">
-                    {r.bestLap}
+          <RaceClassFilter classes={RACE_CLASSES.filter((raceClass) => rows.some((row) => row.raceClass === raceClass))}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {rows.map((r) => (
+                <div
+                  key={`${r.raceClass}-${r.carNumber}`}
+                  data-race-class={r.raceClass}
+                  className="rounded-sm border border-border bg-secondary/30 p-4"
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <ClassBadge raceClass={r.raceClass} />
+                    <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                      #{r.carNumber}
+                    </span>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+                  <TeamLink id={r.teamId} className="block font-semibold">
+                    {r.team}
+                  </TeamLink>
+                  {r.drivers && (
+                    <DriverList
+                      refs={r.driverRefs}
+                      text={r.drivers}
+                      className="block text-sm text-muted-foreground"
+                    />
+                  )}
+                  {r.bestLap && (
+                    <div className="mt-3 font-mono text-2xl font-bold tabular-nums">
+                      {r.bestLap}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </RaceClassFilter>
         )}
       </CardContent>
     </Card>
@@ -600,6 +608,7 @@ function ResultsCard({
         <CardTitle>{t("resultsSuffix", { label })}</CardTitle>
       </CardHeader>
       <CardContent className="px-0">
+        <RaceClassFilter classes={RACE_CLASSES.filter((raceClass) => rows.some((row) => row.raceClass === raceClass))}>
         <Table>
           <TableHeader>
             <TableRow>
@@ -645,7 +654,7 @@ function ResultsCard({
           </TableHeader>
           <TableBody>
             {rows.map((row) => (
-              <TableRow key={`${row.position}-${row.carNumber}`}>
+              <TableRow key={`${row.position}-${row.carNumber}`} data-race-class={row.raceClass}>
                 <TableCell className="pl-4 font-mono tabular-nums">
                   {row.position}
                 </TableCell>
@@ -709,6 +718,7 @@ function ResultsCard({
             ))}
           </TableBody>
         </Table>
+        </RaceClassFilter>
       </CardContent>
     </Card>
   );

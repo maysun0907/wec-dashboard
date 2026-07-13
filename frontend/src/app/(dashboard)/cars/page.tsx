@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 import {
   Card,
@@ -12,6 +13,7 @@ import { ClassBadge } from "@/components/class-badge";
 import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { PageHeader } from "@/components/page-header";
 import { PublicLink } from "@/components/public-link";
+import { localCarImage } from "@/lib/car-image";
 import {
   RACE_CLASSES,
   getTeams,
@@ -127,6 +129,7 @@ function ModelCard({
   seasonYear: number;
 }) {
   const t = useTranslations("cars");
+  const imageUrl = entry.slug ? localCarImage(entry.slug) : null;
   return (
     <Card>
       <CardHeader className="flex flex-row items-center gap-3 space-y-0">
@@ -156,6 +159,17 @@ function ModelCard({
         <ClassBadge raceClass={entry.raceClass} />
       </CardHeader>
       <CardContent>
+        {imageUrl && (
+          <div className="relative -mx-4 -mt-1 mb-4 h-28 overflow-hidden border-y border-border/60 bg-black/25">
+            <Image
+              src={imageUrl}
+              alt={`${entry.model} racing car`}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 33vw"
+              className="object-contain p-3 transition-transform duration-300 group-hover:scale-[1.04]"
+            />
+          </div>
+        )}
         <p className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
           {t("entriesCount", { count: entry.cars.length })}
         </p>

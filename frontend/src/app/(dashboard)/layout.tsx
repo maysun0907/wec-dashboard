@@ -8,13 +8,13 @@ export default function DashboardLayout({
   return (
     <>
       <SiteHeader />
-      <main className="flex-1">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="dashboard-main flex-1">
+        <div className="mx-auto w-full max-w-[96rem] px-3 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
           {children}
         </div>
       </main>
-      <footer className="mt-8 py-6 text-center text-[10px] text-muted-foreground/40">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <footer className="mt-8 border-t border-border/60 bg-background/70 py-6 text-center text-[10px] uppercase tracking-[0.12em] text-muted-foreground/55">
+        <div className="mx-auto max-w-[96rem] px-4 sm:px-6 lg:px-8">
           Unofficial fan dashboard · Not affiliated with FIA WEC or Al Kamel
           Systems · Data from{" "}
           <a

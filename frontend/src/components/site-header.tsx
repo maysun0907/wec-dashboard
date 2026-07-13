@@ -17,8 +17,8 @@ export async function SiteHeader() {
     selected ?? seasons[0]?.year ?? new Date().getUTCFullYear();
 
   return (
-    <header className="sticky top-0 z-40 bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-2 px-3 sm:gap-6 sm:px-6 lg:px-8">
+    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/94 shadow-[0_10px_30px_-24px_rgba(0,0,0,0.95)] backdrop-blur supports-[backdrop-filter]:bg-background/80">
+      <div className="mx-auto flex h-14 max-w-[96rem] items-center gap-2 px-3 sm:h-16 sm:gap-4 sm:px-6 lg:px-8">
         <PublicLink
           href="/"
           seasonYear={publicSeasonYear}
@@ -34,24 +34,21 @@ export async function SiteHeader() {
             width={188}
             height={80}
             loading="eager"
-            className="h-6 w-auto transition-opacity group-hover:opacity-80 sm:h-8"
+            className="h-5 w-auto transition-opacity group-hover:opacity-80 sm:h-7"
           />
-          <span className="hidden font-heading text-xs font-semibold uppercase tracking-[0.25em] text-muted-foreground sm:inline">
+          <span className="hidden font-heading text-[10px] font-semibold uppercase tracking-[0.25em] text-muted-foreground xl:inline">
             Dashboard
           </span>
         </PublicLink>
         <SiteNav seasonYear={publicSeasonYear} />
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
           <LocaleSwitcher />
           <SeasonSwitcher seasons={seasons} selected={selected} />
           <SiteSearch />
           <MobileMenu seasonYear={publicSeasonYear} />
         </div>
       </div>
-      {/* Two-tone underline: thin border + a 1px red accent stripe that
-          ties into the racing palette. */}
-      <div className="h-px bg-border" />
-      <div className="h-px bg-gradient-to-r from-[var(--racing-red)]/0 via-[var(--racing-red)]/40 to-[var(--racing-red)]/0" />
+      <div className="h-px bg-gradient-to-r from-[var(--racing-red)]/0 via-[var(--racing-red)]/75 to-[var(--racing-red)]/0" />
     </header>
   );
 }

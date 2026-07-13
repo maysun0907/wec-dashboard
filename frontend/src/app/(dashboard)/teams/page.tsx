@@ -97,7 +97,7 @@ export default async function TeamsPage() {
                     <PublicLink
                       key={`${t.raceClass}-${t.id}`}
                       href={`/teams/${t.id}`}
-                      className="group block [&_[data-slot=card]]:transition-all [&_[data-slot=card]]:duration-200 hover:[&_[data-slot=card]]:-translate-y-0.5 hover:[&_[data-slot=card]]:ring-foreground/30"
+                      className="group block [&_[data-slot=card]]:transition-all [&_[data-slot=card]]:duration-200 hover:[&_[data-slot=card]]:-translate-y-0.5 hover:[&_[data-slot=card]]:border-[var(--racing-red)]/65"
                     >
                       <TeamCard entry={t} />
                     </PublicLink>
@@ -138,7 +138,7 @@ function TeamCard({ entry }: { entry: TeamCardEntry }) {
           {entry.carNumbers.map((n) => (
             <li
               key={n}
-              className="rounded-md border px-2 py-1 font-mono tabular-nums"
+              className="rounded-sm border border-border/75 bg-black/20 px-2 py-1 font-mono tabular-nums"
             >
               #{n}
             </li>

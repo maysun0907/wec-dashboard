@@ -19,7 +19,8 @@ import {
 import { ClassBadge } from "@/components/class-badge";
 import { TeamLink } from "@/components/entity-link";
 import { PublicLink } from "@/components/public-link";
-import { type SessionResult } from "@/lib/api";
+import { RaceClassFilter } from "@/components/race-class-filter";
+import { RACE_CLASSES, type SessionResult } from "@/lib/api";
 
 type SortMode = "grid" | "q" | "hyperpole";
 
@@ -134,6 +135,14 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
     });
   }, [visible]);
 
+  const presentClasses = useMemo(
+    () =>
+      RACE_CLASSES.filter((raceClass) =>
+        rows.some((row) => row.raceClass === raceClass),
+      ),
+    [rows],
+  );
+
   const t = useTranslations("raceDetail");
   return (
     <Card>
@@ -158,96 +167,99 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
         </div>
       </CardHeader>
       <CardContent className="px-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12 pl-4">
-                {sort === "grid" ? t("colGrid") : t("colCar")}
-              </TableHead>
-              <TableHead className="w-12">{t("colCar2")}</TableHead>
-              <TableHead>{t("colTeam")}</TableHead>
-              <TableHead className="hidden md:table-cell">{t("colDrivers")}</TableHead>
-              <TableHead className="w-16">{t("colRaceClass")}</TableHead>
-              {sort === "grid" && (
-                <TableHead className="pr-4 w-24 text-right">{t("colTime")}</TableHead>
-              )}
-              {sort === "q" && (
-                <TableHead className="pr-4 w-24 text-right">{t("colQLap")}</TableHead>
-              )}
-              {sort === "hyperpole" && (
-                <TableHead className="pr-4 w-24 text-right">
-                  {t("colHyperpole")}
+        <RaceClassFilter classes={presentClasses}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12 pl-4">
+                  {sort === "grid" ? t("colGrid") : t("colCar")}
                 </TableHead>
-              )}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {visible.map((row, i) => {
-              const isPole = sort === "grid" ? row.position === 1 : i === 0;
-              const classRank = classRanks[i] ?? 0;
-              return (
-                <TableRow
-                  key={`${row.position}-${row.carNumber}`}
-                  className={isPole ? "bg-[var(--racing-yellow)]/5" : undefined}
-                >
-                  <TableCell
-                    className={
-                      "pl-4 font-mono tabular-nums " +
-                      (isPole
-                        ? "font-semibold text-[var(--racing-yellow)]"
-                        : "")
-                    }
+                <TableHead className="w-12">{t("colCar2")}</TableHead>
+                <TableHead>{t("colTeam")}</TableHead>
+                <TableHead className="hidden md:table-cell">{t("colDrivers")}</TableHead>
+                <TableHead className="w-16">{t("colRaceClass")}</TableHead>
+                {sort === "grid" && (
+                  <TableHead className="pr-4 w-24 text-right">{t("colTime")}</TableHead>
+                )}
+                {sort === "q" && (
+                  <TableHead className="pr-4 w-24 text-right">{t("colQLap")}</TableHead>
+                )}
+                {sort === "hyperpole" && (
+                  <TableHead className="pr-4 w-24 text-right">
+                    {t("colHyperpole")}
+                  </TableHead>
+                )}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visible.map((row, i) => {
+                const isPole = sort === "grid" ? row.position === 1 : i === 0;
+                const classRank = classRanks[i] ?? 0;
+                return (
+                  <TableRow
+                    key={`${row.position}-${row.carNumber}`}
+                    data-race-class={row.raceClass}
+                    className={isPole ? "bg-[var(--racing-yellow)]/5" : undefined}
                   >
-                    {sort === "grid" ? row.position : i + 1}
-                    {sort !== "grid" && (
-                      <span className="ml-1 text-[10px] text-muted-foreground">
-                        ({row.raceClass}-{classRank})
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell className="font-mono tabular-nums">
-                    {row.carNumber}
-                  </TableCell>
-                  <TableCell className="font-medium">
-                    <TeamLink id={row.teamId}>{row.team}</TeamLink>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    <DriversCell
-                      drivers={row.drivers}
-                      refs={row.driverRefs}
-                      active={activeDriver(row, sort)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <ClassBadge raceClass={row.raceClass} />
-                  </TableCell>
-                  {sort === "grid" && (
-                    <TableCell className="pr-4 text-right font-mono tabular-nums">
-                      {row.hyperpoleLap ?? row.qualifyingLap ?? "—"}
-                    </TableCell>
-                  )}
-                  {sort === "q" && (
-                    <TableCell className="pr-4 text-right font-mono tabular-nums">
-                      {row.qualifyingLap ?? "—"}
-                    </TableCell>
-                  )}
-                  {sort === "hyperpole" && (
                     <TableCell
                       className={
-                        "pr-4 text-right font-mono tabular-nums " +
-                        (row.hyperpoleLap
-                          ? "text-foreground"
-                          : "text-muted-foreground/40")
+                        "pl-4 font-mono tabular-nums " +
+                        (isPole
+                          ? "font-semibold text-[var(--racing-yellow)]"
+                          : "")
                       }
                     >
-                      {row.hyperpoleLap ?? "—"}
+                      {sort === "grid" ? row.position : i + 1}
+                      {sort !== "grid" && (
+                        <span className="ml-1 text-[10px] text-muted-foreground">
+                          ({row.raceClass}-{classRank})
+                        </span>
+                      )}
                     </TableCell>
-                  )}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                    <TableCell className="font-mono tabular-nums">
+                      {row.carNumber}
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <TeamLink id={row.teamId}>{row.team}</TeamLink>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <DriversCell
+                        drivers={row.drivers}
+                        refs={row.driverRefs}
+                        active={activeDriver(row, sort)}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <ClassBadge raceClass={row.raceClass} />
+                    </TableCell>
+                    {sort === "grid" && (
+                      <TableCell className="pr-4 text-right font-mono tabular-nums">
+                        {row.hyperpoleLap ?? row.qualifyingLap ?? "—"}
+                      </TableCell>
+                    )}
+                    {sort === "q" && (
+                      <TableCell className="pr-4 text-right font-mono tabular-nums">
+                        {row.qualifyingLap ?? "—"}
+                      </TableCell>
+                    )}
+                    {sort === "hyperpole" && (
+                      <TableCell
+                        className={
+                          "pr-4 text-right font-mono tabular-nums " +
+                          (row.hyperpoleLap
+                            ? "text-foreground"
+                            : "text-muted-foreground/40")
+                        }
+                      >
+                        {row.hyperpoleLap ?? "—"}
+                      </TableCell>
+                    )}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </RaceClassFilter>
       </CardContent>
     </Card>
   );
