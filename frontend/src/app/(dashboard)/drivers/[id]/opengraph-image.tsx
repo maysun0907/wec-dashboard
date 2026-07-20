@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getDriver, raceClassLabel } from "@/lib/api";
 import { OgCard, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og-card";
+import { loadOgResource } from "@/lib/og-data";
 import { loadOgFonts } from "@/lib/og-fonts";
 
 export const alt = "WEC Dashboard - Driver";
@@ -23,12 +24,9 @@ export default async function Image({ params }: { params: Promise<Params> }) {
   // Always render the latest season here. Crawlers never carry the
   // season cookie, so reading it only forced this route dynamic and
   // defeated CDN caching of the generated card.
-  let driver: Awaited<ReturnType<typeof getDriver>> | null = null;
-  try {
-    driver = await getDriver(Number(id), null);
-  } catch {
-    driver = null;
-  }
+  const driver = await loadOgResource(() =>
+    getDriver(Number(id), null, { revalidate }),
+  );
   if (driver === null) {
     return new ImageResponse(
       <OgCard title="Driver not found" tagline="WEC Dashboard" />,

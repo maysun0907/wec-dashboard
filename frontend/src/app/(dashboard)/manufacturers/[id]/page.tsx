@@ -31,8 +31,10 @@ import { ManufacturerLogo } from "@/components/manufacturer-logo";
 import { PublicLink } from "@/components/public-link";
 import {
   describeRounds,
+  getEvents,
   getManufacturer,
   getManufacturerStandings,
+  isApiNotFound,
   raceClassLabel,
   type ManufacturerDetail,
   type ManufacturerResult,
@@ -48,19 +50,22 @@ import {
   manufacturerSchema,
 } from "@/lib/json-ld";
 import { pageMetadataUrls } from "@/lib/page-metadata";
+import { seasonDataRevalidateSeconds } from "@/lib/cache-policy";
 
 type Params = { id: string };
 
 async function fetchManufacturer(
   id: string,
   year: number | null,
+  revalidate: number,
 ): Promise<ManufacturerDetail | null> {
   const numId = Number(id);
   if (!Number.isFinite(numId)) return null;
   try {
-    return await getManufacturer(numId, year);
-  } catch {
-    return null;
+    return await getManufacturer(numId, year, { revalidate });
+  } catch (error) {
+    if (isApiNotFound(error)) return null;
+    throw error;
   }
 }
 
@@ -75,10 +80,12 @@ export async function generateMetadata({
     getLocale(),
   ]);
   const locale = isLocale(rawLocale) ? rawLocale : "en";
+  const events = await getEvents(year);
+  const revalidate = seasonDataRevalidateSeconds(events);
   const metadataYear = new Date().getUTCFullYear();
   const path = `/manufacturers/${id}` as const;
   const urls = pageMetadataUrls({ path, locale, year: metadataYear });
-  const m = await fetchManufacturer(id, year);
+  const m = await fetchManufacturer(id, year, revalidate);
   if (!m) {
     return {
       title: "Manufacturer",
@@ -145,7 +152,9 @@ export default async function ManufacturerDetailPage({
 }) {
   const { id } = await params;
   const year = await getSelectedSeason();
-  const manufacturerRaw = await fetchManufacturer(id, year);
+  const events = await getEvents(year);
+  const revalidate = seasonDataRevalidateSeconds(events);
+  const manufacturerRaw = await fetchManufacturer(id, year, revalidate);
   if (manufacturerRaw === null) notFound();
   const rawLocale = await getLocale();
   const localeForName = isLocale(rawLocale) ? rawLocale : "en";
@@ -177,7 +186,9 @@ export default async function ManufacturerDetailPage({
   let relatedManufacturers: StandingManufacturer[] = [];
   if (primaryClass) {
     try {
-      const standings = await getManufacturerStandings(primaryClass, year);
+      const standings = await getManufacturerStandings(primaryClass, year, {
+        revalidate,
+      });
       relatedManufacturers = standings
         .filter((m) => m.manufacturerId !== manufacturer.id)
         .slice(0, 5);

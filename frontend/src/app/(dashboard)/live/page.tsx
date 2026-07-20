@@ -35,6 +35,7 @@ import {
 import { tzForCircuit } from "@/lib/circuit-tz";
 import { getSelectedSeason } from "@/lib/season";
 import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
+import { eventDataRevalidateSeconds } from "@/lib/cache-policy";
 
 export const generateMetadata = () => dashboardPageMetadata("live", "/live");
 
@@ -143,13 +144,12 @@ export default async function LivePage() {
   const todayIso = new Date(now).toISOString().slice(0, 10);
   const rawLocale = await getLocale();
   const localeForName = isLocale(rawLocale) ? rawLocale : "en";
-  const events = eventsRaw.map((e) => localizeEvent(e, localeForName));
 
   // Pick the active weekend (today between dates) or the next upcoming.
-  const live = events.find(
+  const live = eventsRaw.find(
     (e) => e.dateStart <= todayIso && todayIso <= e.dateEnd,
   );
-  const nextRaw = live ?? getNextEvent(events, new Date(now)) ?? null;
+  const nextRaw = live ?? getNextEvent(eventsRaw, new Date(now)) ?? null;
   const next = nextRaw ? localizeEvent(nextRaw, localeForName) : null;
 
   const t = await getTranslations("live");
@@ -169,11 +169,12 @@ export default async function LivePage() {
       </div>
     );
   }
+  const eventRevalidate = eventDataRevalidateSeconds(next, new Date(now));
 
-  const detail = await getEvent(next.id).catch(() => null);
+  const detail = await getEvent(next.id);
   const tz = tzForCircuit(next.circuit.name);
 
-  const sessions = (detail?.sessions ?? [])
+  const sessions = detail.sessions
     .filter((s) => isPlausibleSessionTime(next, s))
     .map((s) => classifySession(s, next.name, now))
     .sort((a, b) => (ORDER[a.type] ?? 99) - (ORDER[b.type] ?? 99));
@@ -197,9 +198,9 @@ export default async function LivePage() {
 
   let lastDoneResults: SessionResult[] = [];
   if (lastDone) {
-    lastDoneResults = await getSessionResults(lastDone.id).catch(
-      () => [] as SessionResult[],
-    );
+    lastDoneResults = await getSessionResults(lastDone.id, {
+      revalidate: eventRevalidate,
+    });
   }
 
   return (

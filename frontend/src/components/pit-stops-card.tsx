@@ -39,10 +39,16 @@ function durationTone(ms: number | null): string {
   return "";
 }
 
-export async function PitStopsCard({ sessionId }: { sessionId: number }) {
+export async function PitStopsCard({
+  sessionId,
+  revalidate,
+}: {
+  sessionId: number;
+  revalidate?: number;
+}) {
   let stops: PitStop[] = [];
   try {
-    stops = await getPitStops(sessionId);
+    stops = await getPitStops(sessionId, { revalidate });
   } catch {
     return null;
   }

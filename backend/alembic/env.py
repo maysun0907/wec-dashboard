@@ -3,7 +3,7 @@ from logging.config import fileConfig
 from pathlib import Path
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
 # Make `app` importable when alembic runs from the backend directory.
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -22,6 +22,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
+MIGRATION_LOCK_ID = 24_575_701_880_542_025
 
 
 def run_migrations_offline() -> None:
@@ -43,9 +44,35 @@ def run_migrations_online() -> None:
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
-        with context.begin_transaction():
-            context.run_migrations()
+        is_postgres = connection.dialect.name == "postgresql"
+        locked = False
+        try:
+            if is_postgres:
+                # Both Railway services run the same pre-deploy command. A
+                # session-level lock serializes Alembic before it reads the
+                # current revision, so the waiter sees the new head instead of
+                # attempting the same DDL concurrently. SELECT starts an
+                # implicit transaction; commit it before Alembic begins its
+                # own, while the session lock remains held.
+                connection.execute(
+                    text("SELECT pg_advisory_lock(:lock_id)"),
+                    {"lock_id": MIGRATION_LOCK_ID},
+                )
+                connection.commit()
+                locked = True
+
+            context.configure(connection=connection, target_metadata=target_metadata)
+            with context.begin_transaction():
+                context.run_migrations()
+        finally:
+            if locked and not connection.invalidated:
+                if connection.in_transaction():
+                    connection.rollback()
+                connection.execute(
+                    text("SELECT pg_advisory_unlock(:lock_id)"),
+                    {"lock_id": MIGRATION_LOCK_ID},
+                )
+                connection.commit()
 
 
 if context.is_offline_mode():

@@ -18,6 +18,7 @@ import { PublicLink } from "@/components/public-link";
 import {
   getCircuit,
   getCircuits,
+  isApiNotFound,
   type Circuit,
   type CircuitDetail,
 } from "@/lib/api";
@@ -37,8 +38,9 @@ async function fetchCircuit(id: string): Promise<CircuitDetail | null> {
   if (!Number.isFinite(numId)) return null;
   try {
     return await getCircuit(numId);
-  } catch {
-    return null;
+  } catch (error) {
+    if (isApiNotFound(error)) return null;
+    throw error;
   }
 }
 

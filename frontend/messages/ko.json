@@ -310,6 +310,8 @@
     "resultsNotYet": "아직 결과가 공개되지 않았습니다",
     "resultsUpcoming": "주말 일정이 시작되면 세션 시간과 결과가 여기에 표시됩니다.",
     "resultsNoData": "이 이벤트의 계측 데이터가 아직 공개되지 않았습니다.",
+    "resultsUnavailable": "결과를 일시적으로 불러올 수 없습니다",
+    "resultsUnavailableDescription": "데이터 서비스가 혼잡합니다. 잠시 후 페이지를 새로고침해 주세요.",
     "colPos": "순위",
     "colCar": "#",
     "colTeam": "팀",

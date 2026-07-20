@@ -17,6 +17,7 @@ import { PublicLink } from "@/components/public-link";
 import {
   getCarModel,
   getCarModels,
+  isApiNotFound,
   raceClassLabel,
   type CarModelDetail,
   type CarModelSummary,
@@ -40,8 +41,9 @@ async function fetchCar(
 ): Promise<CarModelDetail | null> {
   try {
     return await getCarModel(slug, year);
-  } catch {
-    return null;
+  } catch (error) {
+    if (isApiNotFound(error)) return null;
+    throw error;
   }
 }
 

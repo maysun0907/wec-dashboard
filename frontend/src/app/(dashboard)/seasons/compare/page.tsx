@@ -36,6 +36,8 @@ import {
   type TeamProgression,
 } from "@/lib/api";
 import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
+import { mapWithConcurrency } from "@/lib/concurrency";
+import { seasonDataRevalidateSeconds } from "@/lib/cache-policy";
 
 export const generateMetadata = () =>
   dashboardPageMetadata("seasonCompare", "/seasons/compare");
@@ -71,31 +73,20 @@ function topClassFor(year: number) {
 
 async function fetchSeason(year: number): Promise<SeasonData> {
   const cls = topClassFor(year);
-  const [
-    events,
-    drivers,
-    manufacturers,
-    driverEntries,
-    teamEntries,
-    carProgression,
-    podiums,
-  ] = await Promise.all([
-    getEvents(year).catch(() => [] as Event[]),
-    getDriverStandings(cls as never, year).catch(
-      () => [] as StandingDriver[],
-    ),
-    getManufacturerStandings(cls as never, year).catch(
-      () => [] as StandingManufacturer[],
-    ),
-    getDrivers(year).catch(() => [] as DriverEntry[]),
-    getTeams(year).catch(() => [] as TeamEntry[]),
+  const events = await getEvents(year);
+  const revalidate = seasonDataRevalidateSeconds(events);
+  const [drivers, manufacturers, driverEntries] = await Promise.all([
+    getDriverStandings(cls as never, year, { revalidate }),
+    getManufacturerStandings(cls as never, year, { revalidate }),
+    getDrivers(year),
+  ]);
+  const [teamEntries, carProgression, podiums] = await Promise.all([
+    getTeams(year),
     // /api/v1/standings/teams/progression returns one row per (team_id,
     // car_number), which is exactly the unit we want — top 3 cars by
     // points instead of three drivers from the same trio.
-    getTeamProgression(cls as never, 3, year).catch(
-      () => [] as TeamProgression[],
-    ),
-    getRoundPodiums(cls as never, year).catch(() => [] as RoundPodium[]),
+    getTeamProgression(cls as never, 3, year, { revalidate }),
+    getRoundPodiums(cls as never, year, { revalidate }),
   ]);
   return {
     year,
@@ -117,14 +108,16 @@ export default async function SeasonComparePage({
 }) {
   const sp = await searchParams;
   let years = parseYears(sp.years);
-  const seasons = await getSeasons().catch(() => []);
+  const seasons = await getSeasons();
 
   // Default: the two most recent ingested seasons.
   if (years.length === 0) {
     years = seasons.slice(0, 2).map((s) => s.year);
   }
 
-  const data = await Promise.all(years.map((y) => fetchSeason(y)));
+  // Two seasons at a time, three requests per batch inside fetchSeason: the
+  // page stays below the backend's admission limit even on a cold render.
+  const data = await mapWithConcurrency(years, 2, fetchSeason);
   const t = await getTranslations("seasons");
   const tStandings = await getTranslations("standings");
 

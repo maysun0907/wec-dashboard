@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getCarModel, raceClassLabel } from "@/lib/api";
 import { OgCard, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og-card";
+import { loadOgResource } from "@/lib/og-data";
 import { loadOgFonts } from "@/lib/og-fonts";
 
 export const alt = "WEC Dashboard - Car";
@@ -23,12 +24,9 @@ export default async function Image({ params }: { params: Promise<Params> }) {
   // Always render the latest season here. Crawlers never carry the
   // season cookie, so reading it only forced this route dynamic and
   // defeated CDN caching of the generated card.
-  let car: Awaited<ReturnType<typeof getCarModel>> | null = null;
-  try {
-    car = await getCarModel(slug, null);
-  } catch {
-    car = null;
-  }
+  const car = await loadOgResource(() =>
+    getCarModel(slug, null, { revalidate }),
+  );
   if (car === null) {
     return new ImageResponse(
       <OgCard title="Car not found" tagline="WEC Dashboard" />,

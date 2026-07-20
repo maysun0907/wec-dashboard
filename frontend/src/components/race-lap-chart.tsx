@@ -39,7 +39,13 @@ const CLASS_COLOR: Partial<Record<RaceClass, string>> = {
 
 type Mode = "overall" | "class";
 
-export function RaceLapChart({ sessionId }: { sessionId: number }) {
+export function RaceLapChart({
+  sessionId,
+  revalidate,
+}: {
+  sessionId: number;
+  revalidate: number;
+}) {
   const t = useTranslations("raceDetail");
   const [chart, setChart] = useState<LapChart | null>(null);
   const [failedSessionId, setFailedSessionId] = useState<number | null>(null);
@@ -47,14 +53,12 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
   const [mode, setMode] = useState<Mode>("overall");
   const [hovered, setHovered] = useState<string | null>(null);
 
-  const apiUrl =
-    process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
   const error = failedSessionId === sessionId;
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 10_000);
-    fetch(`${apiUrl}/api/v1/sessions/${sessionId}/lap-chart`, {
+    fetch(`/api/lap-chart/${sessionId}?revalidate=${revalidate}`, {
       signal: controller.signal,
     })
       .then((r) => {
@@ -79,7 +83,7 @@ export function RaceLapChart({ sessionId }: { sessionId: number }) {
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [sessionId, apiUrl]);
+  }, [sessionId, revalidate]);
 
   const visibleCars = useMemo(() => {
     if (!chart) return [];

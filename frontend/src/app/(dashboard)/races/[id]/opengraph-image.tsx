@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getEvent, getSessionResults, type RaceClass, raceClassLabel } from "@/lib/api";
 import { OgCard, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og-card";
+import { loadOgResource } from "@/lib/og-data";
 import { loadOgFonts } from "@/lib/og-fonts";
 
 export const alt = "WEC Dashboard - Race";
@@ -20,12 +21,9 @@ export default async function Image({ params }: { params: Promise<Params> }) {
   const { id } = await params;
   const fonts = await loadOgFonts();
 
-  let event: Awaited<ReturnType<typeof getEvent>> | null = null;
-  try {
-    event = await getEvent(Number(id));
-  } catch {
-    event = null;
-  }
+  const event = await loadOgResource(() =>
+    getEvent(Number(id), { revalidate }),
+  );
   if (event === null) {
     return new ImageResponse(
       <OgCard title="Race not found" tagline="WEC Dashboard" />,
@@ -33,18 +31,19 @@ export default async function Image({ params }: { params: Promise<Params> }) {
     );
   }
 
-  // Try to derive the set of classes that raced - fall back gracefully.
+  // A missing result set is optional, but a transient upstream error must
+  // fail regeneration so ISR retains the previous successful card.
   let classes: RaceClass[] = [];
-  try {
-    const race = event.sessions?.find((s) => s.type?.toUpperCase() === "RACE");
-    if (race) {
-      const results = await getSessionResults(race.id);
+  const race = event.sessions?.find((s) => s.type?.toUpperCase() === "RACE");
+  if (race) {
+    const results = await loadOgResource(() =>
+      getSessionResults(race.id, { revalidate }),
+    );
+    if (results) {
       const set = new Set<RaceClass>();
       results.forEach((r) => set.add(r.raceClass));
       classes = Array.from(set);
     }
-  } catch {
-    classes = [];
   }
 
   const year = event.dateStart ? event.dateStart.slice(0, 4) : null;

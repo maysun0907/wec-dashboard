@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getCircuit } from "@/lib/api";
 import { OgCard, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og-card";
+import { loadOgResource } from "@/lib/og-data";
 import { loadOgFonts } from "@/lib/og-fonts";
 
 export const alt = "WEC Dashboard - Circuit";
@@ -20,12 +21,9 @@ export default async function Image({ params }: { params: Promise<Params> }) {
   const { id } = await params;
   const fonts = await loadOgFonts();
 
-  let circuit: Awaited<ReturnType<typeof getCircuit>> | null = null;
-  try {
-    circuit = await getCircuit(Number(id));
-  } catch {
-    circuit = null;
-  }
+  const circuit = await loadOgResource(() =>
+    getCircuit(Number(id), { revalidate }),
+  );
   if (circuit === null) {
     return new ImageResponse(
       <OgCard title="Circuit not found" tagline="WEC Dashboard" />,

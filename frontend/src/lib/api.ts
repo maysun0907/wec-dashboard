@@ -1,3 +1,10 @@
+import { mapWithConcurrency } from "@/lib/concurrency";
+import {
+  ARCHIVE_REVALIDATE_SECONDS,
+  eventDataRevalidateSeconds,
+  seasonDataRevalidateSeconds,
+} from "@/lib/cache-policy";
+
 // API client for the WEC Dashboard backend.
 //
 // All `fetch` calls run server-side (Server Components) and use Next.js
@@ -551,12 +558,27 @@ export type Season = {
 
 type FetchOpts = { revalidate?: number };
 
+export class ApiError extends Error {
+  constructor(
+    readonly path: string,
+    readonly status: number,
+    statusText: string,
+  ) {
+    super(`GET ${path} → ${status} ${statusText}`);
+    this.name = "ApiError";
+  }
+}
+
+export function isApiNotFound(error: unknown): error is ApiError {
+  return error instanceof ApiError && error.status === 404;
+}
+
 async function api<T>(path: string, opts: FetchOpts = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     next: { revalidate: opts.revalidate ?? 300 },
   });
   if (!res.ok) {
-    throw new Error(`GET ${path} → ${res.status} ${res.statusText}`);
+    throw new ApiError(path, res.status, res.statusText);
   }
   return res.json() as Promise<T>;
 }
@@ -568,49 +590,211 @@ function withYear(path: string, year?: number | null): string {
   return `${path}${path.includes("?") ? "&" : "?"}year=${year}`;
 }
 
+/**
+ * Resolve a volatility window from the cached season schedule. The schedule
+ * lookup is shared for an hour and is lightweight; unique entity detail URLs
+ * can then stay hot off-week while still dropping to 60 seconds on race week.
+ * If the schedule source is unavailable, retain the endpoint's old fallback.
+ */
+async function raceAwareRevalidate(
+  year: number | null | undefined,
+  fallback: number,
+): Promise<number> {
+  try {
+    const events = await api<Event[]>(withYear("/api/v1/events", year), {
+      revalidate: 3600,
+    });
+    return seasonDataRevalidateSeconds(events);
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Resolve the cache window for one event without making every historical
+ * round volatile whenever the current championship reaches race week.
+ * Events outside the current-season schedule are treated as immutable
+ * archives. A schedule outage falls back to the caller's conservative TTL.
+ */
+async function eventAwareRevalidate(
+  eventId: number,
+  fallback: number,
+): Promise<number> {
+  try {
+    const events = await api<Event[]>("/api/v1/events", {
+      revalidate: 3600,
+    });
+    const event = events.find((candidate) => candidate.id === eventId);
+    return event
+      ? eventDataRevalidateSeconds(event)
+      : ARCHIVE_REVALIDATE_SECONDS;
+  } catch {
+    return fallback;
+  }
+}
+
+// --- Sitemap snapshot ---
+//
+// Sitemap generation must not reuse the race-weekend fetchers below. Their
+// 60-second freshness window is correct for rendered race data, but Next uses
+// the shortest fetch revalidation in a static route as that route's ISR TTL.
+// Reusing getEvents() therefore made sitemap.xml regenerate every minute even
+// though the route itself declares a one-hour revalidation window.
+const SITEMAP_REVALIDATE_SECONDS = 3600;
+const SITEMAP_YEAR_CONCURRENCY = 2;
+
+export type SitemapYearResources = {
+  year: number;
+  events: Event[];
+  carModels: CarModelSummary[];
+};
+
+export type SitemapSnapshot = {
+  seasons: Season[];
+  yearResources: SitemapYearResources[];
+  drivers: DriverEntry[];
+  teams: TeamEntry[];
+  circuits: Circuit[];
+  manufacturers: StandingManufacturer[];
+};
+
+/**
+ * Build the discovery-only API snapshot consumed by sitemap.xml.
+ *
+ * Every request deliberately has a one-hour cache window, independently of
+ * the faster page-data fetchers. Year resources are fetched by two workers;
+ * each worker starts an events + cars pair, capping a cold snapshot at four
+ * concurrent backend requests instead of the previous eighteen-request wave.
+ */
+export async function getSitemapSnapshot(): Promise<SitemapSnapshot> {
+  const seasons = await api<Season[]>("/api/v1/seasons", {
+    revalidate: SITEMAP_REVALIDATE_SECONDS,
+  });
+  const years = [...new Set(seasons.map((season) => season.year))].sort(
+    (a, b) => b - a,
+  );
+
+  if (years.length === 0) {
+    return {
+      seasons,
+      yearResources: [],
+      drivers: [],
+      teams: [],
+      circuits: [],
+      manufacturers: [],
+    };
+  }
+
+  const yearResources = await mapWithConcurrency(
+    years,
+    SITEMAP_YEAR_CONCURRENCY,
+    async (year): Promise<SitemapYearResources> => {
+      const [events, carModels] = await Promise.all([
+        api<Event[]>(withYear("/api/v1/events", year), {
+          revalidate: SITEMAP_REVALIDATE_SECONDS,
+        }),
+        api<CarModelSummary[]>(withYear("/api/v1/cars", year), {
+          revalidate: SITEMAP_REVALIDATE_SECONDS,
+        }),
+      ]);
+      return { year, events, carModels };
+    },
+  );
+
+  const latestYear = years[0]!;
+  const [drivers, teams, circuits, manufacturers] = await Promise.all([
+    api<DriverEntry[]>(withYear("/api/v1/drivers", latestYear), {
+      revalidate: SITEMAP_REVALIDATE_SECONDS,
+    }),
+    api<TeamEntry[]>(withYear("/api/v1/teams", latestYear), {
+      revalidate: SITEMAP_REVALIDATE_SECONDS,
+    }),
+    api<Circuit[]>(withYear("/api/v1/circuits", latestYear), {
+      revalidate: SITEMAP_REVALIDATE_SECONDS,
+    }),
+    api<StandingManufacturer[]>(
+      withYear(
+        "/api/v1/standings/manufacturers?raceClass=HYPERCAR",
+        latestYear,
+      ),
+      { revalidate: SITEMAP_REVALIDATE_SECONDS },
+    ),
+  ]);
+
+  return {
+    seasons,
+    yearResources,
+    drivers,
+    teams,
+    circuits,
+    manufacturers,
+  };
+}
+
 // --- Endpoints ---
 
 export const getSeasons = () =>
   api<Season[]>("/api/v1/seasons", { revalidate: 3600 });
 
-export const getAllTimeStats = () =>
-  api<AllTimeStats>("/api/v1/stats/all-time", { revalidate: 3600 });
+export const getAllTimeStats = async (opts: FetchOpts = {}) =>
+  api<AllTimeStats>("/api/v1/stats/all-time", {
+    revalidate: opts.revalidate ?? (await raceAwareRevalidate(null, 3600)),
+  });
 
 // Circuits / drivers / teams change rarely during a season — 1 hour.
 export const getCircuits = (year?: number | null) =>
   api<Circuit[]>(withYear("/api/v1/circuits", year), { revalidate: 3600 });
 
-export const getCircuit = (id: number) =>
-  api<CircuitDetail>(`/api/v1/circuits/${id}`, { revalidate: 3600 });
+export const getCircuit = async (id: number, opts: FetchOpts = {}) =>
+  api<CircuitDetail>(`/api/v1/circuits/${id}`, {
+    revalidate: opts.revalidate ?? (await raceAwareRevalidate(null, 3600)),
+  });
 
 export const getDrivers = (year?: number | null) =>
   api<DriverEntry[]>(withYear("/api/v1/drivers", year), { revalidate: 3600 });
 
-// Detail pages only change when ingestion lands new results (hourly).
-// 10 min is long enough for edge cache to do real work yet short enough
-// that a race-weekend ingest tick is visible within ~one refresh.
-export const getDriver = (id: number, year?: number | null) =>
+// Result-derived detail pages follow the season schedule: one minute around
+// a race weekend, one hour between rounds, and one day for finished seasons.
+export const getDriver = async (
+  id: number,
+  year?: number | null,
+  opts: FetchOpts = {},
+) =>
   api<DriverDetail>(withYear(`/api/v1/drivers/${id}`, year), {
-    revalidate: 600,
+    revalidate: opts.revalidate ?? (await raceAwareRevalidate(year, 600)),
   });
 
 export const getTeams = (year?: number | null) =>
   api<TeamEntry[]>(withYear("/api/v1/teams", year), { revalidate: 600 });
 
-export const getTeam = (id: number, year?: number | null) =>
-  api<TeamDetail>(withYear(`/api/v1/teams/${id}`, year), { revalidate: 600 });
+export const getTeam = async (
+  id: number,
+  year?: number | null,
+  opts: FetchOpts = {},
+) =>
+  api<TeamDetail>(withYear(`/api/v1/teams/${id}`, year), {
+    revalidate: opts.revalidate ?? (await raceAwareRevalidate(year, 600)),
+  });
 
-export const getManufacturer = (id: number, year?: number | null) =>
+export const getManufacturer = async (
+  id: number,
+  year?: number | null,
+  opts: FetchOpts = {},
+) =>
   api<ManufacturerDetail>(withYear(`/api/v1/manufacturers/${id}`, year), {
-    revalidate: 600,
+    revalidate: opts.revalidate ?? (await raceAwareRevalidate(year, 600)),
   });
 
 export const getCarModels = (year?: number | null) =>
   api<CarModelSummary[]>(withYear("/api/v1/cars", year), { revalidate: 1800 });
 
-export const getCarModel = (slug: string, year?: number | null) =>
+export const getCarModel = async (
+  slug: string,
+  year?: number | null,
+  opts: FetchOpts = {},
+) =>
   api<CarModelDetail>(withYear(`/api/v1/cars/${slug}`, year), {
-    revalidate: 600,
+    revalidate: opts.revalidate ?? (await raceAwareRevalidate(year, 600)),
   });
 
 export type BopRow = {
@@ -634,18 +818,25 @@ export type BopEvent = {
 export const getBop = (year?: number | null) =>
   api<BopEvent[]>(withYear("/api/v1/bop", year), { revalidate: 3600 });
 
-// Status flips (upcoming → live → completed) and ingestion lands new
-// session results on race weekends — keep the freshness window under
-// the cron tick (hourly) so a refresh always shows the latest pull.
+// This shared schedule snapshot is lightweight and also drives race-window
+// selection for the result endpoints below.
 export const getEvents = (year?: number | null) =>
-  api<Event[]>(withYear("/api/v1/events", year), { revalidate: 60 });
+  api<Event[]>(withYear("/api/v1/events", year), { revalidate: 3600 });
 
-export const getEvent = (id: number) =>
-  api<EventDetail>(`/api/v1/events/${id}`, { revalidate: 60 });
+// Event detail contains the schedule and session IDs. Only a matching current
+// season event follows its race window; historical event IDs stay on a daily
+// cache even while a different round is live.
+export const getEvent = async (id: number, opts: FetchOpts = {}) =>
+  api<EventDetail>(`/api/v1/events/${id}`, {
+    revalidate: opts.revalidate ?? (await eventAwareRevalidate(id, 3600)),
+  });
 
-export const getSessionResults = (sessionId: number) =>
+export const getSessionResults = (
+  sessionId: number,
+  opts: FetchOpts = {},
+) =>
   api<SessionResult[]>(`/api/v1/sessions/${sessionId}/results`, {
-    revalidate: 60,
+    revalidate: opts.revalidate ?? 60,
   });
 
 export type LapChartCar = {
@@ -669,12 +860,11 @@ export type LapChart = {
   incidents: LapChartIncident[];
 };
 
-// Lap charts are still immutable post-race but ingestion can land
-// updated lap rows mid-event; 5 min keeps them current without
-// re-running the position math on every page hit.
-export const getLapChart = (sessionId: number) =>
+// Callers on race pages pass the event-aware window. The five-minute default
+// remains a conservative fallback for any standalone consumer.
+export const getLapChart = (sessionId: number, opts: FetchOpts = {}) =>
   api<LapChart>(`/api/v1/sessions/${sessionId}/lap-chart`, {
-    revalidate: 300,
+    revalidate: opts.revalidate ?? 300,
   });
 
 export type PitStop = {
@@ -686,9 +876,9 @@ export type PitStop = {
   durationMs: number | null;
 };
 
-export const getPitStops = (sessionId: number) =>
+export const getPitStops = (sessionId: number, opts: FetchOpts = {}) =>
   api<PitStop[]>(`/api/v1/sessions/${sessionId}/pit-stops`, {
-    revalidate: 300,
+    revalidate: opts.revalidate ?? 300,
   });
 
 export type SessionWeather = {
@@ -699,87 +889,95 @@ export type SessionWeather = {
   rain: boolean;
 };
 
-export const getSessionWeather = (sessionId: number) =>
+export const getSessionWeather = (sessionId: number, opts: FetchOpts = {}) =>
   api<SessionWeather>(`/api/v1/sessions/${sessionId}/weather`, {
-    revalidate: 600,
+    revalidate: opts.revalidate ?? 600,
   });
 
-// Standings + progressions update on the same hourly cron tick as
-// session results, so the previous 60 s revalidate was burning edge
-// cache for almost no freshness benefit. 5 min covers a comfortable
-// fraction of the cron interval while still feeling near-live.
+// Race-aware pages pass 60/3600/86400 explicitly. Five minutes remains a
+// conservative fallback for standalone consumers without a season schedule.
 export const getDriverStandings = (
   raceClass?: RaceClass,
   year?: number | null,
+  opts: FetchOpts = {},
 ) =>
   api<StandingDriver[]>(
     withYear(
       `/api/v1/standings/drivers${raceClass ? `?raceClass=${raceClass}` : ""}`,
       year,
     ),
-    { revalidate: 300 },
+    { revalidate: opts.revalidate ?? 300 },
   );
 
 export const getDriverProgression = (
   raceClass: RaceClass,
   limit = 5,
   year?: number | null,
+  opts: FetchOpts = {},
 ) =>
   api<DriverProgression[]>(
     withYear(
       `/api/v1/standings/drivers/progression?raceClass=${raceClass}&limit=${limit}`,
       year,
     ),
-    { revalidate: 300 },
+    { revalidate: opts.revalidate ?? 300 },
   );
 
 export const getManufacturerProgression = (
   raceClass: RaceClass,
   limit = 8,
   year?: number | null,
+  opts: FetchOpts = {},
 ) =>
   api<ManufacturerProgression[]>(
     withYear(
       `/api/v1/standings/manufacturers/progression?raceClass=${raceClass}&limit=${limit}`,
       year,
     ),
-    { revalidate: 300 },
+    { revalidate: opts.revalidate ?? 300 },
   );
 
 export const getTeamProgression = (
   raceClass: RaceClass,
   limit = 8,
   year?: number | null,
+  opts: FetchOpts = {},
 ) =>
   api<TeamProgression[]>(
     withYear(
       `/api/v1/standings/teams/progression?raceClass=${raceClass}&limit=${limit}`,
       year,
     ),
-    { revalidate: 300 },
+    { revalidate: opts.revalidate ?? 300 },
   );
 
-export const getRoundPodiums = (raceClass: RaceClass, year?: number | null) =>
+export const getRoundPodiums = (
+  raceClass: RaceClass,
+  year?: number | null,
+  opts: FetchOpts = {},
+) =>
   api<RoundPodium[]>(
     withYear(`/api/v1/standings/podiums?raceClass=${raceClass}`, year),
-    { revalidate: 300 },
+    { revalidate: opts.revalidate ?? 300 },
   );
 
 export const getTeamStandings = (
   raceClass?: RaceClass,
   year?: number | null,
+  opts: FetchOpts = {},
 ) =>
   api<StandingTeam[]>(
     withYear(
       `/api/v1/standings/teams${raceClass ? `?raceClass=${raceClass}` : ""}`,
       year,
     ),
-    { revalidate: 300 },
+    { revalidate: opts.revalidate ?? 300 },
   );
 
 export const getManufacturerStandings = (
   raceClass?: RaceClass,
   year?: number | null,
+  opts: FetchOpts = {},
 ) =>
   api<StandingManufacturer[]>(
     withYear(
@@ -788,7 +986,7 @@ export const getManufacturerStandings = (
       }`,
       year,
     ),
-    { revalidate: 300 },
+    { revalidate: opts.revalidate ?? 300 },
   );
 
 // --- Derived helpers (mock-data parity) ---

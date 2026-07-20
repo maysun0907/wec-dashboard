@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getManufacturer } from "@/lib/api";
 import { OgCard, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og-card";
+import { loadOgResource } from "@/lib/og-data";
 import { loadOgFonts } from "@/lib/og-fonts";
 
 export const alt = "WEC Dashboard - Manufacturer";
@@ -23,12 +24,9 @@ export default async function Image({ params }: { params: Promise<Params> }) {
   // Always render the latest season here. Crawlers never carry the
   // season cookie, so reading it only forced this route dynamic and
   // defeated CDN caching of the generated card.
-  let manuf: Awaited<ReturnType<typeof getManufacturer>> | null = null;
-  try {
-    manuf = await getManufacturer(Number(id), null);
-  } catch {
-    manuf = null;
-  }
+  const manuf = await loadOgResource(() =>
+    getManufacturer(Number(id), null, { revalidate }),
+  );
   if (manuf === null) {
     return new ImageResponse(
       <OgCard title="Manufacturer not found" tagline="WEC Dashboard" />,

@@ -32,13 +32,20 @@ from app.ingest._common import (
 )
 
 USER_AGENT = "wec-dashboard/0.1 (https://github.com/maysun0907/wec-dashboard)"
-DEFAULT_YEAR = 2026
 
 
 def url_for_year(year: int) -> str:
     return f"https://en.wikipedia.org/wiki/{year}_FIA_World_Endurance_Championship"
 
 
+def current_utc_year(now: datetime | None = None) -> int:
+    current = now or datetime.now(timezone.utc)
+    if current.tzinfo is None:
+        current = current.replace(tzinfo=timezone.utc)
+    return current.astimezone(timezone.utc).year
+
+
+DEFAULT_YEAR = current_utc_year()
 DEFAULT_URL = url_for_year(DEFAULT_YEAR)
 
 MONTHS = {
@@ -1105,16 +1112,17 @@ def _clear_season(db: Session, season_id: int) -> None:
             models.StandingManufacturer.season_id == season_id
         )
     )
-    # Session results (via cars in season)
+    # Session results (via cars in season). Session rows themselves are
+    # intentionally preserved: their ids are consumed by cached race pages
+    # and must remain stable across the hourly ingest.
     car_ids_subq = select(models.Car.id).where(models.Car.season_id == season_id)
     db.execute(
         delete(models.SessionResult).where(
             models.SessionResult.car_id.in_(car_ids_subq)
         )
     )
-    # Pit-stop events reference sessions + cars, so wipe them before
-    # we touch either parent (otherwise the session DELETE below trips
-    # pit_stop_events_session_id_fkey).
+    # Pit-stop events reference both sessions and cars. Sessions stay stable,
+    # but the season's cars are rebuilt below, so dependent pit rows must go.
     event_ids_subq = select(models.Event.id).where(
         models.Event.season_id == season_id
     )
@@ -1125,10 +1133,6 @@ def _clear_season(db: Session, season_id: int) -> None:
         delete(models.PitStopEvent).where(
             models.PitStopEvent.session_id.in_(session_ids_subq)
         )
-    )
-    # Sessions (via events in season)
-    db.execute(
-        delete(models.Session).where(models.Session.event_id.in_(event_ids_subq))
     )
     # Cars + car_drivers (events stay)
     db.execute(
@@ -1205,7 +1209,12 @@ def _ingest_calendar(
         .all()
     )
     for ev in stale:
-        # Cascade — sessions / results were already wiped in _clear_season.
+        # Results and pit stops were cleared by _clear_season. Sessions are
+        # preserved for valid events, but must be removed with a cancelled
+        # round before its Event parent can be deleted.
+        db.execute(
+            delete(models.Session).where(models.Session.event_id == ev.id)
+        )
         db.delete(ev)
     db.flush()
     return len(rounds)
@@ -1285,9 +1294,7 @@ def _ingest_results_summary(
         )
         if event is None:
             continue
-        session = models.Session(event_id=event.id, type="RACE")
-        db.add(session)
-        db.flush()
+        session = _upsert_session(db, event.id, "RACE", None)
         for race_class, info in classes.items():
             car = (
                 db.query(models.Car)
@@ -2021,6 +2028,22 @@ def main() -> None:
             url = first
     if len(sys.argv) > 2:
         url = sys.argv[2]
+    # Railway's hourly cron gets adaptive race-week behavior without changing
+    # the shared railway.toml used by the API service. Explicit CLI arguments
+    # remain one-shot so backfills and local maintenance never enter a loop.
+    if len(sys.argv) == 1:
+        from app.ingest.scheduled import (
+            adaptive_scheduler_enabled,
+            run_scheduled_ingest,
+        )
+
+        if adaptive_scheduler_enabled():
+            run_scheduled_ingest(
+                year=year,
+                url=url,
+                ingest_once=ingest,
+            )
+            return
     ingest(year=year, url=url)
 
 

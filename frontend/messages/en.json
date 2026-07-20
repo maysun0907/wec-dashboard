@@ -310,6 +310,8 @@
     "resultsNotYet": "Results not yet available",
     "resultsUpcoming": "Session times and results will appear here once the weekend begins.",
     "resultsNoData": "No timing data has been published for this event yet.",
+    "resultsUnavailable": "Results are temporarily unavailable",
+    "resultsUnavailableDescription": "The data service is busy. Please refresh this page again in a moment.",
     "colPos": "Pos",
     "colCar": "#",
     "colTeam": "Team",

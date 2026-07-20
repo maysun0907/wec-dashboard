@@ -1,23 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  getCarModels,
-  getCircuits,
-  getDrivers,
-  getEvents,
-  getManufacturerStandings,
-  getSeasons,
-  getTeams,
-} from "@/lib/api";
+import { getSitemapSnapshot, type SitemapSnapshot } from "@/lib/api";
 import sitemap from "./sitemap";
 
 vi.mock("@/lib/api", () => ({
-  getCarModels: vi.fn(),
-  getCircuits: vi.fn(),
-  getDrivers: vi.fn(),
-  getEvents: vi.fn(),
-  getManufacturerStandings: vi.fn(),
-  getSeasons: vi.fn(),
-  getTeams: vi.fn(),
+  getSitemapSnapshot: vi.fn(),
 }));
 
 const event = {
@@ -38,15 +24,28 @@ const event = {
   },
 };
 
-describe("sitemap", () => {
-  beforeEach(() => {
-    process.env.NEXT_PUBLIC_SITE_URL = "https://www.wecdash.com";
-    vi.mocked(getSeasons).mockResolvedValue([
+const carModel = {
+  id: 401,
+  slug: "test-car",
+  name: "Test Car",
+  raceClass: "HYPERCAR" as const,
+  manufacturer: null,
+  manufacturerLogoUrl: null,
+  imageUrl: null,
+  entries: 1,
+};
+
+function sitemapSnapshot(): SitemapSnapshot {
+  return {
+    seasons: [
       { id: 1, year: 2025, championshipName: "WEC" },
       { id: 2, year: 2026, championshipName: "WEC" },
-    ]);
-    vi.mocked(getEvents).mockResolvedValue([event]);
-    vi.mocked(getDrivers).mockResolvedValue([
+    ],
+    yearResources: [
+      { year: 2026, events: [event], carModels: [carModel] },
+      { year: 2025, events: [event], carModels: [carModel] },
+    ],
+    drivers: [
       {
         id: 201,
         name: "Test Driver",
@@ -57,8 +56,8 @@ describe("sitemap", () => {
         photoUrl: null,
         raceClass: "HYPERCAR" as const,
       },
-    ]);
-    vi.mocked(getTeams).mockResolvedValue([
+    ],
+    teams: [
       {
         id: 301,
         name: "Test Team",
@@ -69,21 +68,9 @@ describe("sitemap", () => {
         manufacturer: null,
         manufacturerLogoUrl: null,
       },
-    ]);
-    vi.mocked(getCarModels).mockResolvedValue([
-      {
-        id: 401,
-        slug: "test-car",
-        name: "Test Car",
-        raceClass: "HYPERCAR" as const,
-        manufacturer: null,
-        manufacturerLogoUrl: null,
-        imageUrl: null,
-        entries: 1,
-      },
-    ]);
-    vi.mocked(getCircuits).mockResolvedValue([event.circuit]);
-    vi.mocked(getManufacturerStandings).mockResolvedValue([
+    ],
+    circuits: [event.circuit],
+    manufacturers: [
       {
         position: 1,
         manufacturerId: 601,
@@ -92,7 +79,14 @@ describe("sitemap", () => {
         raceClass: "HYPERCAR" as const,
         points: 10,
       },
-    ]);
+    ],
+  };
+}
+
+describe("sitemap", () => {
+  beforeEach(() => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://www.wecdash.com";
+    vi.mocked(getSitemapSnapshot).mockResolvedValue(sitemapSnapshot());
   });
 
   afterEach(() => {
@@ -132,7 +126,10 @@ describe("sitemap", () => {
   });
 
   it("deduplicates repeated event and entity URLs", async () => {
-    vi.mocked(getEvents).mockResolvedValue([event, event]);
+    const snapshot = sitemapSnapshot();
+    snapshot.yearResources[0]!.events = [event, event];
+    snapshot.drivers.push(snapshot.drivers[0]!);
+    vi.mocked(getSitemapSnapshot).mockResolvedValue(snapshot);
     const entries = await sitemap();
     const urls = entries.map((entry) => entry.url);
 
@@ -145,8 +142,54 @@ describe("sitemap", () => {
     expect(urls).toContain("https://www.wecdash.com/ko/2026/cars/test-car");
   });
 
+  it("only publishes stable, source-backed last-modified dates", async () => {
+    const entries = await sitemap();
+    const byUrl = new Map(entries.map((entry) => [entry.url, entry]));
+
+    expect(
+      byUrl.get("https://www.wecdash.com/en/2025/standings")?.lastModified,
+    ).toEqual(new Date("2025-12-31T00:00:00.000Z"));
+    expect(
+      byUrl.get("https://www.wecdash.com/en/races/101")?.lastModified,
+    ).toEqual(new Date("2026-03-02T00:00:00.000Z"));
+    expect(
+      byUrl.get("https://www.wecdash.com/en/2026/standings")?.lastModified,
+    ).toBeUndefined();
+    expect(
+      byUrl.get("https://www.wecdash.com/en/drivers/201")?.lastModified,
+    ).toBeUndefined();
+    expect(
+      byUrl.get("https://www.wecdash.com/en/rules")?.lastModified,
+    ).toBeUndefined();
+    expect(
+      byUrl.get("https://www.wecdash.com/en/2026/cars/test-car")
+        ?.lastModified,
+    ).toBeUndefined();
+  });
+
+  it("omits an event last-modified value when source dates are invalid", async () => {
+    const snapshot = sitemapSnapshot();
+    snapshot.yearResources = [
+      {
+        year: 2026,
+        events: [{ ...event, dateStart: "invalid", dateEnd: "invalid" }],
+        carModels: [carModel],
+      },
+      snapshot.yearResources[1]!,
+    ];
+    vi.mocked(getSitemapSnapshot).mockResolvedValue(snapshot);
+
+    const entry = (await sitemap()).find(
+      (item) => item.url === "https://www.wecdash.com/en/races/101",
+    );
+    expect(entry?.lastModified).toBeUndefined();
+  });
+
   it("refuses to publish a partial sitemap when season data is empty", async () => {
-    vi.mocked(getSeasons).mockResolvedValue([]);
+    const snapshot = sitemapSnapshot();
+    snapshot.seasons = [];
+    snapshot.yearResources = [];
+    vi.mocked(getSitemapSnapshot).mockResolvedValue(snapshot);
 
     await expect(sitemap()).rejects.toThrow(
       "Cannot generate a complete sitemap without season data",

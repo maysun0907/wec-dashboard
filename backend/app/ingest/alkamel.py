@@ -197,15 +197,15 @@ def find_weather_url(
 ) -> str | None:
     """Locate one ``26_Weather_*.CSV`` for the requested session kind.
     `kind` is 'RACE', 'Q', 'FP1', 'FP2', 'FP3', 'HP'. For RACE we pick
-    any hour's weather file (the field doesn't change much across the
-    race relative to summary precision). Returns None if no file
-    exists yet."""
+    the latest published hour so the hot collector advances through changing
+    conditions. Returns None if no file exists yet."""
     try:
         html = _fetch(
             f"{BASE}/?season={season_param}&evvent={evvent_param}"
         )
     except httpx.HTTPError:
         return None
+    race_candidates: list[tuple[int, str]] = []
     for href in re.findall(r'href="(Results/[^"]+\.CSV)"', html):
         decoded = href.replace("%20", " ")
         slash = decoded.rfind("/")
@@ -215,8 +215,11 @@ def find_weather_url(
         if not re.match(r"^26_Weather_", fname, re.IGNORECASE):
             continue
         if kind == "RACE":
-            if "_Race/" in href and "Hour" in href:
-                return f"{BASE}/{href}"
+            race_match = _RACE_HOUR_RE.search(href + "/")
+            if race_match is not None:
+                race_candidates.append(
+                    (int(race_match.group(4)), f"{BASE}/{href}")
+                )
             continue
         m = _SESSION_FOLDER_RE.search(href + "/")
         if m is None:
@@ -224,6 +227,8 @@ def find_weather_url(
         folder_kind = _name_to_kind(m.group(3).replace("%20", " "))
         if folder_kind == kind:
             return f"{BASE}/{href}"
+    if race_candidates:
+        return max(race_candidates, key=lambda item: item[0])[1]
     return None
 
 
@@ -574,6 +579,64 @@ def _parse_race_classification(text: str) -> list[dict[str, str]]:
     return out
 
 
+def _apply_race_classification(
+    row: models.SessionResult,
+    data: dict[str, str],
+    *,
+    pit_stops: int | None,
+    top_speed_kph: float | None,
+) -> bool:
+    """Apply the latest published race-hour snapshot to an existing row.
+
+    Al Kamel publishes a new classification throughout the race. Position and
+    gap therefore need the same overwrite semantics as laps and status; only
+    updating telemetry fields would leave the dashboard frozen at the first
+    classification seen by the collector.
+    """
+    changed = False
+    try:
+        position = int(data["position"])
+    except (KeyError, ValueError):
+        position = None
+    if position is not None and row.position != position:
+        row.position = position
+        changed = True
+
+    gap = data.get("gap") or None
+    if row.gap != gap:
+        row.gap = gap
+        changed = True
+
+    best_lap = data.get("best_lap")
+    if best_lap and row.best_lap != best_lap:
+        row.best_lap = best_lap
+        changed = True
+
+    status = data.get("status") or None
+    if row.status != status:
+        row.status = status
+        changed = True
+
+    laps = data.get("laps")
+    if laps:
+        try:
+            lap_count = int(laps)
+        except ValueError:
+            pass
+        else:
+            if row.laps != lap_count:
+                row.laps = lap_count
+                changed = True
+
+    if pit_stops is not None and row.pit_stops != pit_stops:
+        row.pit_stops = pit_stops
+        changed = True
+    if top_speed_kph is not None and row.top_speed_kph != top_speed_kph:
+        row.top_speed_kph = top_speed_kph
+        changed = True
+    return changed
+
+
 def _parse_pit_events(text: str) -> list[dict]:
     """One dict per pit visit: {'number', 'lap', 'duration_ms'}.
     Race lap 1 (rolling start) has no PIT_TIME so isn't picked up — each
@@ -719,7 +782,11 @@ def _lap_to_ms(lap: str) -> int | None:
 
 
 def enrich_qualifying_drivers(
-    db: Session, season_id: int, year: int
+    db: Session,
+    season_id: int,
+    year: int,
+    *,
+    event_id: int | None = None,
 ) -> int:
     """For every Q SessionResult in the given season, look up the Al
     Kamel timing folder. Creates the Q Session row and per-car
@@ -735,11 +802,12 @@ def enrich_qualifying_drivers(
         return 0
     by_round: dict[int, str] = {r: ev for r, ev in events}
 
-    db_events = (
-        db.query(models.Event)
-        .filter(models.Event.season_id == season_id)
-        .all()
+    event_query = db.query(models.Event).filter(
+        models.Event.season_id == season_id
     )
+    if event_id is not None:
+        event_query = event_query.filter(models.Event.id == event_id)
+    db_events = event_query.all()
     updated = 0
     for ev in db_events:
         evvent_param = by_round.get(ev.round)
@@ -903,7 +971,12 @@ def enrich_qualifying_drivers(
 
 
 def ingest_practice_results(
-    db: Session, season_id: int, year: int
+    db: Session,
+    season_id: int,
+    year: int,
+    *,
+    event_id: int | None = None,
+    session_types: set[str] | None = None,
 ) -> int:
     """Replace each Free Practice session's SessionResult rows with the
     full Al Kamel classification (vs. the class-fastest-only set we get
@@ -919,12 +992,14 @@ def ingest_practice_results(
     by_round: dict[int, str] = {r: ev for r, ev in events}
 
     inserted_total = 0
-    for ev in (
+    event_query = (
         db.query(models.Event)
         .options(joinedload(models.Event.circuit))
         .filter(models.Event.season_id == season_id)
-        .all()
-    ):
+    )
+    if event_id is not None:
+        event_query = event_query.filter(models.Event.id == event_id)
+    for ev in event_query.all():
         evvent_param = by_round.get(ev.round)
         if evvent_param is None:
             continue
@@ -960,7 +1035,9 @@ def ingest_practice_results(
 
         csvs = _list_session_csvs(season_param, evvent_param)
         for kind, _cls, classification_url, analysis_url, timestamp in csvs:
-            if kind not in ("FP1", "FP2", "FP3"):
+            if kind not in ("FP1", "FP2", "FP3") or (
+                session_types is not None and kind not in session_types
+            ):
                 continue
             session = sessions_by_kind.get(kind)
             if session is None:
@@ -1062,10 +1139,14 @@ def ingest_practice_seasons(
 
 
 def enrich_race_results(
-    db: Session, season_id: int, year: int
+    db: Session,
+    season_id: int,
+    year: int,
+    *,
+    event_id: int | None = None,
 ) -> int:
-    """Pull each race's final-hour Classification + Analysis CSVs from
-    Al Kamel and stamp the matching SessionResult rows with FL_TIME
+    """Pull each race's latest available race-hour Classification + Analysis
+    CSVs from Al Kamel and stamp matching SessionResult rows with FL_TIME
     (best_lap), pit_stops, and lap count if Wikipedia missed it.
     Returns the count of rows touched."""
     season_param = _season_param_for_year(year)
@@ -1077,11 +1158,12 @@ def enrich_race_results(
     by_round = {r: ev for r, ev in events}
 
     updated = 0
-    for ev in (
-        db.query(models.Event)
-        .filter(models.Event.season_id == season_id)
-        .all()
-    ):
+    event_query = db.query(models.Event).filter(
+        models.Event.season_id == season_id
+    )
+    if event_id is not None:
+        event_query = event_query.filter(models.Event.id == event_id)
+    for ev in event_query.all():
         evvent_param = by_round.get(ev.round)
         if evvent_param is None:
             continue
@@ -1129,6 +1211,7 @@ def enrich_race_results(
 
         pit_counts: dict[str, int] = {}
         pit_events: list[dict] = []
+        analysis_laps: list[dict[str, str]] = []
         top_speed_by_car: dict[str, float] = {}
         if analysis_url:
             try:
@@ -1145,7 +1228,8 @@ def enrich_race_results(
                 # TOP_SPEED reading. Same source as the V-max API
                 # response — but stored to DB so the request path
                 # doesn't have to refetch a 1-2 MB CSV.
-                for lap in _parse_lap_analysis(analysis_text):
+                analysis_laps = _parse_lap_analysis(analysis_text)
+                for lap in analysis_laps:
                     raw = lap.get("top_speed") or ""
                     try:
                         v = float(raw)
@@ -1217,30 +1301,12 @@ def enrich_race_results(
                 updated += 1
                 continue
 
-            changed = False
-            if r["best_lap"] and row.best_lap != r["best_lap"]:
-                row.best_lap = r["best_lap"]
-                changed = True
-            if r["status"] and row.status != r["status"]:
-                row.status = r["status"]
-                changed = True
-            if r["laps"]:
-                try:
-                    laps_int = int(r["laps"])
-                    if row.laps != laps_int:
-                        row.laps = laps_int
-                        changed = True
-                except ValueError:
-                    pass
-            stops = pit_counts.get(r["number"])
-            if stops is not None and row.pit_stops != stops:
-                row.pit_stops = stops
-                changed = True
-            ts = top_speed_by_car.get(r["number"])
-            if ts is not None and row.top_speed_kph != ts:
-                row.top_speed_kph = ts
-                changed = True
-            if changed:
+            if _apply_race_classification(
+                row,
+                r,
+                pit_stops=pit_counts.get(r["number"]),
+                top_speed_kph=top_speed_by_car.get(r["number"]),
+            ):
                 updated += 1
 
         # ---- Pre-compute the lap chart payload for /lap-chart so the
@@ -1252,7 +1318,7 @@ def enrich_race_results(
         from app.lap_chart import compute_lap_chart
 
         try:
-            chart = compute_lap_chart(db, race_session)
+            chart = compute_lap_chart(db, race_session, laps=analysis_laps)
         except Exception:  # noqa: BLE001 — one bad race shouldn't kill the whole season ingest
             chart = None
         if chart is not None:
@@ -1283,7 +1349,12 @@ def enrich_race_seasons(
 
 
 def enrich_session_weather(
-    db: Session, season_id: int, year: int
+    db: Session,
+    season_id: int,
+    year: int,
+    *,
+    event_id: int | None = None,
+    session_types: set[str] | None = None,
 ) -> int:
     """Walk every Session for the season, locate its 26_Weather CSV
     and stash the median air/track temps + humidity + wind + a rain
@@ -1298,11 +1369,12 @@ def enrich_session_weather(
     by_round = {r: ev for r, ev in events}
 
     updated = 0
-    for ev in (
-        db.query(models.Event)
-        .filter(models.Event.season_id == season_id)
-        .all()
-    ):
+    event_query = db.query(models.Event).filter(
+        models.Event.season_id == season_id
+    )
+    if event_id is not None:
+        event_query = event_query.filter(models.Event.id == event_id)
+    for ev in event_query.all():
         evvent_param = by_round.get(ev.round)
         if evvent_param is None:
             continue
@@ -1312,6 +1384,8 @@ def enrich_session_weather(
             .all()
         )
         for s in sessions:
+            if session_types is not None and s.type not in session_types:
+                continue
             try:
                 summary = fetch_session_weather(season_param, evvent_param, s.type)
             except httpx.HTTPError:

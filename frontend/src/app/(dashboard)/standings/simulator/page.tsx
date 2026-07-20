@@ -15,6 +15,7 @@ import {
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
 import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
+import { seasonDataRevalidateSeconds } from "@/lib/cache-policy";
 
 export const generateMetadata = () =>
   dashboardPageMetadata("standingsSimulator", "/standings/simulator");
@@ -29,8 +30,9 @@ export default async function SimulatorPage({
   await connection();
   const todayIso = new Date().toISOString().slice(0, 10);
   const year = await getSelectedSeason();
+  const eventsRaw = await getEvents(year);
+  const revalidate = seasonDataRevalidateSeconds(eventsRaw);
   const [
-    eventsRaw,
     drivers,
     teams,
     hyperDrivers,
@@ -38,13 +40,12 @@ export default async function SimulatorPage({
     hyperManufacturers,
     lmgt3Teams,
   ] = await Promise.all([
-    getEvents(year),
     getDrivers(year),
     getTeams(year),
-    getDriverStandings("HYPERCAR", year),
-    getDriverStandings("LMGT3", year),
-    getManufacturerStandings("HYPERCAR", year),
-    getTeamStandings("LMGT3", year),
+    getDriverStandings("HYPERCAR", year, { revalidate }),
+    getDriverStandings("LMGT3", year, { revalidate }),
+    getManufacturerStandings("HYPERCAR", year, { revalidate }),
+    getTeamStandings("LMGT3", year, { revalidate }),
   ]);
   const seasonYear = year ?? (eventsRaw[0]?.dateStart
     ? new Date(eventsRaw[0].dateStart).getUTCFullYear()

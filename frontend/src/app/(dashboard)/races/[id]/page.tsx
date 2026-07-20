@@ -21,7 +21,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Flag } from "@/components/flag";
 import { ClassBadge } from "@/components/class-badge";
@@ -37,6 +36,7 @@ import {
   getEvent,
   getEvents,
   getSessionResults,
+  isApiNotFound,
   RACE_CLASSES,
   sanitizeSessionSchedule,
   type EventStatus,
@@ -48,7 +48,10 @@ import {
   buildSiteUrl,
   eventSchema,
 } from "@/lib/json-ld";
+import { eventDataRevalidateSeconds } from "@/lib/cache-policy";
 import { pageMetadataUrls } from "@/lib/page-metadata";
+import { RaceSessionTabs } from "./race-session-tabs";
+import { loadSelectedRaceSession } from "./race-session";
 
 type Params = { id: string };
 
@@ -130,7 +133,8 @@ export async function generateMetadata({
         description: desc,
       },
     };
-  } catch {
+  } catch (error) {
+    if (!isApiNotFound(error)) throw error;
     return {
       title: "Race",
       alternates: { canonical: urls.canonical, languages: urls.languages },
@@ -148,16 +152,15 @@ export default async function RaceDetailPage({
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const requestedSession =
-    typeof sp.session === "string" ? sp.session.toUpperCase() : null;
   const numId = Number(id);
   if (!Number.isFinite(numId)) notFound();
 
   let event;
   try {
     event = await getEvent(numId);
-  } catch {
-    notFound();
+  } catch (error) {
+    if (isApiNotFound(error)) notFound();
+    throw error;
   }
   const rawLocale = await getLocale();
   const localeForName = isLocale(rawLocale) ? rawLocale : "en";
@@ -186,21 +189,19 @@ export default async function RaceDetailPage({
     nearbyRounds = [];
   }
 
-  // Pre-fetch results for every session in parallel so each tab is instant.
-  const resultsBySession = await Promise.all(
-    sessions.map(async (s) => ({
-      sessionId: s.id,
-      results: await getSessionResults(s.id).catch(
-        () => [] as SessionResult[],
-      ),
-    })),
+  // Resolve one session before loading results. Session tabs update the URL,
+  // so a navigation fetches only that session instead of fanning out across
+  // the entire race weekend during SSR or crawler renders.
+  const sessionRevalidate = eventDataRevalidateSeconds(event);
+  const selected = await loadSelectedRaceSession(
+    sessions,
+    sp.session,
+    (sessionId) =>
+      getSessionResults(sessionId, { revalidate: sessionRevalidate }),
   );
-  const resultMap = new Map(
-    resultsBySession.map((r) => [r.sessionId, r.results]),
-  );
-  const sessionsWithResults = sessions.filter(
-    (s) => (resultMap.get(s.id)?.length ?? 0) > 0,
-  );
+  const selectedSession = selected?.session ?? null;
+  const selectedResults: SessionResult[] = selected?.results ?? [];
+  const selectedLoadFailed = selected?.loadFailed ?? false;
   const t = await getTranslations("raceDetail");
   const tStatus = await getTranslations("eventStatus");
   const schemaContext = {
@@ -282,79 +283,47 @@ export default async function RaceDetailPage({
         </div>
       </Card>
 
-      {sessionsWithResults.length > 0 ? (
-        <Tabs
-          defaultValue={
-            // Honor ?session=FP1 etc. from /live deep links, else
-            // default to the most recent session with data.
-            (requestedSession &&
-              sessionsWithResults.some((s) => s.type === requestedSession) &&
-              requestedSession) ||
-            sessionsWithResults[sessionsWithResults.length - 1].type
-          }
+      {selectedSession ? (
+        <RaceSessionTabs
+          sessions={sessions.map((session) => ({
+            id: session.id,
+            type: session.type,
+            shortLabel: SESSION_LABELS_SHORT[session.type] ?? session.type,
+            label: SESSION_LABEL_KEYS[session.type]
+              ? t(SESSION_LABEL_KEYS[session.type]!)
+              : session.type,
+          }))}
+          selectedType={selectedSession.type}
+          ariaLabel={t("results")}
         >
-          {/* overflow-y-hidden suppresses the vertical scrollbar
-              Windows Chrome auto-renders next to the active tab when
-              text rendering is a hair taller than the 32-px TabsList
-              height. macOS/Linux don't trip it; Windows does. */}
-          <TabsList className="flex w-full max-w-full overflow-x-auto overflow-y-hidden sm:w-fit">
-            {sessionsWithResults.map((s) => (
-              <TabsTrigger key={s.id} value={s.type}>
-                <span className="sm:hidden">
-                  {SESSION_LABELS_SHORT[s.type] ?? s.type}
-                </span>
-                <span className="hidden sm:inline">
-                  {SESSION_LABEL_KEYS[s.type] ? t(SESSION_LABEL_KEYS[s.type]!) : s.type}
-                </span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          {sessionsWithResults.map((s) => {
-            const rows = resultMap.get(s.id) ?? [];
-            const isPractice =
-              s.type === "FP1" || s.type === "FP2" || s.type === "FP3";
-            return (
-              <TabsContent
-                key={s.id}
-                value={s.type}
-                className="mt-4 space-y-4"
-              >
-                <div className="flex justify-end">
-                  <SessionWeatherBadge sessionId={s.id} />
-                </div>
-                {s.type === "Q" ? (
-                  <>
-                    <SessionWinnersCard type={s.type} rows={rows} />
-                    <QualifyingResultsTable rows={rows} />
-                  </>
-                ) : s.type === "RACE" ? (
-                  <>
-                    <SessionWinnersCard type={s.type} rows={rows} />
-                    <ResultsCard
-                      label={SESSION_LABEL_KEYS[s.type] ? t(SESSION_LABEL_KEYS[s.type]!) : s.type}
-                      type={s.type}
-                      rows={rows}
-                    />
-                    <RaceLapChartLazy sessionId={s.id} />
-                    <PitStopsCard sessionId={s.id} />
-                  </>
-                ) : isPractice && rows.length <= 3 ? (
-                  <PracticeFastestCard
-                    label={SESSION_LABEL_KEYS[s.type] ? t(SESSION_LABEL_KEYS[s.type]!) : s.type}
-                    rows={rows}
-                  />
-                ) : (
-                  <ResultsCard
-                    label={SESSION_LABEL_KEYS[s.type] ? t(SESSION_LABEL_KEYS[s.type]!) : s.type}
-                    type={s.type}
-                    rows={rows}
-                  />
-                )}
-              </TabsContent>
-            );
-          })}
-        </Tabs>
+          {selectedLoadFailed ? (
+            <Card role="alert">
+              <CardHeader>
+                <CardTitle>{t("resultsUnavailable")}</CardTitle>
+                <CardDescription>
+                  {t("resultsUnavailableDescription")}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          ) : selectedResults.length > 0 ? (
+            <SelectedSessionResults
+              session={selectedSession}
+              rows={selectedResults}
+              revalidate={sessionRevalidate}
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>{t("resultsNotYet")}</CardTitle>
+                <CardDescription>
+                  {status === "upcoming"
+                    ? t("resultsUpcoming")
+                    : t("resultsNoData")}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+        </RaceSessionTabs>
       ) : (
         <Card>
           <CardHeader>
@@ -404,6 +373,56 @@ function StatusBadge({ status, label }: { status: EventStatus; label: string }) 
   const variant: "destructive" | "outline" | "default" =
     status === "live" ? "destructive" : status === "completed" ? "outline" : "default";
   return <Badge variant={variant}>{label}</Badge>;
+}
+
+function SelectedSessionResults({
+  session,
+  rows,
+  revalidate,
+}: {
+  session: { id: number; type: string };
+  rows: SessionResult[];
+  revalidate: number;
+}) {
+  const t = useTranslations("raceDetail");
+  const label = SESSION_LABEL_KEYS[session.type]
+    ? t(SESSION_LABEL_KEYS[session.type]!)
+    : session.type;
+  const isPractice =
+    session.type === "FP1" ||
+    session.type === "FP2" ||
+    session.type === "FP3";
+
+  return (
+    <>
+      <div className="flex justify-end">
+        <SessionWeatherBadge
+          sessionId={session.id}
+          revalidate={revalidate}
+        />
+      </div>
+      {session.type === "Q" ? (
+        <>
+          <SessionWinnersCard type={session.type} rows={rows} />
+          <QualifyingResultsTable rows={rows} />
+        </>
+      ) : session.type === "RACE" ? (
+        <>
+          <SessionWinnersCard type={session.type} rows={rows} />
+          <ResultsCard label={label} type={session.type} rows={rows} />
+          <RaceLapChartLazy
+            sessionId={session.id}
+            revalidate={revalidate}
+          />
+          <PitStopsCard sessionId={session.id} revalidate={revalidate} />
+        </>
+      ) : isPractice && rows.length <= 3 ? (
+        <PracticeFastestCard label={label} rows={rows} />
+      ) : (
+        <ResultsCard label={label} type={session.type} rows={rows} />
+      )}
+    </>
+  );
 }
 
 function SessionWinnersCard({

@@ -14,28 +14,26 @@ import { PublicLink } from "@/components/public-link";
 import {
   getCarModels,
   getDrivers,
+  getEvents,
   getManufacturerStandings,
   getTeams,
-  type CarModelSummary,
-  type DriverEntry,
-  type StandingManufacturer,
-  type TeamEntry,
 } from "@/lib/api";
 import { buildGenesisTracker } from "@/lib/championship-content";
 import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
 import { localDriverImage } from "@/lib/driver-image";
 import { getSelectedSeason } from "@/lib/season";
+import { seasonDataRevalidateSeconds } from "@/lib/cache-policy";
 
 export async function generateMetadata() {
   const [metadata, year] = await Promise.all([
     dashboardPageMetadata("genesis", "/genesis-wec"),
     getSelectedSeason(),
   ]);
+  const events = await getEvents(year);
+  const revalidate = seasonDataRevalidateSeconds(events);
   const [drivers, standings] = await Promise.all([
-    getDrivers(year).catch(() => [] as DriverEntry[]),
-    getManufacturerStandings("HYPERCAR", year).catch(
-      () => [] as StandingManufacturer[],
-    ),
+    getDrivers(year),
+    getManufacturerStandings("HYPERCAR", year, { revalidate }),
   ]);
   const hasPublishedEntry = buildGenesisTracker(drivers, standings) !== null;
   return !hasPublishedEntry
@@ -49,13 +47,13 @@ const isGenesis = (value: string | null | undefined) =>
 export default async function GenesisWecPage() {
   const year = await getSelectedSeason();
   const seasonYear = year ?? new Date().getUTCFullYear();
+  const events = await getEvents(year);
+  const revalidate = seasonDataRevalidateSeconds(events);
   const [drivers, teams, cars, manufacturerStandings] = await Promise.all([
-    getDrivers(year).catch(() => [] as DriverEntry[]),
-    getTeams(year).catch(() => [] as TeamEntry[]),
-    getCarModels(year).catch(() => [] as CarModelSummary[]),
-    getManufacturerStandings("HYPERCAR", year).catch(
-      () => [] as StandingManufacturer[],
-    ),
+    getDrivers(year),
+    getTeams(year),
+    getCarModels(year),
+    getManufacturerStandings("HYPERCAR", year, { revalidate }),
   ]);
   const tracker = buildGenesisTracker(drivers, manufacturerStandings);
   const genesisTeams = teams.filter(

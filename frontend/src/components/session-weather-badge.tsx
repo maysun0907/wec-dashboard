@@ -23,12 +23,14 @@ function conditionEmoji(
  *  Kamel weather CSV hasn't been published yet. */
 export async function SessionWeatherBadge({
   sessionId,
+  revalidate,
 }: {
   sessionId: number;
+  revalidate?: number;
 }) {
   let w;
   try {
-    w = await getSessionWeather(sessionId);
+    w = await getSessionWeather(sessionId, { revalidate });
   } catch {
     return null;
   }

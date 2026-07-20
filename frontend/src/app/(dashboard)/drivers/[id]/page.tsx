@@ -30,6 +30,7 @@ import { PublicLink } from "@/components/public-link";
 import {
   describeRounds,
   getDriver,
+  isApiNotFound,
   raceClassLabel,
   type DriverDetail,
   type DriverResult,
@@ -55,8 +56,9 @@ async function fetchDriver(
   if (!Number.isFinite(numId)) return null;
   try {
     return await getDriver(numId, year);
-  } catch {
-    return null;
+  } catch (error) {
+    if (isApiNotFound(error)) return null;
+    throw error;
   }
 }
 

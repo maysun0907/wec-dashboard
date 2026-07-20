@@ -19,11 +19,14 @@ import {
   getDriver,
   getDriverStandings,
   getDrivers,
+  getEvents,
+  isApiNotFound,
   type DriverDetail,
   type RaceClass,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
 import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
+import { seasonDataRevalidateSeconds } from "@/lib/cache-policy";
 
 export const generateMetadata = () =>
   dashboardPageMetadata("driverCompare", "/drivers/compare");
@@ -52,6 +55,19 @@ function parseClass(raw: string | string[] | undefined): RaceClass {
   return (VALID_CLASSES as string[]).includes(v) ? (v as RaceClass) : "HYPERCAR";
 }
 
+async function loadDriver(
+  id: number,
+  year: number | null,
+  revalidate: number,
+): Promise<DriverDetail | null> {
+  try {
+    return await getDriver(id, year, { revalidate });
+  } catch (error) {
+    if (isApiNotFound(error)) return null;
+    throw error;
+  }
+}
+
 export default async function ComparePage({
   searchParams,
 }: {
@@ -65,22 +81,20 @@ export default async function ComparePage({
   let ids = parseIds(sp.ids);
   const year = await getSelectedSeason();
   const seasonYear = year ?? new Date().getUTCFullYear();
+  const events = await getEvents(year);
+  const revalidate = seasonDataRevalidateSeconds(events);
 
   // Default: top 3 in the chosen class so the page is useful on first load.
   if (ids.length === 0) {
-    try {
-      const standings = await getDriverStandings(raceClass, year);
-      ids = standings.slice(0, 3).map((s) => s.driverId);
-    } catch {
-      ids = [];
-    }
+    const standings = await getDriverStandings(raceClass, year, {
+      revalidate,
+    });
+    ids = standings.slice(0, 3).map((s) => s.driverId);
   }
 
   const [allDrivers, ...selectedRaw] = await Promise.all([
     getDrivers(year),
-    ...ids.map((id) =>
-      getDriver(id, year).catch(() => null as DriverDetail | null),
-    ),
+    ...ids.map((id) => loadDriver(id, year, revalidate)),
   ]);
   const selected = selectedRaw.filter(
     (d): d is DriverDetail => d !== null,

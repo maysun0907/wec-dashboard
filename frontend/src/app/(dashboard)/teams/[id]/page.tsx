@@ -31,6 +31,7 @@ import {
   describeRounds,
   getTeam,
   getTeams,
+  isApiNotFound,
   raceClassLabel,
   type RaceClass,
   type TeamDetail,
@@ -56,8 +57,9 @@ async function fetchTeam(
   if (!Number.isFinite(numId)) return null;
   try {
     return await getTeam(numId, year);
-  } catch {
-    return null;
+  } catch (error) {
+    if (isApiNotFound(error)) return null;
+    throw error;
   }
 }
 

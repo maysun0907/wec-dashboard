@@ -15,13 +15,14 @@ import {
   type Series as ProgressionSeries,
 } from "@/components/progression-chart";
 import {
+  getEvents,
   getManufacturerProgression,
   getManufacturerStandings,
-  type ManufacturerProgression,
   type StandingManufacturer,
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
 import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
+import { seasonDataRevalidateSeconds } from "@/lib/cache-policy";
 
 export const generateMetadata = () =>
   dashboardPageMetadata("manufacturerCompare", "/manufacturers/compare");
@@ -45,15 +46,13 @@ export default async function ManufacturerComparePage({
   let ids = parseIds(sp.ids);
   const year = await getSelectedSeason();
   const seasonYear = year ?? new Date().getUTCFullYear();
+  const events = await getEvents(year);
+  const revalidate = seasonDataRevalidateSeconds(events);
 
   // Manufacturer championship is Hypercar-only — no need for a class toggle.
   const [standings, progression] = await Promise.all([
-    getManufacturerStandings("HYPERCAR", year).catch(
-      () => [] as StandingManufacturer[],
-    ),
-    getManufacturerProgression("HYPERCAR", 20, year).catch(
-      () => [] as ManufacturerProgression[],
-    ),
+    getManufacturerStandings("HYPERCAR", year, { revalidate }),
+    getManufacturerProgression("HYPERCAR", 20, year, { revalidate }),
   ]);
 
   // Default to the championship's top 3 so the page is useful on first load.

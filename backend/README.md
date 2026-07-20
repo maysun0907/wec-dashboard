@@ -13,12 +13,24 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-`.env` only needs two variables:
+`.env` requires the database URL. The remaining settings have production-safe
+defaults and can be overridden when the Railway connection budget changes:
 
 | Var | Default | Notes |
 | --- | --- | --- |
 | `DATABASE_URL` | *(required)* | `postgresql+psycopg://user:pw@host:5432/db`. Use the `+psycopg` driver suffix. |
 | `ENVIRONMENT` | `development` | Set to `dev` to get colored console logs; anything else emits one JSON line per event. |
+| `DB_POOL_SIZE` | `10` | Persistent PostgreSQL connections per API worker. |
+| `DB_MAX_OVERFLOW` | `5` | Temporary connections allowed above the base pool. |
+| `DB_POOL_TIMEOUT_SECONDS` | `5` | Maximum connection-checkout wait before a structured `503`. |
+| `API_MAX_CONCURRENCY` | `12` | In-flight `/api/v1/*` requests admitted per worker. Must stay below total pool capacity. |
+| `API_ADMISSION_TIMEOUT_SECONDS` | `1.5` | Async gate wait before a fast overload `503`. |
+| `API_RETRY_AFTER_SECONDS` | `2` | `Retry-After` value on overload responses. |
+
+The admission gate applies only to `/api/v1/*`. `/health` and `/health/db`
+bypass it so Railway can distinguish an overloaded API from a dead process.
+The gate keeps three connections in reserve with the defaults above, and its
+waiters stay on the event loop instead of occupying synchronous worker threads.
 
 The API serves at `http://localhost:8000`. Browse `/docs` for the
 auto-generated OpenAPI UI.
@@ -61,7 +73,7 @@ gets data-migration order wrong. The existing migrations in
 ## Ingest
 
 The Railway "cron" service calls one entry point — `python -m
-app.ingest.wikipedia 2026` — that fans out into the full pipeline:
+app.ingest.wikipedia` — that fans out into the full pipeline:
 
 1. **Wikipedia** — entries, calendar, race-results summary (winners),
    per-round classification subarticles when published.
@@ -81,6 +93,32 @@ app.ingest.wikipedia 2026` — that fans out into the full pipeline:
 
 Each step is idempotent and best-effort — if the Al Kamel CSV hasn't
 been published yet, the rest of the pipeline still commits.
+
+### Adaptive race-week cadence
+
+The Railway service remains scheduled once per hour. Both the API and cron
+services share `railway.toml`, so a cron expression must not be added to that
+file: it would also turn the always-on API service into a cron job. The
+no-argument cron entry point adapts inside each invocation instead:
+
+| Window | Collection policy |
+| --- | --- |
+| Outside race week | Full Wikipedia/FIA/Al Kamel ingest every 6 hours. Other hourly launches exit after a cheap DB schedule check. |
+| Race week, between sessions | Full ingest every hour so entries, schedules, and championship standings stay current. |
+| 20 minutes before FP/Q through 3 hours after start | Poll only that event/session's Al Kamel results and weather every 5 minutes. |
+| 20 minutes before a race through race duration + 3 hours | Poll the latest race-hour classification every 5 minutes. Files are revalidated even at the same URL because Al Kamel can update them in place. |
+
+The hot loop lasts at most 54 minutes, so it exits before Railway's next
+top-of-hour invocation; a PostgreSQL advisory lock also rejects accidental
+overlap. Championship standings are intentionally not part of the five-minute
+poll: the official table changes after a completed round, and the race-week
+hourly full ingest already captures it without repeatedly scraping the heavier
+FIA standings page. Set `ADAPTIVE_INGEST=false` for a one-shot Railway run, or
+pass an explicit year/URL for local backfills.
+
+Session rows are upserted by `(event_id, type)` and retain their IDs across
+full ingests. Only their rebuilt results are replaced, preventing cached race
+pages from calling session URLs that disappeared during the latest cron run.
 
 Manual one-shot for a backfill:
 

@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { getTeam, raceClassLabel, type RaceClass } from "@/lib/api";
 import { OgCard, OG_SIZE, OG_CONTENT_TYPE } from "@/lib/og-card";
+import { loadOgResource } from "@/lib/og-data";
 import { loadOgFonts } from "@/lib/og-fonts";
 
 export const alt = "WEC Dashboard - Team";
@@ -24,13 +25,10 @@ export default async function Image({ params }: { params: Promise<Params> }) {
   // the newest season the team appears in). Crawlers never carry the
   // season cookie, so reading it only forced this route dynamic and
   // defeated CDN caching of the generated card.
-  let team: Awaited<ReturnType<typeof getTeam>> | null = null;
   const year: number | null = null;
-  try {
-    team = await getTeam(Number(id), null);
-  } catch {
-    team = null;
-  }
+  const team = await loadOgResource(() =>
+    getTeam(Number(id), null, { revalidate }),
+  );
   if (team === null) {
     return new ImageResponse(
       <OgCard title="Team not found" tagline="WEC Dashboard" />,

@@ -30,7 +30,7 @@ export default async function CircuitsPage() {
   const year = await getSelectedSeason();
   const [circuitsRaw, eventsRaw] = await Promise.all([
     getCircuits(year),
-    getEvents(year).catch(() => []),
+    getEvents(year),
   ]);
   const rawLocale = await getLocale();
   const locale = isLocale(rawLocale) ? rawLocale : "en";

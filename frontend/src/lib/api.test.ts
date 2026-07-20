@@ -1,10 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  ApiError,
   describeRounds,
   eventStatus,
+  getAllTimeStats,
+  getCarModel,
+  getCircuit,
+  getDriver,
+  getDriverStandings,
+  getEvent,
+  getEvents,
+  getLapChart,
   getLastCompletedEvent,
+  getManufacturer,
   getNextEvent,
+  getPitStops,
+  getSessionResults,
+  getSessionWeather,
+  getSitemapSnapshot,
+  getTeam,
   getUpcomingEvents,
+  isApiNotFound,
   isPlausibleSessionTime,
   RACE_CLASSES,
   raceClassLabel,
@@ -12,6 +28,11 @@ import {
   type Event,
   type Session,
 } from "./api";
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+});
 
 describe("race class catalogue", () => {
   it("keeps LMP2 selectable between prototype and GT classes", () => {
@@ -145,5 +166,210 @@ describe("getNextEvent / getUpcomingEvents / getLastCompletedEvent", () => {
     expect(getLastCompletedEvent([], today)).toBeUndefined();
     const futureOnly = events.filter((e) => e.dateEnd >= "2026-05-01");
     expect(getLastCompletedEvent(futureOnly, today)).toBeUndefined();
+  });
+});
+
+describe("API cache overrides", () => {
+  type NextFetchInit = RequestInit & {
+    next?: { revalidate?: number };
+  };
+
+  const stubFetch = () => {
+    const fetchMock = vi.fn(
+      async (input: string | URL | Request, init?: NextFetchInit) => {
+        void input;
+        void init;
+        return new Response("[]", { status: 200 });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  };
+
+  it("preserves the existing session and standings cache defaults", async () => {
+    const fetchMock = stubFetch();
+
+    await getSessionResults(1);
+    await getLapChart(1);
+    await getPitStops(1);
+    await getSessionWeather(1);
+    await getDriverStandings("HYPERCAR", 2026);
+
+    expect(
+      fetchMock.mock.calls.map(([, init]) => init?.next?.revalidate),
+    ).toEqual([60, 300, 300, 600, 300]);
+  });
+
+  it("passes explicit cache windows through both endpoint families", async () => {
+    const fetchMock = stubFetch();
+
+    await getSessionResults(1, { revalidate: 86_400 });
+    await getDriverStandings("HYPERCAR", 2026, { revalidate: 3_600 });
+
+    expect(
+      fetchMock.mock.calls.map(([, init]) => init?.next?.revalidate),
+    ).toEqual([86_400, 3_600]);
+  });
+
+  it("keeps every dynamic OG resource on the route's daily cache window", async () => {
+    const fetchMock = stubFetch();
+    const daily = { revalidate: 86_400 };
+
+    await getEvent(1, daily);
+    await getCircuit(2, daily);
+    await getDriver(3, null, daily);
+    await getTeam(4, null, daily);
+    await getManufacturer(5, null, daily);
+    await getCarModel("test-car", null, daily);
+    await getSessionResults(6, daily);
+
+    expect(fetchMock).toHaveBeenCalledTimes(7);
+    expect(
+      fetchMock.mock.calls.map(([, init]) => init?.next?.revalidate),
+    ).toEqual(Array(7).fill(86_400));
+  });
+
+  it("preserves backend status codes so only real 404s become not-found", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response("busy", {
+          status: 503,
+          statusText: "Service Unavailable",
+        }),
+      ),
+    );
+
+    let error: unknown;
+    try {
+      await getEvents(2026);
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({ status: 503, path: "/api/v1/events?year=2026" });
+    expect(isApiNotFound(error)).toBe(false);
+    expect(isApiNotFound(new ApiError("/missing", 404, "Not Found"))).toBe(
+      true,
+    );
+  });
+
+  it("drops every result-derived detail cache to 60 seconds during race week", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-10T12:00:00Z"));
+    const fetchMock = vi.fn(
+      async (input: string | URL | Request, _init?: NextFetchInit) => {
+        void _init;
+        const body = /\/api\/v1\/events(?:\?year=\d+)?$/.test(String(input))
+          ? [ev(1, "2026-07-12", "2026-07-12")]
+          : {};
+        return new Response(JSON.stringify(body), { status: 200 });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getDriver(7, 2026);
+    await getEvent(1);
+    await getCircuit(9);
+    await getAllTimeStats();
+
+    expect(
+      fetchMock.mock.calls.map(([, init]) => init?.next?.revalidate),
+    ).toEqual([
+      3_600,
+      60,
+      3_600,
+      60,
+      3_600,
+      60,
+      3_600,
+      60,
+    ]);
+  });
+
+  it("keeps event IDs outside the current season on the archive cache", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-10T12:00:00Z"));
+    const fetchMock = vi.fn(
+      async (input: string | URL | Request, _init?: NextFetchInit) => {
+        void _init;
+        const body = String(input).endsWith("/api/v1/events")
+          ? [ev(1, "2026-07-12", "2026-07-12")]
+          : {};
+        return new Response(JSON.stringify(body), { status: 200 });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getEvent(999);
+
+    expect(
+      fetchMock.mock.calls.map(([, init]) => init?.next?.revalidate),
+    ).toEqual([3_600, 86_400]);
+  });
+});
+
+describe("sitemap API snapshot", () => {
+  it("uses a one-hour cache for both sitemap and stable event schedules", async () => {
+    type NextFetchInit = RequestInit & {
+      next?: { revalidate?: number };
+    };
+    const fetchMock = vi.fn(
+      async (input: string | URL | Request, _init?: NextFetchInit) => {
+        void _init;
+        const url = String(input);
+        const body = url.endsWith("/api/v1/seasons")
+          ? [{ id: 1, year: 2026, championshipName: "WEC" }]
+          : [];
+        return new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getSitemapSnapshot();
+    const sitemapCalls = fetchMock.mock.calls;
+    expect(sitemapCalls).toHaveLength(7);
+    expect(
+      sitemapCalls.every(([, init]) => init?.next?.revalidate === 3600),
+    ).toBe(true);
+
+    fetchMock.mockClear();
+    await getEvents(2026);
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0]?.[1]?.next?.revalidate).toBe(3600);
+  });
+
+  it("caps a cold multi-season snapshot at four concurrent requests", async () => {
+    let active = 0;
+    let maxActive = 0;
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith("/api/v1/seasons")) {
+        return new Response(
+          JSON.stringify(
+            [2026, 2025, 2024, 2023].map((year, index) => ({
+              id: index + 1,
+              year,
+              championshipName: "WEC",
+            })),
+          ),
+          { status: 200 },
+        );
+      }
+
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active -= 1;
+      return new Response("[]", { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await getSitemapSnapshot();
+    expect(maxActive).toBeLessThanOrEqual(4);
   });
 });

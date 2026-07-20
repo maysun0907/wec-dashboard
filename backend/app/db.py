@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
@@ -28,7 +29,22 @@ def _normalize_db_url(url: str) -> str:
     return url
 
 
-engine = create_engine(_normalize_db_url(settings.database_url), pool_pre_ping=True)
+def _engine_options(url: str) -> dict[str, object]:
+    options: dict[str, object] = {"pool_pre_ping": True}
+    # In-memory SQLite uses SingletonThreadPool, which rejects QueuePool-only
+    # arguments. Production PostgreSQL uses QueuePool, so keep its connection
+    # budget explicit and environment-configurable.
+    if make_url(url).get_backend_name() == "postgresql":
+        options.update(
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
+            pool_timeout=settings.db_pool_timeout_seconds,
+        )
+    return options
+
+
+database_url = _normalize_db_url(settings.database_url)
+engine = create_engine(database_url, **_engine_options(database_url))
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 

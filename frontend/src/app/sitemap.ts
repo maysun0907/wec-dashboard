@@ -1,14 +1,6 @@
 import type { MetadataRoute } from "next";
 import { LOCALES, type Locale } from "@/i18n/config";
-import {
-  getCarModels,
-  getCircuits,
-  getDrivers,
-  getEvents,
-  getManufacturerStandings,
-  getSeasons,
-  getTeams,
-} from "@/lib/api";
+import { getSitemapSnapshot } from "@/lib/api";
 import {
   LOCALE_ONLY_PATHS,
   SEASON_SCOPED_PATHS,
@@ -57,8 +49,24 @@ const FREQUENCY: Record<string, Frequency> = {
   "/seasons/compare": "monthly",
 };
 
-function lastModifiedForSeason(year: number, latestYear: number, now: Date) {
-  return year === latestYear ? now : new Date(`${year}-12-31T00:00:00.000Z`);
+function lastModifiedForSeason(
+  year: number,
+  latestYear: number,
+): Date | undefined {
+  return year === latestYear
+    ? undefined
+    : new Date(`${year}-12-31T00:00:00.000Z`);
+}
+
+function lastModifiedForEvent(
+  event: { dateStart?: string | null; dateEnd?: string | null },
+): Date | undefined {
+  for (const value of [event.dateEnd, event.dateStart]) {
+    if (!value) continue;
+    const timestamp = Date.parse(value);
+    if (Number.isFinite(timestamp)) return new Date(timestamp);
+  }
+  return undefined;
 }
 
 function publicPath(
@@ -82,7 +90,7 @@ function localizedEntries({
   base: string;
   internalPath: string;
   year: number;
-  lastModified: Date;
+  lastModified?: Date;
   changeFrequency: Frequency;
   priority: number;
 }): SitemapEntry[] {
@@ -97,7 +105,7 @@ function localizedEntries({
 
   return LOCALES.map((locale) => ({
     url: `${base}${paths[locale]}`,
-    lastModified,
+    ...(lastModified ? { lastModified } : {}),
     changeFrequency,
     priority,
     alternates: { languages },
@@ -106,11 +114,12 @@ function localizedEntries({
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = siteUrl().replace(/\/+$/, "");
-  const now = new Date();
   // Sitemap regeneration is atomic: if a critical API call fails, throw so
   // ISR keeps serving the last successful complete sitemap instead of
   // publishing a truncated document with valid 200 status.
-  const seasons = await getSeasons();
+  const snapshot = await getSitemapSnapshot();
+  const { seasons, yearResources, drivers, teams, circuits, manufacturers } =
+    snapshot;
   const years = [...new Set(seasons.map((season) => season.year))].sort(
     (a, b) => b - a,
   );
@@ -130,7 +139,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           base,
           internalPath,
           year,
-          lastModified: lastModifiedForSeason(year, latestYear, now),
+          lastModified: lastModifiedForSeason(year, latestYear),
           changeFrequency: FREQUENCY[internalPath] ?? "weekly",
           priority: PRIORITY[internalPath] ?? 0.5,
         }),
@@ -144,7 +153,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         base,
         internalPath,
         year: latestYear,
-        lastModified: now,
         changeFrequency: FREQUENCY[internalPath] ?? "weekly",
         priority: PRIORITY[internalPath] ?? 0.5,
       }),
@@ -154,17 +162,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Events are stable, locale-only detail URLs: the event itself already
   // identifies its season. Walking every season keeps long-tail race history
   // discoverable without multiplying the same event by a year segment.
-  const eventsByYear = await Promise.all(
-    years.map((year) => getEvents(year)),
-  );
-  for (const events of eventsByYear) {
+  for (const { events } of yearResources) {
     for (const event of events) {
       entries.push(
         ...localizedEntries({
           base,
           internalPath: `/races/${event.id}`,
           year: latestYear,
-          lastModified: new Date(event.dateEnd ?? event.dateStart ?? now),
+          lastModified: lastModifiedForEvent(event),
           changeFrequency: "weekly",
           priority: 0.7,
         }),
@@ -174,15 +179,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // Detail pages contain career/history data, so each current entity needs one
   // URL per language rather than one copy for every season.
-  const [drivers, teams, circuits, manufacturers, carModelsByYear] =
-    await Promise.all([
-      getDrivers(latestYear),
-      getTeams(latestYear),
-      getCircuits(latestYear),
-      getManufacturerStandings("HYPERCAR", latestYear),
-      Promise.all(years.map((year) => getCarModels(year))),
-    ]);
-
   const details: Array<{
     path: string;
     frequency: Frequency;
@@ -216,22 +212,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         base,
         internalPath: detail.path,
         year: latestYear,
-        lastModified: now,
         changeFrequency: detail.frequency,
         priority: detail.priority,
       }),
     );
   }
 
-  for (const [index, carModels] of carModelsByYear.entries()) {
-    const year = years[index]!;
+  for (const { year, carModels } of yearResources) {
     for (const car of carModels) {
       entries.push(
         ...localizedEntries({
           base,
           internalPath: `/cars/${car.slug}`,
           year,
-          lastModified: lastModifiedForSeason(year, latestYear, now),
+          lastModified: lastModifiedForSeason(year, latestYear),
           changeFrequency: "monthly",
           priority: 0.5,
         }),

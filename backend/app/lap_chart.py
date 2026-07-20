@@ -11,22 +11,29 @@ from app.ingest import alkamel
 
 
 def compute_lap_chart(
-    db: DbSession, session: models.Session
+    db: DbSession,
+    session: models.Session,
+    *,
+    laps: list[dict[str, str]] | None = None,
 ) -> schemas.LapChart | None:
-    """Build the LapChart payload for a race session, or None when no
-    upstream timing data is available yet. Caller must verify that
-    session.type == 'RACE' before calling."""
+    """Build the LapChart payload for a race session.
+
+    The ingester passes already-downloaded lap rows so a hot refresh does not
+    fetch the same multi-megabyte analysis CSV twice. API fallback callers may
+    omit them and resolve the upstream file here. Caller must verify that the
+    session type is ``RACE``.
+    """
     event = db.get(models.Event, session.event_id)
     if event is None:
         return None
     season = db.get(models.Season, event.season_id)
     if season is None:
         return None
-    params = alkamel.resolve_event_params(season.year, event.round)
-    if params is None:
-        return None
-
-    laps = alkamel.fetch_race_lap_data(*params)
+    if laps is None:
+        params = alkamel.resolve_event_params(season.year, event.round)
+        if params is None:
+            return None
+        laps = alkamel.fetch_race_lap_data(*params)
     if not laps:
         return None
 
@@ -56,6 +63,7 @@ def compute_lap_chart(
     }
 
     by_car: dict[str, list[tuple[int, int]]] = {}  # number -> [(lap, elapsed_ms)]
+    by_lap: dict[int, dict[str, int]] = {}  # lap -> {number: elapsed_ms}
     for r in laps:
         try:
             lap_n = int(r["lap"])
@@ -64,27 +72,23 @@ def compute_lap_chart(
         elapsed = alkamel._hms_to_ms(r["elapsed"])
         if elapsed is None:
             continue
-        by_car.setdefault(r["number"], []).append((lap_n, elapsed))
+        number = r["number"]
+        by_car.setdefault(number, []).append((lap_n, elapsed))
+        by_lap.setdefault(lap_n, {})[number] = elapsed
 
     if not by_car:
         return None
 
-    total_laps = max(max(l for l, _ in laps_) for laps_ in by_car.values())
+    total_laps = max(by_lap)
 
     overall_pos: dict[str, list[tuple[int, int]]] = {n: [] for n in by_car}
     class_pos: dict[str, list[tuple[int, int]]] = {n: [] for n in by_car}
     car_class = {n: by_number.get(n, {}).get("race_class", "") for n in by_car}
 
-    for lap_n in range(1, total_laps + 1):
-        ranked: list[tuple[int, str]] = []
-        for car_n, points in by_car.items():
-            here = next((e for l, e in points if l == lap_n), None)
-            if here is None:
-                continue
-            ranked.append((here, car_n))
-        if not ranked:
-            continue
-        ranked.sort()
+    for lap_n, elapsed_by_car in sorted(by_lap.items()):
+        ranked = sorted(
+            (elapsed, number) for number, elapsed in elapsed_by_car.items()
+        )
         for i, (_, num) in enumerate(ranked):
             overall_pos[num].append((lap_n, i + 1))
         per_class_seen: dict[str, int] = {}

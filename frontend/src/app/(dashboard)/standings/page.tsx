@@ -30,6 +30,7 @@ import {
 } from "@/lib/api";
 import { getSelectedSeason } from "@/lib/season";
 import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
+import { seasonDataRevalidateSeconds } from "@/lib/cache-policy";
 import {
   buildChampionshipSnapshot,
   type ChampionshipSnapshot,
@@ -59,17 +60,19 @@ function groupByClass<T extends { raceClass: RaceClass }>(rows: T[]) {
 
 export default async function StandingsPage() {
   const year = await getSelectedSeason();
-  const [drivers, teams, manufacturers, events] = await Promise.all([
-    getDriverStandings(undefined, year),
-    getTeamStandings(undefined, year),
-    getManufacturerStandings(undefined, year),
-    getEvents(year),
+  const events = await getEvents(year);
+  const now = new Date();
+  const revalidate = seasonDataRevalidateSeconds(events, now);
+  const [drivers, teams, manufacturers] = await Promise.all([
+    getDriverStandings(undefined, year, { revalidate }),
+    getTeamStandings(undefined, year, { revalidate }),
+    getManufacturerStandings(undefined, year, { revalidate }),
   ]);
   const seasonYear = year ?? (events[0]?.dateStart
     ? new Date(events[0].dateStart).getUTCFullYear()
-    : new Date().getUTCFullYear());
+    : now.getUTCFullYear());
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = now.toISOString().slice(0, 10);
   const completedRounds = events.filter((e) => e.dateEnd < today).length;
   // A wrapped season's standings are final, not "as-of round X" —
   // dropping the "After Rn" suffix in that case keeps the header

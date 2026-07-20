@@ -5,7 +5,7 @@ what Alembic introspects for autogenerate.
 """
 from datetime import date, datetime
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -93,6 +93,9 @@ class Driver(Base):
 
 class Session(Base):
     __tablename__ = "sessions"
+    __table_args__ = (
+        UniqueConstraint("event_id", "type", name="uq_sessions_event_type"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), index=True)

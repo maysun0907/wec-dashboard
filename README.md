@@ -10,7 +10,7 @@ LMP2 / LMGTE Pro / LMGTE Am).
 
 ## What's in here
 
-- **Live race weekend** — next-race countdown, hourly cron pulls
+- **Live race weekend** — next-race countdown, adaptive five-minute session pulls
   latest classification + Al Kamel CSVs, frontend revalidate windows
   scoped tighter during weekends.
 - **Race detail page** — qualifying sector breakdown on the pole
@@ -64,8 +64,8 @@ LMP2 / LMGTE Pro / LMGTE Am).
 
 - **`frontend/`** — Next.js 16 (App Router), Tailwind v4, shadcn/ui,
   Recharts, next-intl (EN/KO). Server components fetch from the backend
-  with per-resource `revalidate` caching (detail pages 10 min, lists
-  30 min — 1 hr, live event status 60 s).
+  with race-aware per-resource caching (60 s around an active weekend,
+  1 hr between rounds, and 24 hr for completed archives).
 - **`backend/`** — FastAPI 0.115, SQLAlchemy 2, Alembic, Postgres on
   Railway. Ingestion modules pull race data from Wikipedia, Al Kamel
   CSVs, fiawec.com, and the Internet Archive (for past-season images).
@@ -147,8 +147,9 @@ wec-dashboard/
   curate_bop` so schema and curated data are always in sync with the
   committed code.
 - **Ingest cron**: a separate Railway service runs `python -m
-  app.ingest.wikipedia` on a schedule to keep the DB up to date with
-  the season as Wikipedia and Al Kamel publish results.
+  app.ingest.wikipedia` hourly. The process skips most full off-week pulls,
+  keeps hourly race-week metadata/standings refreshes, and polls only the
+  active event's Al Kamel timing files every five minutes around sessions.
 
 ## License
 

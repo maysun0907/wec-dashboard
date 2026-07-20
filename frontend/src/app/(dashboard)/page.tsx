@@ -40,6 +40,11 @@ import {
 import { ChampionProgressionMiniLazy } from "@/components/champion-progression-mini-lazy";
 import { getSelectedSeason } from "@/lib/season";
 import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
+import { mapWithConcurrency } from "@/lib/concurrency";
+import {
+  eventDataRevalidateSeconds,
+  seasonDataRevalidateSeconds,
+} from "@/lib/cache-policy";
 import {
   RACE_CLASSES,
   getDriverProgression,
@@ -54,6 +59,7 @@ import {
   getSessionResults,
   getTeamStandings,
   getUpcomingEvents,
+  isApiNotFound,
   isPlausibleSessionTime,
   raceClassLabel,
   sanitizeSessionSchedule,
@@ -61,7 +67,6 @@ import {
   type Event,
   type RaceClass,
   type SessionResult,
-  type StandingManufacturer,
 } from "@/lib/api";
 
 export const generateMetadata = () => dashboardPageMetadata("home", "/");
@@ -73,21 +78,22 @@ export default async function HomePage() {
   const tClass = await getTranslations("raceClass");
   const rawLocale = await getLocale();
   const locale = isLocale(rawLocale) ? rawLocale : "en";
-  const [
-    eventsRaw,
-    hypercarStandings,
-    lmgt3Standings,
-    driverEntries,
-    mfrStandings,
-  ] = await Promise.all([
-    getEvents(year),
-    getDriverStandings("HYPERCAR", year),
-    getDriverStandings("LMGT3", year).catch(() => []),
-    getDrivers(year),
-    getManufacturerStandings("HYPERCAR", year).catch(
-      () => [] as StandingManufacturer[],
-    ),
-  ]);
+  const eventsRaw = await getEvents(year);
+  const today = new Date();
+  const seasonRevalidate = seasonDataRevalidateSeconds(eventsRaw, today);
+  const [hypercarStandings, lmgt3Standings, driverEntries, mfrStandings] =
+    await Promise.all([
+      getDriverStandings("HYPERCAR", year, {
+        revalidate: seasonRevalidate,
+      }),
+      getDriverStandings("LMGT3", year, {
+        revalidate: seasonRevalidate,
+      }),
+      getDrivers(year),
+      getManufacturerStandings("HYPERCAR", year, {
+        revalidate: seasonRevalidate,
+      }),
+    ]);
   const events = eventsRaw.map((e) => localizeEvent(e, locale));
   // Photos live on driver entries, not standings rows — bridge by id.
   // Driver photos: prefer the public/drivers/{id}.* override when
@@ -100,7 +106,6 @@ export default async function HomePage() {
   const hypercarPodium = buildPodiumRows(hypercarStandings, photoById);
   const lmgt3Podium = buildPodiumRows(lmgt3Standings, photoById);
 
-  const today = new Date();
   const next = getNextEvent(events, today);
   const upcoming = getUpcomingEvents(events, 3, today);
   const remaining = upcoming.slice(1); // exclude the one in the hero
@@ -130,7 +135,9 @@ export default async function HomePage() {
         "RACE",
       );
       if (raceSession) {
-        const all = await getSessionResults(raceSession.id);
+        const all = await getSessionResults(raceSession.id, {
+          revalidate: eventDataRevalidateSeconds(last, today),
+        });
         // Top 5 per class, ordered by class position. LMP2 is intentionally
         // included here when an event (notably Le Mans) has it, even though
         // it does not have a current full-season WEC championship table.
@@ -150,8 +157,8 @@ export default async function HomePage() {
           rows: topPerClass(raceClass),
         })).filter((item) => item.rows.length > 0);
       }
-    } catch {
-      // best-effort — leave empty if endpoint fails
+    } catch (error) {
+      if (!isApiNotFound(error)) throw error;
     }
   }
 
@@ -167,8 +174,8 @@ export default async function HomePage() {
         isPlausibleSessionTime(next, raceSession)
           ? raceSession.startTime
           : null;
-    } catch {
-      // ignore — fallback applies
+    } catch (error) {
+      if (!isApiNotFound(error)) throw error;
     }
   }
 
@@ -178,7 +185,7 @@ export default async function HomePage() {
   // standings / progression endpoints fall back to the current season
   // and mix data from the wrong year into a past-season recap.
   const recap = isPastSeason
-    ? await buildSeasonRecap(events, seasonYear)
+    ? await buildSeasonRecap(events, seasonYear, today)
     : null;
 
   return (
@@ -299,14 +306,15 @@ type SeasonRecap = {
   progressions: { raceClass: RaceClass; rows: DriverProgression[] }[];
 };
 
-/** Walk every race + standings endpoint for a wrapped season and
- *  build the rich-recap sections in one shot. Anything that fails
- *  (missing class, partial ingest) just gets dropped — sections
- *  render only when there's actually data to show. */
+/** Walk every race + standings endpoint for a wrapped season and build the
+ * rich-recap sections in one shot. Missing resources can be omitted, while
+ * transient upstream failures propagate instead of looking like valid gaps. */
 async function buildSeasonRecap(
   events: Event[],
   year: number,
+  now: Date,
 ): Promise<SeasonRecap> {
+  const seasonRevalidate = seasonDataRevalidateSeconds(events, now);
   // Per-event race winners — top class_position=1 in each race_class.
   const winnersByEvent = new Map<
     number,
@@ -316,15 +324,19 @@ async function buildSeasonRecap(
   const teamIds = new Set<number>();
   const driverIds = new Set<number>();
 
-  await Promise.all(
-    events.map(async (e) => {
+  await mapWithConcurrency(
+    events,
+    4,
+    async (e) => {
       try {
         const detail = await getEvent(e.id);
         const race = sanitizeSessionSchedule(e, detail.sessions).find(
           (s) => s.type === "RACE",
         );
         if (!race) return;
-        const all = await getSessionResults(race.id);
+        const all = await getSessionResults(race.id, {
+          revalidate: eventDataRevalidateSeconds(e, now),
+        });
         const winners: { raceClass: RaceClass; row: SessionResult }[] = [];
         for (const r of all) {
           if (r.classPosition === 1) {
@@ -339,10 +351,10 @@ async function buildSeasonRecap(
           RACE_CLASSES.indexOf(b.raceClass),
         );
         winnersByEvent.set(e.id, winners);
-      } catch {
-        // skip — partial ingest, not fatal
+      } catch (error) {
+        if (!isApiNotFound(error)) throw error;
       }
-    }),
+    },
   );
 
   // For each class with at least one race winner, try to fetch the
@@ -352,15 +364,23 @@ async function buildSeasonRecap(
   const progressions: { raceClass: RaceClass; rows: DriverProgression[] }[] =
     [];
   const manufacturerIds = new Set<number>();
-  await Promise.all(
-    [...classesPresent].map(async (raceClass) => {
+  await mapWithConcurrency(
+    [...classesPresent],
+    1,
+    async (raceClass) => {
       const [drv, team, mfr, prog] = await Promise.all([
-        getDriverStandings(raceClass, year).catch(() => []),
-        getTeamStandings(raceClass, year).catch(() => []),
-        getManufacturerStandings(raceClass, year).catch(() => []),
-        getDriverProgression(raceClass, 5, year).catch(
-          () => [] as DriverProgression[],
-        ),
+        getDriverStandings(raceClass, year, {
+          revalidate: seasonRevalidate,
+        }),
+        getTeamStandings(raceClass, year, {
+          revalidate: seasonRevalidate,
+        }),
+        getManufacturerStandings(raceClass, year, {
+          revalidate: seasonRevalidate,
+        }),
+        getDriverProgression(raceClass, 5, year, {
+          revalidate: seasonRevalidate,
+        }),
       ]);
       const driverChamp = drv.find((d) => d.position === 1) ?? null;
       const teamChamp = team.find((t) => t.position === 1) ?? null;
@@ -377,7 +397,7 @@ async function buildSeasonRecap(
       if (prog.length > 0) {
         progressions.push({ raceClass, rows: prog });
       }
-    }),
+    },
   );
   // Render champions in our standard class order.
   champions.sort((a, b) =>
