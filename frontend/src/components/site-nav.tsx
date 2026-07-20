@@ -34,7 +34,7 @@ function isActive(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname.startsWith(href);
 }
 
-/** Desktop horizontal nav. Hidden below md; on mobile use <MobileMenu />. */
+/** Desktop horizontal nav. Hidden below lg; on smaller screens use <MobileMenu />. */
 export function SiteNav({ seasonYear }: { seasonYear: number }) {
   const pathname = usePathname();
   const activePathname = parsePublicPath(pathname)?.internalPath ?? pathname;
@@ -63,7 +63,7 @@ export function SiteNav({ seasonYear }: { seasonYear: number }) {
   );
 }
 
-/** Hamburger trigger + sheet content. Renders only below md so it can
+/** Hamburger trigger + sheet content. Renders only below lg so it can
  *  sit at the rightmost end of the header without crowding the desktop
  *  layout. */
 export function MobileMenu({ seasonYear }: { seasonYear: number }) {
@@ -78,8 +78,10 @@ export function MobileMenu({ seasonYear }: { seasonYear: number }) {
         <Button
           variant="ghost"
           size="icon"
-          className="lg:hidden"
+          data-mobile-menu-trigger
+          className="inline-flex shrink-0 border border-border/90 bg-secondary/55 text-foreground shadow-sm hover:border-foreground/35 hover:bg-secondary lg:hidden"
           aria-label={t("openMenu")}
+          title={t("openMenu")}
         >
           <Menu className="size-5" />
         </Button>
