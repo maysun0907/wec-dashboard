@@ -52,6 +52,7 @@ import { eventDataRevalidateSeconds } from "@/lib/cache-policy";
 import { pageMetadataUrls } from "@/lib/page-metadata";
 import { RaceSessionTabs } from "./race-session-tabs";
 import { loadSelectedRaceSession } from "./race-session";
+import { raceMetadataCopy } from "./race-metadata";
 
 type Params = { id: string };
 
@@ -97,31 +98,20 @@ export async function generateMetadata({
   }
   try {
     const event = localizeEvent(await getEvent(numId), locale);
-    const year = event.dateStart ? new Date(event.dateStart).getUTCFullYear() : null;
-    const circuitName = event.circuit?.name ?? null;
-    const factParts: string[] = [];
-    if (year) factParts.push(String(year));
-    if (event.round) {
-      factParts.push(locale === "ko" ? `${event.round}라운드` : `Round ${event.round}`);
-    }
-    if (circuitName) factParts.push(circuitName);
-    const facts = factParts.join(" · ");
-    const desc = locale === "ko"
-      ? `${event.name}${facts ? ` — ${facts}` : ""}. FIA WEC 하이퍼카·LMGT3 예선 및 결승 순위, 랩 차트, 피트스톱, 최고속도, 섹터 기록과 세션별 날씨를 확인하세요.`
-      : `${event.name}${facts ? ` — ${facts}` : ""}. View FIA WEC Hypercar and LMGT3 qualifying, race classification, lap chart, pit stops, V-max, sector splits and weather by session.`;
+    const copy = raceMetadataCopy(event, locale, eventStatus(event));
     // `images` is intentionally omitted - the colocated `opengraph-image.tsx`
     // generates the dynamic branded card and a static `images` here would
     // shallow-merge ahead of it.
     return {
-      title: event.name,
-      description: desc,
+      title: copy.title,
+      description: copy.description,
       alternates: {
         canonical: urls.canonical,
         languages: urls.languages,
       },
       openGraph: {
-        title: `${event.name} · WEC Dashboard`,
-        description: desc,
+        title: `${copy.title} · WEC Dashboard`,
+        description: copy.description,
         url: urls.canonical,
         type: "article",
         locale: locale === "ko" ? "ko_KR" : "en_US",
@@ -129,8 +119,8 @@ export async function generateMetadata({
       },
       twitter: {
         card: "summary_large_image",
-        title: event.name,
-        description: desc,
+        title: copy.title,
+        description: copy.description,
       },
     };
   } catch (error) {

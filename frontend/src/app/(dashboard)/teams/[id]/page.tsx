@@ -46,6 +46,7 @@ import {
   teamSchema,
 } from "@/lib/json-ld";
 import { pageMetadataUrls } from "@/lib/page-metadata";
+import { teamSearchTitle } from "@/lib/detail-search-title";
 
 type Params = { id: string };
 
@@ -115,7 +116,7 @@ export async function generateMetadata({
   // generates the dynamic branded card and a static `images` here would
   // shallow-merge ahead of it.
   return {
-    title: t.name,
+    title: teamSearchTitle(t.name, locale),
     description: desc,
     alternates: {
       canonical: urls.canonical,

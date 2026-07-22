@@ -40,7 +40,8 @@ import { eventDataRevalidateSeconds } from "@/lib/cache-policy";
 export const generateMetadata = () => dashboardPageMetadata("live", "/live");
 
 const FIAWEC_URL = "https://www.fiawec.com/";
-const FIAWEC_TV_URL = "https://plus.fiawec.com/en";
+const FIAWEC_PLUS_URL = "https://plus.fiawec.com/en";
+const FIAWEC_LIVE_TIMING_URL = "https://live.fiawec.com/en/live";
 const TWITTER_URL = "https://twitter.com/FIAWEC";
 
 const SESSION_LABEL_KEYS: Record<string, "sessionLabelFP1" | "sessionLabelFP2" | "sessionLabelFP3" | "sessionLabelQ" | "sessionLabelRACE"> = {
@@ -150,6 +151,7 @@ export default async function LivePage() {
     (e) => e.dateStart <= todayIso && todayIso <= e.dateEnd,
   );
   const nextRaw = live ?? getNextEvent(eventsRaw, new Date(now)) ?? null;
+  const isCota = nextRaw?.circuit.name === "Circuit of the Americas";
   const next = nextRaw ? localizeEvent(nextRaw, localeForName) : null;
 
   const t = await getTranslations("live");
@@ -300,6 +302,29 @@ export default async function LivePage() {
               {t("allSessionsDone")}
             </p>
           )}
+          <PublicLink
+            href={`/races/${next.id}`}
+            className="group flex items-center justify-between gap-4 rounded-md border border-[var(--racing-red)]/35 bg-[var(--racing-red)]/5 px-4 py-3 transition-colors hover:border-[var(--racing-red)]/70 hover:bg-[var(--racing-red)]/10"
+          >
+            <span className="min-w-0">
+              <span className="block font-semibold text-foreground group-hover:text-[var(--racing-red)]">
+                {isCota
+                  ? t("raceHubCotaLabel", { event: next.name })
+                  : t("raceHubLabel", { event: next.name })}
+              </span>
+              <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                {isCota
+                  ? t("raceHubCotaDetail")
+                  : t("raceHubDetail", { circuit: next.circuit.name })}
+              </span>
+            </span>
+            <span
+              aria-hidden="true"
+              className="shrink-0 text-lg text-[var(--racing-red)] transition-transform group-hover:translate-x-1"
+            >
+              →
+            </span>
+          </PublicLink>
         </CardContent>
       </Card>
 
@@ -358,9 +383,14 @@ export default async function LivePage() {
         </CardHeader>
         <CardContent className="space-y-1">
           <ExternalLinkRow
-            href={FIAWEC_TV_URL}
-            label={t("wecTvLabel")}
-            detail={t("wecTvDetail")}
+            href={FIAWEC_PLUS_URL}
+            label={t("wecPlusLabel")}
+            detail={t("wecPlusDetail")}
+          />
+          <ExternalLinkRow
+            href={FIAWEC_LIVE_TIMING_URL}
+            label={t("liveTimingLabel")}
+            detail={t("liveTimingDetail")}
           />
           <ExternalLinkRow
             href={FIAWEC_URL}

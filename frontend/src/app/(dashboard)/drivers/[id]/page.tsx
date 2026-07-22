@@ -45,6 +45,7 @@ import {
   personSchema,
 } from "@/lib/json-ld";
 import { pageMetadataUrls } from "@/lib/page-metadata";
+import { driverSearchTitle } from "@/lib/detail-search-title";
 
 type Params = { id: string };
 
@@ -120,7 +121,7 @@ export async function generateMetadata({
   // dynamic branded card. A static `images` field here would shallow-
   // merge ahead of the file convention.
   return {
-    title: d.name,
+    title: driverSearchTitle(d.name, locale),
     description: desc,
     alternates: {
       canonical: urls.canonical,
