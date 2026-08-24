@@ -34,6 +34,22 @@ from app.ingest._common import (
 USER_AGENT = "wec-dashboard/0.1 (https://github.com/maysun0907/wec-dashboard)"
 
 
+class SourceDataError(RuntimeError):
+    """The upstream page was readable but its data cannot be safely ingested.
+
+    This is deliberately distinct from a database or application failure: the
+    scheduled collector can retain the last known-good data and report the
+    rejected source without being marked as a crashed deployment.
+    """
+
+
+# WEC race numbers are numeric strings so leading zeroes (for example Aston
+# Martin #007) remain intact.  The database column is varchar(10), but a
+# stricter source check catches a shifted Wikipedia table before it reaches a
+# write operation.
+_CAR_NUMBER_RE = re.compile(r"^\d{1,10}$")
+
+
 def url_for_year(year: int) -> str:
     return f"https://en.wikipedia.org/wiki/{year}_FIA_World_Endurance_Championship"
 
@@ -243,9 +259,19 @@ def expand_rowspan(table: Tag, text_sep: str = " ") -> list[list[str]]:
     rows_out: list[list[str]] = []
     pending: dict[int, tuple[str, int]] = {}  # col_idx -> (value, remaining)
     for tr in table.find_all("tr"):
+        # Ignore rows owned by a nested presentation table.
+        if tr.find_parent("table") is not table:
+            continue
         out_row: list[str] = []
         col = 0
-        cells = list(tr.find_all(["th", "td"]))
+        # MediaWiki sometimes emits a formatting-only ``<tr
+        # class="mw-empty-elt">`` between real rows.  It occupies no visual
+        # table row, so consuming rowspans for it shifts every following
+        # column.  Only direct cells belong to this row; nested table cells
+        # must not affect the parent grid either.
+        cells = list(tr.find_all(["th", "td"], recursive=False))
+        if not cells:
+            continue
         ci = 0
         while ci < len(cells) or col in pending:
             if col in pending:
@@ -593,8 +619,62 @@ def parse_entries(table: Tag, race_class: str) -> list[dict]:
             continue
         if not entry["driver"] or not entry["number"]:
             continue
+        _validate_entry(entry, race_class)
         entries.append(entry)
     return entries
+
+
+def _validate_entry(entry: dict[str, str], race_class: str) -> None:
+    """Reject a malformed entry row before it can mutate season data.
+
+    A source-table rowspan error most visibly turns a driver's name into the
+    car number and the number into the driver's name.  Raising here is safer
+    than silently dropping a car: the transaction remains untouched and the
+    next source refresh can retry from the last known-good data.
+    """
+    number = entry["number"].strip()
+    driver = entry["driver"].strip()
+    limits = {
+        "entrant": 200,
+        "car": 100,
+        "driver": 200,
+        "rounds": 50,
+    }
+    for field, limit in limits.items():
+        value = entry[field].strip()
+        if len(value) > limit:
+            raise SourceDataError(
+                f"{race_class} entry has an overlong {field} "
+                f"({len(value)} > {limit}): {value!r}"
+            )
+    if not _CAR_NUMBER_RE.fullmatch(number):
+        raise SourceDataError(
+            f"{race_class} entry has invalid car number {number!r} "
+            f"for driver {driver!r}"
+        )
+    if driver.isdigit():
+        raise SourceDataError(
+            f"{race_class} entry has numeric driver {driver!r} "
+            f"for car number {number!r}"
+        )
+
+
+def _parse_entry_groups(soup: BeautifulSoup) -> tuple[list[dict], dict[str, str]]:
+    """Parse and validate every entry-list row before a season is cleared."""
+    tables = find_entry_tables(soup)
+    if not tables:
+        raise SourceDataError("no entry tables found on season page")
+
+    grouped: list[dict] = []
+    driver_titles: dict[str, str] = {}
+    for cls, table in tables:
+        grouped.extend(group_by_car(parse_entries(table, cls)))
+        # Driver-link map for portrait fetches — merged across all classes.
+        for name, title in parse_driver_links(table).items():
+            driver_titles.setdefault(name, title)
+    if not grouped:
+        raise SourceDataError("entry tables parsed zero cars")
+    return grouped, driver_titles
 
 
 def group_by_car(entries: list[dict]) -> list[dict]:
@@ -1221,18 +1301,12 @@ def _ingest_calendar(
 
 
 def _ingest_entries(
-    soup: BeautifulSoup, db: Session, season_id: int, race_class_ids: dict[str, int]
+    db: Session,
+    season_id: int,
+    race_class_ids: dict[str, int],
+    grouped: list[dict],
+    driver_titles: dict[str, str],
 ) -> tuple[int, int]:
-    tables = find_entry_tables(soup)
-    if not tables:
-        raise RuntimeError("no entry tables found on season page")
-    grouped: list[dict] = []
-    driver_titles: dict[str, str] = {}
-    for cls, table in tables:
-        grouped.extend(group_by_car(parse_entries(table, cls)))
-        # Driver-link map for portrait fetches — merged across all classes.
-        for name, title in parse_driver_links(table).items():
-            driver_titles.setdefault(name, title)
     car_drivers_count = 0
     for entry in grouped:
         manuf = upsert_manufacturer(db, _extract_manufacturer(entry["car"]))
@@ -1885,6 +1959,10 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
     log.info("ingest_started", year=year, url=url)
     html = fetch_html(url)
     soup = BeautifulSoup(html, "lxml")
+    # Validate the untrusted source before opening a transaction that clears
+    # current season rows.  A layout change now preserves the previous data
+    # instead of failing halfway through a database insert.
+    entry_groups, driver_titles = _parse_entry_groups(soup)
 
     db = SessionLocal()
     try:
@@ -1906,7 +1984,11 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
 
         events_n = _ingest_calendar(soup, db, season.id, year)
         cars_n, car_drivers_n = _ingest_entries(
-            soup, db, season.id, race_class_ids
+            db,
+            season.id,
+            race_class_ids,
+            entry_groups,
+            driver_titles,
         )
         winners_n = _ingest_results_summary(
             soup, db, season.id, race_class_ids
