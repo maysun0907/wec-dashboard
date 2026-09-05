@@ -6,7 +6,7 @@ session-by-session standings progressions, circuit layouts, and a
 recap home for past seasons going back to 2012 (HYPERCAR / LMP1 /
 LMP2 / LMGTE Pro / LMGTE Am).
 
-**Live**: [wec-dashboard-seven.vercel.app](https://wec-dashboard-seven.vercel.app)
+**Live**: [wecdash.com](https://www.wecdash.com)
 
 ## What's in here
 
