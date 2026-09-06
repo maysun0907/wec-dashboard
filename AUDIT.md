@@ -10,14 +10,15 @@
   existing identifiers, all 14 seasons, classes and invalid parameters:
   16,917 HTTP 200, 1,850 HTTP 422, 120 HTTP 404, 325 HTTP 400; zero 5xx.
   These are local snapshot checks, not production latency measurements.
-- Browser checks: 44 passing scenarios across Chromium, Firefox, WebKit and
+- Browser checks: 40 navigation scenarios plus four expanded accessibility
+  scenarios across Chromium, Firefox, WebKit and
   iPhone-sized WebKit. All page families in both languages; entity details;
   search success/failure; language/season navigation; compare removal;
   simulator input/reset; race session tabs and class filters; historical
   2012/2018/2023/2025 pages; legacy redirects and invalid identifiers.
   Homepage plus six data/tool page accessibility checks found no
   serious/critical WCAG violations after fixing simulator selector semantics
-  and regulation definition-list markup;
+  and regulation definition-list markup and keyboard access to scroll tables;
   desktop/mobile screenshots were also inspected.
 - GitHub-hosted verification could not start: the account reports a billing
   lock. No billing/security settings were changed. The corresponding checks
