@@ -721,18 +721,14 @@ function ClassPanel({
                 </CardDescription>
               </div>
               {championships.length > 1 && (
-                <Tabs
-                  value={activeChamp}
-                  onValueChange={(v) => setActiveChamp(v as ChampType)}
-                >
-                  <TabsList variant="line">
+                <div role="group" aria-label={t("predictedStandings")} className="flex gap-1">
                     {championships.map((champ) => (
-                      <TabsTrigger key={champ} value={champ}>
+                      <Button key={champ} size="sm" variant={activeChamp === champ ? "secondary" : "ghost"}
+                        aria-pressed={activeChamp === champ} onClick={() => setActiveChamp(champ)}>
                         {champLabel[champ]}
-                      </TabsTrigger>
+                      </Button>
                     ))}
-                  </TabsList>
-                </Tabs>
+                </div>
               )}
             </div>
           </CardHeader>

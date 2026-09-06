@@ -142,3 +142,11 @@ test("historical pages, legacy redirects and invalid identifiers", async ({ page
   expect((await page.goto("/en/drivers/999999999"))?.status()).toBe(404);
   expect((await page.goto("/en/cars/does-not-exist"))?.status()).toBe(404);
 });
+
+test("primary data and tool pages have valid accessible controls", async ({ page }) => {
+  for (const path of ["/en/2026/drivers", "/en/2026/standings", "/en/2026/standings/simulator", "/ko/2026/drivers/compare", "/en/rules", "/en/live"]) {
+    await page.goto(path);
+    const result = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze();
+    expect(result.violations.filter((v) => ["critical", "serious"].includes(v.impact ?? "")), path).toEqual([]);
+  }
+});

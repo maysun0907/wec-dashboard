@@ -344,10 +344,11 @@ function Spec({
       <dt className="text-xs uppercase tracking-wider text-muted-foreground">
         {label}
       </dt>
-      <dd className="font-mono text-lg font-semibold tabular-nums">{value}</dd>
+      <dd className="font-mono text-lg font-semibold tabular-nums">{value}
       {detail && (
-        <span className="mt-0.5 text-xs text-muted-foreground">{detail}</span>
+        <span className="mt-0.5 block font-sans text-xs font-normal text-muted-foreground">{detail}</span>
       )}
+      </dd>
     </div>
   );
 }
