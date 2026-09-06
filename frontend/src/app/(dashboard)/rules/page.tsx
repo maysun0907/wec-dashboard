@@ -199,7 +199,7 @@ export default async function RulesPage() {
           <CardDescription>{t("pointsDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto" tabIndex={0}>
             <table className="w-full min-w-[480px] text-sm">
               <thead>
                 <tr className="border-b text-xs font-semibold uppercase tracking-widest text-muted-foreground">
