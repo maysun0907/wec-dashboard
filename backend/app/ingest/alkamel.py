@@ -59,7 +59,8 @@ BASE = "https://fiawec.alkamelsystems.com"
 def _fetch(url: str) -> str:
     r = httpx.get(
         url,
-        headers={"User-Agent": USER_AGENT, "Accept-Language": "en"},
+        headers={"User-Agent": USER_AGENT, "Accept-Language": "en",
+                 "Cache-Control": "no-cache"},
         follow_redirects=True,
         timeout=20.0,
     )
