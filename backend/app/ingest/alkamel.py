@@ -1279,6 +1279,11 @@ def enrich_race_results(
         if not classification_rows:
             continue
 
+        for existing in results:
+            if by_car_number[existing.car.number] is not existing:
+                db.delete(existing)
+                updated += 1
+
         pit_counts: dict[str, int] = {}
         pit_events: list[dict] = []
         analysis_laps: list[dict[str, str]] = []
