@@ -49,6 +49,13 @@ def test_track_timetable_overrides_wrong_european_schema_offset():
     assert dict(parse_race_page(html, 2026, "America/Chicago"))["RACE"] == datetime(2026, 9, 6, 18)
 
 
+def test_event_listing_falls_back_to_uncached_path_without_accepting_wrong_round(monkeypatch):
+    wrong = '<a href="Results/15_2026/05_COTA/file.CSV">x</a>'
+    right = '<a href="Results/15_2026/01_IMOLA/file.CSV">x</a>'
+    monkeypatch.setattr(a, "_fetch", lambda url: right if "/index.php/?" in url else wrong)
+    assert "01_IMOLA" in a._event_html("15_2026", "01_IMOLA")
+
+
 def test_le_mans_multistage_and_combined_class_folders(monkeypatch):
     prefix = "Results/15_2026/03_LE%20MANS/657_FIA%20WEC/"
     folders = ["202606101845_Qualifying%20LMP2-LMGT3",

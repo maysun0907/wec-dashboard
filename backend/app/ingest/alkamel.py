@@ -81,15 +81,18 @@ def _event_html(season: str, event: str) -> str:
     expected = f"Results/{season}/{event}/"
     reverse_query = f"evvent={quote(event)}&season={quote(season)}"
     form_query = urlencode({"season": season, "evvent": event})
+    observed: set[str] = set()
     for path, params in (("/", query), ("/index.php", query),
                          ("/", reverse_query), ("/index.php", reverse_query),
                          ("/", form_query), ("/index.php", form_query),
-                         ("/index.php", query + "&_refresh=" + uuid4().hex)):
+                         ("/index.php", query + "&_refresh=" + uuid4().hex),
+                         ("/index.php/", query + "&_refresh=" + uuid4().hex)):
         try:
             html = _fetch(f"{BASE}{path}?{params}")
         except httpx.HTTPError:
             continue
         links = re.findall(r'href="(Results/[^"]+)"', html)
+        observed.update("/".join(unquote(link).split("/")[:3]) for link in links)
         if any(unquote(link).startswith(expected) for link in links):
             # Strip links for other seasons/events even on mixed listings.
             return re.sub(
@@ -100,7 +103,7 @@ def _event_html(season: str, event: str) -> str:
             )
         if not links:
             return html  # no published documents yet
-    raise ValueError(f"Al Kamel returned files for another event: {season}/{event}")
+    raise ValueError(f"Al Kamel returned files for another event: {season}/{event}; observed={sorted(observed)}")
 
 
 # ---------------------------------------------------------------------------
