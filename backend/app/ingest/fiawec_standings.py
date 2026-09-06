@@ -89,7 +89,9 @@ def _parse_position(value: str) -> int:
 
 def _parse_points(value: str) -> float:
     cleaned = value.replace(",", "").strip()
-    match = re.fullmatch(r"\d+(?:\.\d+)?", cleaned)
+    # Penalties can produce a negative published championship total.
+    cleaned = cleaned.replace("−", "-")
+    match = re.fullmatch(r"-?\d+(?:\.\d+)?", cleaned)
     if match is None:
         raise ValueError(f"invalid standings points: {value!r}")
     return float(cleaned)
@@ -466,6 +468,9 @@ def ingest_fiawec_standings(
             f"published={published_names}, expected={expected_names}"
         )
 
+    from app.ingest.revisions import record_revision
+    record_revision(db, scope=f"standings:{year}",
+                    source_url=f"{BASE_URL}/en/season/{year}", payload=published)
     db.execute(
         delete(models.StandingDriver).where(
             models.StandingDriver.season_id == season_id

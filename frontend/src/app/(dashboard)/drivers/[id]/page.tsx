@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { positionSummary } from "@/lib/result-position";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -269,11 +270,11 @@ export default async function DriverDetailPage({
               <>
                 <Stat
                   label={t("bestClassResult")}
-                  value={`P${bestClassPosition(driver.results)}`}
+                  value={bestClassPosition(driver.results)}
                 />
                 <Stat
                   label={t("avgClassResult")}
-                  value={averageClassPosition(driver.results).toFixed(1)}
+                  value={averageClassPosition(driver.results)}
                 />
                 {!driver.standing && (
                   <Stat
@@ -380,7 +381,7 @@ export default async function DriverDetailPage({
                     <TableHead className="hidden w-16 text-right sm:table-cell">
                       {t("colLaps")}
                     </TableHead>
-                    <TableHead className="pr-4 text-right">{tt("pts")}</TableHead>
+                    <TableHead className="pr-4 text-right">{tt("estimatedPts")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -398,10 +399,10 @@ export default async function DriverDetailPage({
                         </PublicLink>
                       </TableCell>
                       <TableCell className="text-right font-mono tabular-nums">
-                        P{r.classPosition}
+                        {r.classPosition > 0 ? `P${r.classPosition}` : "—"}
                       </TableCell>
                       <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
-                        P{r.position}
+                        {r.classPosition > 0 ? `P${r.position}` : "—"}
                       </TableCell>
                       <TableCell className="hidden text-right font-mono tabular-nums sm:table-cell">
                         {r.laps ?? "—"}
@@ -521,15 +522,13 @@ function CareerTable({ rows }: { rows: DriverSeason[] }) {
   );
 }
 
-function bestClassPosition(results: DriverResult[]): number {
-  return Math.min(...results.map((r) => r.classPosition));
+function bestClassPosition(results: DriverResult[]): string {
+  const best = positionSummary(results).best;
+  return best === null ? "—" : `P${best}`;
 }
 
-function averageClassPosition(results: DriverResult[]): number {
-  if (results.length === 0) return 0;
-  return (
-    results.reduce((sum, r) => sum + r.classPosition, 0) / results.length
-  );
+function averageClassPosition(results: DriverResult[]): string {
+  return positionSummary(results).average?.toFixed(1) ?? "—";
 }
 
 function pointsScored(results: DriverResult[]): number {

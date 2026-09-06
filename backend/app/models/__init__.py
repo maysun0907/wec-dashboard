@@ -19,6 +19,17 @@ class Season(Base):
     championship_name: Mapped[str] = mapped_column(String(100))
 
 
+class SourceRevision(Base):
+    __tablename__ = "source_revisions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    scope: Mapped[str] = mapped_column(String(100), index=True)
+    source_url: Mapped[str]
+    content_hash: Mapped[str] = mapped_column(String(64))
+    payload_json: Mapped[str] = mapped_column(Text)
+    collected_at: Mapped[datetime]
+
+
 class RaceClass(Base):
     __tablename__ = "race_classes"
 

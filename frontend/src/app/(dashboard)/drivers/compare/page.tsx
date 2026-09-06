@@ -1,4 +1,5 @@
 import { useTranslations } from "next-intl";
+import { positionSummary } from "@/lib/result-position";
 import { getTranslations } from "next-intl/server";
 import {
   Card,
@@ -239,12 +240,7 @@ function StatsTable({ drivers }: { drivers: DriverDetail[] }) {
         <tbody>
           {drivers.map((d) => {
             const races = d.results.length;
-            const best = races > 0
-              ? Math.min(...d.results.map((r) => r.classPosition))
-              : null;
-            const avg = races > 0
-              ? d.results.reduce((s, r) => s + r.classPosition, 0) / races
-              : null;
+            const { best, average: avg } = positionSummary(d.results);
             return (
               <tr key={d.id} className="border-b border-border/50 last:border-0">
                 <td className="px-4 py-2 font-medium">
@@ -283,7 +279,7 @@ type ClassPosByRound = Map<number, number>;
 
 function classPosByRound(d: DriverDetail): ClassPosByRound {
   const m = new Map<number, number>();
-  for (const r of d.results) m.set(r.round, r.classPosition);
+  for (const r of d.results) if (r.classPosition > 0) m.set(r.round, r.classPosition);
   return m;
 }
 

@@ -143,7 +143,7 @@ export default async function HomePage() {
         // it does not have a current full-season WEC championship table.
         const topPerClass = (cls: RaceClass) =>
           all
-            .filter((r) => r.raceClass === cls)
+            .filter((r) => r.raceClass === cls && r.classPosition > 0)
             .sort((a, b) => a.classPosition - b.classPosition)
             .slice(0, 5);
         lastResultByClass = RACE_CLASSES.map((raceClass) => ({

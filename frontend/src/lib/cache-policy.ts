@@ -12,6 +12,7 @@ export const ARCHIVE_REVALIDATE_SECONDS = 24 * 60 * 60;
 
 const RACE_WEEK_LEAD_DAYS = 6;
 const POST_RACE_GRACE_DAYS = 2;
+const CORRECTION_WINDOW_DAYS = 120;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type RaceWindow = {
@@ -48,13 +49,18 @@ export function eventDataRevalidateSeconds(
   const window = eventWindow(event);
   if (!window) return OFF_WEEK_REVALIDATE_SECONDS;
   if (isRaceWeek(event, now)) return RACE_WEEK_REVALIDATE_SECONDS;
+  // Appeals can amend a finished race weeks later. Do not give a recent
+  // final classification the same cache lifetime as an old archive.
+  if (now.getTime() <= window.end + CORRECTION_WINDOW_DAYS * DAY_MS) {
+    return OFF_WEEK_REVALIDATE_SECONDS;
+  }
   if (now.getTime() > window.end) return ARCHIVE_REVALIDATE_SECONDS;
   return OFF_WEEK_REVALIDATE_SECONDS;
 }
 
 /**
  * Select a cache duration for season-wide data such as standings.
- * Historical seasons are effectively immutable, while the current season
+ * Historical seasons can be amended, while the current season
  * drops to the race-week window whenever any round is active.
  */
 export function seasonDataRevalidateSeconds(
@@ -70,7 +76,7 @@ export function seasonDataRevalidateSeconds(
     .filter((window): window is { start: number; end: number } => window !== null);
   if (
     windows.length > 0 &&
-    windows.every((window) => now.getTime() > window.end)
+    windows.every((window) => now.getTime() > window.end + CORRECTION_WINDOW_DAYS * DAY_MS)
   ) {
     return ARCHIVE_REVALIDATE_SECONDS;
   }

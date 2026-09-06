@@ -9,6 +9,7 @@ from collections.abc import Iterable
 from sqlalchemy.orm import Session
 
 from app import models
+from app.race_state import classified_result_filter
 
 _POINTS_LONG = [38, 27, 23, 18, 15, 12, 9, 6, 3, 2]
 _POINTS_STANDARD = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
@@ -39,7 +40,7 @@ def class_position_for(
         "_class_positions"
     ]
     cache = all_caches[session_id]
-    return cache.get((race_class_id, overall_position), 1)
+    return cache.get((race_class_id, overall_position), 0)
 
 
 def preload_class_positions(db: Session, session_ids: Iterable[int]) -> None:
@@ -67,6 +68,7 @@ def preload_class_positions(db: Session, session_ids: Iterable[int]) -> None:
         )
         .join(models.Car, models.SessionResult.car_id == models.Car.id)
         .filter(models.SessionResult.session_id.in_(missing_ids))
+        .filter(classified_result_filter())
         .all()
     )
     positions_by_session: dict[int, dict[int, list[int]]] = {

@@ -42,7 +42,7 @@ function pivot(series: FormSeries[]): Row[] {
         const pt = s.points.find((x) => x.round === round);
         // Drivers who skipped a round get null so Recharts breaks the line
         // there instead of pulling it down to zero.
-        row[s.label] = pt?.classPosition ?? null;
+        row[s.label] = pt && pt.classPosition > 0 ? pt.classPosition : null;
       }
       return row;
     });

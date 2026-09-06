@@ -218,3 +218,153 @@ def test_download_slug_cannot_escape_output_directory():
     from app.fetch_car_image import fetch
     with pytest.raises(ValueError, match="slug"):
         fetch("../../unexpected", "https://example.test/image.png")
+
+
+@pytest.mark.parametrize("kind", ["drivers", "teams", "manufacturers"])
+def test_progression_uses_completed_state_and_bounded_queries(db, kind):
+    from app.progression import estimated_progression
+    season, _, rc, _ = fixture_rows(db)
+    brand = models.Manufacturer(name="Brand")
+    db.add(brand); db.flush()
+    db.query(models.Team).one().manufacturer_id = brand.id
+    races = db.query(models.Session).order_by(models.Session.id).all()
+    races[0].result_status = "live"
+    races[1].result_status = "final"
+    db.commit()
+    season_id, class_id = season.id, rc.id
+    queries = []
+    def count(*args): queries.append(True)
+    event.listen(db.get_bind(), "before_cursor_execute", count)
+    try:
+        rows = estimated_progression(db, season_id, class_id, kind, 5)
+    finally:
+        event.remove(db.get_bind(), "before_cursor_execute", count)
+    assert len(queries) <= 2
+    assert len(rows) == 1
+    assert rows[0]["is_estimate"] is True
+    assert rows[0]["points"] == [{"round": 2, "cumulative_points": 25}]
+    if kind == "drivers":
+        assert rows[0]["driver_name"] == "Substitute"
+
+
+@pytest.mark.parametrize("status", ["DSQ", "Excluded", "NC", "DNS"])
+def test_post_race_disqualification_revokes_podiums_and_points(db, status):
+    from app.routers.drivers import _driver_career
+    from app.routers.events import session_results
+    from app.routers.standings import round_podiums
+    from app.progression import estimated_progression
+    season, _, rc, drivers = fixture_rows(db)
+    row = db.query(models.SessionResult).order_by(models.SessionResult.id).first()
+    row.status = status  # even a stale numeric P1 must never remain a win
+    db.commit()
+    assert _driver_career(db, drivers[0].id)[0].wins == 0
+    assert session_results(row.session_id, db)[0].points_awarded == 0
+    assert session_results(row.session_id, db)[0].class_position == 0
+    assert len(round_podiums(rc.name, 2020, db)) == 1
+    wins, _ = _driver_wins_and_podiums(db)
+    assert [r["name"] for r in wins] == ["Substitute"]
+    points = estimated_progression(db, season.id, rc.id, "drivers", 5)
+    assert next(r for r in points if r["driver_id"] == drivers[0].id)["points"][-1]["cumulative_points"] == 0
+
+
+def test_changed_source_history_is_deduplicated_and_transactional(db):
+    from app.ingest.revisions import record_revision
+    kwargs = dict(scope="standings:2020", source_url="https://example.test")
+    assert record_revision(db, **kwargs, payload={"points": 100})
+    db.commit()
+    assert not record_revision(db, **kwargs, payload={"points": 100})
+    assert record_revision(db, **kwargs, payload={"points": 75})
+    db.commit()
+    assert db.query(models.SourceRevision).count() == 2
+    assert record_revision(db, **kwargs, payload={"points": 100})  # appeal reinstates points
+    db.rollback()
+    assert db.query(models.SourceRevision).count() == 2
+
+
+def test_final_race_can_be_amended_but_partial_sources_are_rejected(db):
+    fixture_rows(db)
+    result = db.query(models.SessionResult).first()
+    session = db.get(models.Session, result.session_id)
+    session.result_status = "final"
+    session.result_source_url = "original"
+    result.laps = 100
+    incoming = [{"number": result.car.number, "laps": "99"}]
+    cars = {result.car.number: result.car}
+    alkamel.validate_race_snapshot(session, [result], incoming, "final", "amended", cars)
+    session.result_status = "completed"
+    alkamel.validate_race_snapshot(session, [result], incoming, "completed", "amended", cars)
+    session.result_status = "final"
+    with pytest.raises(ValueError, match="state regressed"):
+        alkamel.validate_race_snapshot(session, [result], incoming, "live", "old", cars)
+    with pytest.raises(ValueError, match="coverage decreased"):
+        alkamel.validate_race_snapshot(session, [result], [], "final", "broken", cars)
+
+
+def test_final_file_wins_over_provisional_listing_order(monkeypatch):
+    prefix = "Results/15_2026/05_COTA/673_FIA%20WEC/202609061300_Race/06_Hour%206/"
+    files = ["03_Classification_Race_Final.CSV", "03_Classification_Race.CSV"]
+    for ordering in (files, files[::-1]):
+        monkeypatch.setattr(alkamel, "_event_html", lambda *_: "".join(
+            f'<a href="{prefix}{name}">x</a>' for name in ordering))
+        assert alkamel._list_race_csvs("15_2026", "05_COTA")[1].endswith("_Final.CSV")
+
+
+def test_archive_rotation_keeps_previous_season_in_appeal_window():
+    from app.ingest.archive import archive_year_for
+    assert archive_year_for([2024, 2025, 2026], datetime(2026, 2, 1)) == 2025
+    assert archive_year_for([2026], datetime(2026, 2, 1)) is None
+    selected = {archive_year_for([2023, 2024, 2025, 2026], datetime(2026, 7, day)) for day in range(1, 4)}
+    assert selected == {2023, 2024, 2025}
+
+
+def test_archive_partial_standings_roll_back_previous_snapshot(db, monkeypatch):
+    from app.ingest import archive
+    season, _, rc, drivers = fixture_rows(db)
+    db.add(models.StandingDriver(season_id=season.id, driver_id=drivers[0].id,
+                               race_class_id=rc.id, position=1, points=100))
+    db.commit()
+    engine = db.get_bind()
+    db.close()
+    monkeypatch.setattr(archive, "engine", engine)
+    monkeypatch.setattr(archive, "SessionLocal", sessionmaker(bind=engine))
+    monkeypatch.setattr(wikipedia, "fetch_html", lambda _: "")
+    monkeypatch.setattr(wikipedia, "_ingest_standings", lambda *_: {})
+    with pytest.raises(ValueError, match="coverage decreased"):
+        archive.refresh_archive(2020)
+    with Session(engine) as check:
+        assert check.query(models.StandingDriver).one().points == 100
+
+
+def test_latest_standings_follows_round_not_database_id(db):
+    from app.routers.standings import _latest_after_event
+    season, _, rc, drivers = fixture_rows(db)
+    events = db.query(models.Event).order_by(models.Event.id).all()
+    events[0].round, events[1].round = 3, 1
+    for ev in events:
+        db.add(models.StandingDriver(season_id=season.id, driver_id=drivers[0].id,
+                                   race_class_id=rc.id, after_event_id=ev.id, position=1, points=100))
+    db.commit()
+    assert _latest_after_event(db, models.StandingDriver, season.id) == events[0].id
+
+
+def test_practice_refresh_preserves_row_identity_and_rejects_partial_file(db, monkeypatch):
+    season, _, rc, _ = fixture_rows(db)
+    session = db.query(models.Session).first()
+    session.type = "FP1"
+    row = db.query(models.SessionResult).filter_by(session_id=session.id).one()
+    stable_id = row.id
+    db.commit()
+    monkeypatch.setattr(alkamel, "_season_param_for_year", lambda _: "2020")
+    monkeypatch.setattr(alkamel, "_event_options_for_season", lambda _: [(1, "01_SPA")])
+    monkeypatch.setattr(alkamel, "_list_session_csvs", lambda *_: [("FP1", "HYPERCAR", "file", "", "202001011200")])
+    monkeypatch.setattr(alkamel, "_fetch", lambda _: "POS;NUMBER;CLASS;TIME;LAPS\n1;1;HYPERCAR;1:50.000;12")
+    assert alkamel.ingest_practice_results(db, season.id, 2020) == 1
+    assert db.query(models.SessionResult).filter_by(session_id=session.id).one().id == stable_id
+    car = models.Car(season_id=season.id, race_class_id=rc.id, team_id=row.car.team_id, number="2")
+    db.add(car); db.flush()
+    db.add(models.SessionResult(session_id=session.id, car_id=car.id, position=2))
+    db.commit()
+    with pytest.raises(ValueError, match="coverage decreased"):
+        alkamel.ingest_practice_results(db, season.id, 2020)
+    db.rollback()
+    assert db.query(models.SessionResult).filter_by(session_id=session.id).count() == 2

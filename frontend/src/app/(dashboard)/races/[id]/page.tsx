@@ -370,7 +370,7 @@ function SelectedSessionResults({
   rows,
   revalidate,
 }: {
-  session: { id: number; type: string };
+  session: { id: number; type: string; resultStatus?: string | null; resultSourceUrl?: string | null; resultsUpdatedAt?: string | null };
   rows: SessionResult[];
   revalidate: number;
 }) {
@@ -398,7 +398,16 @@ function SelectedSessionResults({
         </>
       ) : session.type === "RACE" ? (
         <>
-          <SessionWinnersCard type={session.type} rows={rows} />
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <p>{t(session.resultStatus === "live" ? "resultStateLive" : session.resultStatus === "completed" ? "resultStateCompleted" : session.resultStatus === "final" ? "resultStateFinal" : "resultStateUnknown")}</p>
+            {session.resultSourceUrl?.startsWith("https://fiawec.alkamelsystems.com/") && (
+              <a href={session.resultSourceUrl} target="_blank" rel="noopener noreferrer" className="underline">{t("resultSource")}</a>
+            )}
+            {session.resultsUpdatedAt && Number.isFinite(Date.parse(session.resultsUpdatedAt)) && (
+              <p>{t("resultChecked")}: <time dateTime={session.resultsUpdatedAt}>{new Date(session.resultsUpdatedAt).toISOString().replace("T", " ").slice(0, 19)}</time></p>
+            )}
+          </div>
+          {session.resultStatus !== "live" && <SessionWinnersCard type={session.type} rows={rows} />}
           <ResultsCard label={label} type={session.type} rows={rows} />
           <RaceLapChartLazy
             sessionId={session.id}
@@ -433,7 +442,7 @@ function SessionWinnersCard({
   // match the Hypercar pole and miss the LMGT3 pole sitter.
   const topByClass = new Map<string, SessionResult>();
   for (const r of rows) {
-    const cp = r.classPosition || r.position;
+    const cp = r.classPosition;
     if (cp !== 1) continue;
     if (!topByClass.has(r.raceClass)) {
       topByClass.set(r.raceClass, r);
@@ -665,11 +674,11 @@ function ResultsCard({
             {rows.map((row) => (
               <TableRow key={`${row.position}-${row.carNumber}`} data-race-class={row.raceClass}>
                 <TableCell className="pl-4 font-mono tabular-nums">
-                  {row.position}
+                  {row.classPosition === 0 ? (row.status || "—") : row.position}
                 </TableCell>
                 {isRace && (
                   <TableCell className="hidden font-mono tabular-nums sm:table-cell">
-                    P{row.classPosition}
+                    {row.classPosition > 0 ? `P${row.classPosition}` : "—"}
                   </TableCell>
                 )}
                 <TableCell className="font-mono tabular-nums">

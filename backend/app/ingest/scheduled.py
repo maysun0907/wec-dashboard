@@ -414,6 +414,14 @@ def run_scheduled_ingest(
         else:
             log.info("scheduled_ingest_skipped", reason=plan.reason, year=year)
 
+        # One archive per day, never competing with a race-week collector.
+        if started_at.hour == 3 and not is_race_week(snapshot, started_at):
+            from app.ingest.archive import run_archive_check
+            try:
+                log.info("archive_refresh_completed", **run_archive_check(started_at))
+            except Exception as exc:
+                log.exception("archive_refresh_rejected", error=str(exc))
+
         now = _as_utc(now_fn())
         remaining = max(0.0, deadline_monotonic - monotonic_fn())
         if not has_hot_window_between(

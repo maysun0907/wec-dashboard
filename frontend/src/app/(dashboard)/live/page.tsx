@@ -690,6 +690,7 @@ function SessionClassFilter({
 function groupByClass(rows: SessionResult[]) {
   const out = new Map<string, SessionResult[]>();
   for (const r of rows) {
+    if (r.classPosition === 0) continue;
     const k = r.raceClass;
     out.set(k, [...(out.get(k) ?? []), r]);
   }

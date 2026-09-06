@@ -35,6 +35,7 @@ from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session, joinedload
 
 from app import models
+from app.race_state import is_classified
 from app.circuit_tz import tz_for_circuit
 from app.ingest.snapshot import documents
 
@@ -350,7 +351,12 @@ def _list_race_csvs(
         timestamp = m.group(2)
         by_hour.setdefault(hour, (timestamp, "", ""))
         if re.match(r"^(03|90)_Classification_Race", fname, re.IGNORECASE):
-            classifications[hour] = f"{BASE}/{href}"
+            candidate = f"{BASE}/{href}"
+            previous = classifications.get(hour)
+            # Prefer an explicitly amended/final document over a provisional
+            # sibling regardless of the order of links in the listing.
+            if previous is None or classification_priority(candidate) > classification_priority(previous):
+                classifications[hour] = candidate
         elif re.match(r"^23_Analysis_Race", fname, re.IGNORECASE):
             analyses[hour] = f"{BASE}/{href}"
     if not classifications:
@@ -364,6 +370,15 @@ def _list_race_csvs(
     an = analyses.get(last_hour, "")
     timestamp = by_hour[last_hour][0]
     return timestamp, cl, an
+
+
+def classification_priority(url: str) -> tuple[int, int, str]:
+    decoded = unquote(url).casefold()
+    amended = bool(re.search(r"amended|revised", decoded))
+    final = bool(re.search(r"[_ /]final(?:\.|_)", decoded))
+    revision = re.search(r"(?:amended|revised|final)[_ -]*(\d+)", decoded)
+    return (2 if amended else 1 if final else 0,
+            int(revision.group(1)) if revision else 0, decoded)
 
 
 def race_result_status(url: str, event_name: str) -> str:
@@ -646,6 +661,8 @@ def _apply_race_classification(
         position = int(data["position"])
     except (KeyError, ValueError):
         position = None
+    if not is_classified(data.get("status")):
+        position = 0
     if position is not None and row.position != position:
         row.position = position
         changed = True
@@ -1074,11 +1091,9 @@ def ingest_practice_results(
     event_id: int | None = None,
     session_types: set[str] | None = None,
 ) -> int:
-    """Replace each Free Practice session's SessionResult rows with the
+    """Update each Free Practice session's SessionResult rows in place with the
     full Al Kamel classification (vs. the class-fastest-only set we get
     from Wikipedia). Returns total rows inserted across all sessions."""
-    from sqlalchemy import delete  # local import keeps module import cheap
-
     season_param = _season_param_for_year(year)
     if season_param is None:
         return 0
@@ -1170,11 +1185,9 @@ def ingest_practice_results(
             classification = {r["number"]: r["time"] for r in rows if r["time"]}
             best_lap_drivers = _drivers_for_session(classification, analysis)
 
-            db.execute(
-                delete(models.SessionResult).where(
-                    models.SessionResult.session_id == session.id
-                )
-            )
+            existing = db.query(models.SessionResult).filter_by(session_id=session.id).all()
+            by_car = {row.car_id: row for row in existing}
+            incoming = {}
             for i, r in enumerate(rows):
                 cls_key = _normalize_class(r["class"])
                 car: models.Car | None = None
@@ -1185,7 +1198,11 @@ def ingest_practice_results(
                 if car is None:
                     car = cars_by_number.get(r["number"])
                 if car is None:
+                    # Le Mans includes guest entries outside our season roster.
+                    # Validate coverage of owned rows, not unrelated entries.
                     continue
+                if car.id in incoming:
+                    raise ValueError(f"Duplicate practice car #{r['number']}: {classification_url}")
                 pos: int
                 try:
                     pos = int(r["position"])
@@ -1196,18 +1213,25 @@ def ingest_practice_results(
                     laps_int = int(r["laps"]) if r["laps"] else None
                 except ValueError:
                     laps_int = None
-                db.add(
-                    models.SessionResult(
-                        session_id=session.id,
-                        car_id=car.id,
-                        position=pos,
-                        best_lap=r["time"] or None,
-                        gap=r["gap"] or None,
-                        laps=laps_int,
-                        drivers=best_lap_drivers.get(r["number"]) or None,
-                    )
+                incoming[car.id] = dict(
+                    position=pos, best_lap=r["time"] or None,
+                    gap=r["gap"] or None, laps=laps_int,
+                    drivers=best_lap_drivers.get(r["number"]) or None,
                 )
+            if not set(by_car).issubset(incoming):
+                raise ValueError(f"Practice coverage decreased: {classification_url}")
+            for car_id, values in incoming.items():
+                row = by_car.get(car_id)
+                if row is None:
+                    row = models.SessionResult(session_id=session.id, car_id=car_id, **values)
+                    db.add(row)
+                else:
+                    for field, value in values.items():
+                        setattr(row, field, value)
                 inserted_total += 1
+            for row in existing:
+                if by_car[row.car_id] is not row:
+                    db.delete(row)
             db.commit()
     return inserted_total
 
@@ -1239,6 +1263,27 @@ def ingest_practice_seasons(
             continue
         out[y] = ingest_practice_results(db, season.id, y)
     return out
+
+
+def validate_race_snapshot(session, existing, incoming, status, source_url, cars):
+    """Reject partial/stale published snapshots before mutating good timing.
+
+    A new explicit final classification may legitimately correct lap counts.
+    Never infer that an older live file supersedes a completed/final result.
+    """
+    numbers = [row["number"] for row in incoming]
+    if len(numbers) != len(set(numbers)):
+        raise ValueError(f"Duplicate race cars: {source_url}")
+    if {row.car.number for row in existing} - set(numbers):
+        raise ValueError(f"Race coverage decreased: {source_url}")
+    states = {None: 0, "live": 1, "completed": 2, "final": 3}
+    if states.get(session.result_status, 0) > states[status]:
+        raise ValueError(f"Race state regressed: {source_url}")
+    if status == "live" and session.result_source_url:
+        previous_laps = max((row.laps or 0 for row in existing), default=0)
+        latest_laps = max((int(row["laps"] or 0) for row in incoming), default=0)
+        if latest_laps < previous_laps:
+            raise ValueError(f"Race laps regressed: {source_url}")
 
 
 def enrich_race_results(
@@ -1316,7 +1361,16 @@ def enrich_race_results(
                 raise ValueError(f"Empty race classification: {classification_url}")
             continue
 
-        race_session.result_status = race_result_status(classification_url, ev.name)
+        incoming_status = race_result_status(classification_url, ev.name)
+        validate_race_snapshot(race_session, results, classification_rows,
+                               incoming_status, classification_url, car_by_number)
+        from app.ingest.revisions import record_revision
+        # Archive completed publications only; five-minute live snapshots need
+        # not grow a permanent history throughout a 24-hour race.
+        if incoming_status in ("completed", "final"):
+            record_revision(db, scope=f"race:{race_session.id}", source_url=classification_url,
+                            payload={"status": incoming_status, "rows": classification_rows})
+        race_session.result_status = incoming_status
         race_session.result_source_url = classification_url
         race_session.results_updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -1398,7 +1452,11 @@ def enrich_race_results(
                 try:
                     pos_int = int(r["position"])
                 except ValueError:
-                    continue
+                    if is_classified(r["status"]):
+                        raise ValueError(f"Missing classified position: {classification_url}")
+                    pos_int = 0
+                if not is_classified(r["status"]):
+                    pos_int = 0
                 try:
                     laps_int = int(r["laps"]) if r["laps"] else None
                 except ValueError:

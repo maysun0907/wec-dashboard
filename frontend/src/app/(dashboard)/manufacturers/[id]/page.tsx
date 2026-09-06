@@ -499,7 +499,8 @@ function ManufacturerCareerTable({ rows }: { rows: ManufacturerSeason[] }) {
   );
 }
 
-function ResultsTable({ rows }: { rows: ManufacturerResult[] }) {
+async function ResultsTable({ rows }: { rows: ManufacturerResult[] }) {
+  const tt = await getTranslations("table");
   return (
     <Table>
       <TableHeader>
@@ -512,7 +513,7 @@ function ResultsTable({ rows }: { rows: ManufacturerResult[] }) {
           <TableHead className="hidden w-14 text-right sm:table-cell">
             Pos
           </TableHead>
-          <TableHead className="pr-4 text-right">Pts</TableHead>
+          <TableHead className="pr-4 text-right">{tt("estimatedPts")}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -536,7 +537,7 @@ function ResultsTable({ rows }: { rows: ManufacturerResult[] }) {
               {r.carNumber}
             </TableCell>
             <TableCell className="text-right font-mono tabular-nums">
-              P{r.classPosition}
+              {r.classPosition > 0 ? `P${r.classPosition}` : "—"}
             </TableCell>
             <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground sm:table-cell">
               P{r.position}

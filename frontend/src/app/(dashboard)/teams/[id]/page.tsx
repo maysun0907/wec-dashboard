@@ -357,7 +357,7 @@ export default async function TeamDetailPage({
                   <TableHead className="w-12 text-right text-muted-foreground">
                     {tt("pos")}
                   </TableHead>
-                  <TableHead className="pr-4 text-right">{tt("pts")}</TableHead>
+                  <TableHead className="pr-4 text-right">{tt("estimatedPts")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -381,10 +381,10 @@ export default async function TeamDetailPage({
                       <ClassBadge raceClass={r.raceClass} />
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
-                      P{r.classPosition}
+                      {r.classPosition > 0 ? `P${r.classPosition}` : "—"}
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
-                      P{r.position}
+                      {r.classPosition > 0 ? `P${r.position}` : "—"}
                     </TableCell>
                     <TableCell
                       className={

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
-from app.race_state import completed_race_filter
+from app.race_state import is_classified, completed_race_filter
 from app.scoring import class_position_for, points_for, preload_class_positions
 from app.season import YearParam, resolve_season
 
@@ -72,7 +72,7 @@ def _manufacturer_career(
         wins = 0
         podiums = 0
         for sr in result_rows:
-            cp = class_position_for(db, sr.session_id, race_class_id, sr.position)
+            cp = class_position_for(db, sr.session_id, race_class_id, sr.position if is_classified(sr.status) else 0)
             if cp == 1:
                 wins += 1
             if 1 <= cp <= 3:
@@ -239,12 +239,12 @@ def get_manufacturer(
                 race_class=rc.name,
                 position=sr.position,
                 class_position=class_position_for(
-                    db, sr.session_id, car.race_class_id, sr.position
+                    db, sr.session_id, car.race_class_id, sr.position if is_classified(sr.status) else 0
                 ),
                 points_awarded=points_for(
                     ev.name,
                     class_position_for(
-                        db, sr.session_id, car.race_class_id, sr.position
+                        db, sr.session_id, car.race_class_id, sr.position if is_classified(sr.status) else 0
                     ),
                 ),
                 laps=sr.laps,

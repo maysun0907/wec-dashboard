@@ -14,6 +14,11 @@ const saoPaulo = {
 };
 
 describe("race-aware cache policy", () => {
+  it("does not freeze results or standings during the post-race appeal window", () => {
+    const now = new Date("2026-08-20T00:00:00Z");
+    expect(eventDataRevalidateSeconds(saoPaulo, now)).toBe(OFF_WEEK_REVALIDATE_SECONDS);
+    expect(seasonDataRevalidateSeconds([saoPaulo], now)).toBe(OFF_WEEK_REVALIDATE_SECONDS);
+  });
   it("uses the fast cache from Monday of race week through post-race ingest", () => {
     expect(isRaceWeek(saoPaulo, new Date("2026-07-06T00:00:00Z"))).toBe(true);
     expect(isRaceWeek(saoPaulo, new Date("2026-07-14T23:59:59Z"))).toBe(true);
@@ -25,7 +30,7 @@ describe("race-aware cache policy", () => {
     ).toBe(RACE_WEEK_REVALIDATE_SECONDS);
   });
 
-  it("uses an hourly cache before race week and a daily cache for archives", () => {
+  it("uses hourly caches around appeals and daily caches for old archives", () => {
     expect(
       eventDataRevalidateSeconds(
         saoPaulo,
@@ -35,7 +40,7 @@ describe("race-aware cache policy", () => {
     expect(
       eventDataRevalidateSeconds(
         saoPaulo,
-        new Date("2026-07-15T00:00:00Z"),
+        new Date("2027-07-15T00:00:00Z"),
       ),
     ).toBe(ARCHIVE_REVALIDATE_SECONDS);
   });
@@ -61,7 +66,7 @@ describe("race-aware cache policy", () => {
     expect(
       seasonDataRevalidateSeconds(
         [saoPaulo],
-        new Date("2026-07-21T00:00:00Z"),
+        new Date("2027-07-21T00:00:00Z"),
       ),
     ).toBe(ARCHIVE_REVALIDATE_SECONDS);
   });

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.db import get_db
-from app.race_state import completed_race_filter
+from app.race_state import completed_race_filter, classified_result_filter
 from app.season import YearParam, resolve_season
 
 router = APIRouter(prefix="/circuits", tags=["circuits"])
@@ -90,7 +90,7 @@ def get_circuit(
             .join(models.Car, models.SessionResult.car_id == models.Car.id)
             .join(models.Team, models.Car.team_id == models.Team.id)
             .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
-            .filter(models.SessionResult.session_id.in_(race_session_ids))
+            .filter(models.SessionResult.session_id.in_(race_session_ids), classified_result_filter())
             .order_by(models.Session.event_id, models.SessionResult.position)
             .all()
         )

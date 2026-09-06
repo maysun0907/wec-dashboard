@@ -1,10 +1,22 @@
 """Shared race-result eligibility; live snapshots are never career wins."""
 from datetime import datetime, timezone
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, or_, func
 
 from app import models
 from app.rounds import driver_in_round
+
+
+UNCLASSIFIED_STATUSES = ("DSQ", "DQ", "DISQUALIFIED", "EXCLUDED", "EX", "NC", "NOT CLASSIFIED", "DNS", "DID NOT START")
+
+
+def classified_result_filter():
+    return or_(models.SessionResult.status.is_(None),
+               func.upper(func.trim(models.SessionResult.status)).notin_(UNCLASSIFIED_STATUSES))
+
+
+def is_classified(status: str | None) -> bool:
+    return (status or "").strip().upper() not in UNCLASSIFIED_STATUSES
 
 
 def completed_race_filter():

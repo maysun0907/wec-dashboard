@@ -20,7 +20,7 @@ export function FormChart({ data }: { data: Point[] }) {
   return (
     <ResponsiveContainer width="100%" height={200}>
       <LineChart
-        data={data}
+        data={data.map((p) => ({ ...p, classPosition: p.classPosition > 0 ? p.classPosition : null }))}
         margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
       >
         <XAxis

@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
-from app.race_state import completed_race_filter, driver_participated
+from app.race_state import is_classified, completed_race_filter, driver_participated
 from app.scoring import class_position_for, points_for, preload_class_positions
 from app.season import YearParam, resolve_season
 
@@ -113,7 +113,7 @@ def _driver_career(
         wins = 0
         podiums = 0
         for sr in result_rows:
-            cp = class_position_for(db, sr.session_id, rc.id, sr.position)
+            cp = class_position_for(db, sr.session_id, rc.id, sr.position if is_classified(sr.status) else 0)
             if cp == 1:
                 wins += 1
             if 1 <= cp <= 3:
@@ -215,7 +215,7 @@ def get_driver(
 
     def _cp(sr: models.SessionResult) -> int:
         return class_position_for(
-            db, sr.session_id, car.race_class_id, sr.position
+            db, sr.session_id, car.race_class_id, sr.position if is_classified(sr.status) else 0
         )
 
     standing = (

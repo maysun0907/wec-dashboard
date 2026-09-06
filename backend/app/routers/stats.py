@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app import models, schemas
 from app.db import get_db
 from app.rounds import driver_in_round
-from app.race_state import completed_race_filter
+from app.race_state import completed_race_filter, classified_result_filter
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -147,7 +147,7 @@ def _driver_wins_and_podiums(db: Session) -> tuple[list[dict], list[dict]]:
         .join(models.Car, models.SessionResult.car_id == models.Car.id)
         .join(models.Session, models.SessionResult.session_id == models.Session.id)
         .join(models.Event, models.Session.event_id == models.Event.id)
-        .filter(models.Session.type == "RACE", completed_race_filter())
+        .filter(models.Session.type == "RACE", completed_race_filter(), classified_result_filter())
         .all()
     )
 
@@ -242,7 +242,7 @@ def _le_mans_winners(db: Session) -> list[dict[str, Any]]:
                 models.Manufacturer,
                 models.Team.manufacturer_id == models.Manufacturer.id,
             )
-            .filter(models.SessionResult.session_id == sess.id)
+            .filter(models.SessionResult.session_id == sess.id, classified_result_filter())
             .order_by(models.SessionResult.position)
             .first()
         )

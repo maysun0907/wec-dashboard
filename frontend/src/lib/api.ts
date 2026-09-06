@@ -70,6 +70,9 @@ export type Session = {
   id: number;
   type: string; // "FP1" | "FP2" | "FP3" | "Q" | "RACE"
   startTime: string | null;
+  resultStatus?: "live" | "completed" | "final" | null;
+  resultSourceUrl?: string | null;
+  resultsUpdatedAt?: string | null;
 };
 
 export type EventDetail = Event & { sessions: Session[] };
@@ -120,6 +123,7 @@ export type SessionResultDriverRef = {
 };
 
 export type SessionResult = {
+  status?: string | null;
   position: number; // overall
   classPosition: number;
   pointsAwarded: number;
@@ -443,18 +447,21 @@ export type ProgressionPoint = {
 };
 
 export type DriverProgression = {
+  isEstimate?: boolean;
   driverId: number;
   driverName: string;
   points: ProgressionPoint[];
 };
 
 export type ManufacturerProgression = {
+  isEstimate?: boolean;
   manufacturerId: number;
   manufacturerName: string;
   points: ProgressionPoint[];
 };
 
 export type TeamProgression = {
+  isEstimate?: boolean;
   teamId: number;
   teamName: string;
   carNumber: string;

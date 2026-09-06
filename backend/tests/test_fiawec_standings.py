@@ -161,6 +161,28 @@ def test_parses_all_modern_championship_tables_and_zero_points() -> None:
     assert len([row for row in rows if row["points"] == 0]) == 4
 
 
+def test_official_penalty_can_reduce_points_below_zero():
+    from app.ingest.fiawec_standings import _parse_points
+    assert _parse_points("−5") == -5
+    assert _parse_points("-2.5") == -2.5
+    with pytest.raises(ValueError):
+        _parse_points("NaN")
+
+
+def test_revised_official_table_replaces_total_and_records_history():
+    db, season, event = _db()
+    try:
+        ingest_fiawec_standings(db, season.id, 2026, event.id, html=FIA_STANDINGS_HTML)
+        db.commit()
+        revised = FIA_STANDINGS_HTML.replace("</td><td>4</td>", "</td><td>-5</td>")
+        ingest_fiawec_standings(db, season.id, 2026, event.id, html=revised)
+        db.commit()
+        assert db.query(models.StandingDriver).filter_by(points=-5).count() == 2
+        assert db.query(models.SourceRevision).count() == 2
+    finally:
+        db.close()
+
+
 def test_ingest_resolves_official_driver_alias_and_car_number_teams() -> None:
     db, season, event = _db()
     try:

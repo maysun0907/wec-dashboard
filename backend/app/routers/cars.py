@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
-from app.race_state import completed_race_filter
+from app.race_state import completed_race_filter, classified_result_filter
 from app.scoring import class_position_for, preload_class_positions
 from app.season import YearParam, resolve_season
 
@@ -22,7 +22,7 @@ def _model_stats(
         .filter(models.Car.car_model_id == car_model_id)
         .filter(models.Car.season_id == season_id)
         .filter(models.Session.type.in_(["RACE", "Q"]))
-        .filter(or_(models.Session.type == "Q", completed_race_filter()))
+        .filter(or_(models.Session.type == "Q", completed_race_filter()), classified_result_filter())
         .all()
     )
     preload_class_positions(db, (sess.id for _sr, sess, _car in rows))

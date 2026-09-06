@@ -141,6 +141,7 @@ class SessionResultOut(_BaseSchema):
     """Flattened result row matching the frontend mock shape."""
 
     position: int  # overall position
+    status: str | None = None
     class_position: int = 0  # rank within race_class
     points_awarded: float = 0.0
     car_number: str
@@ -231,7 +232,7 @@ class DriverResultOut(_BaseSchema):
     event_name: str
     position: int  # overall position
     class_position: int  # rank within race_class
-    points_awarded: float  # WEC points scored for this result
+    points_awarded: float  # Estimated race points, not published championship points
     laps: int | None = None
     gap: str | None = None
 
@@ -449,18 +450,21 @@ class ProgressionPointOut(_BaseSchema):
 
 
 class DriverProgressionOut(_BaseSchema):
+    is_estimate: bool = True
     driver_id: int
     driver_name: str
     points: list[ProgressionPointOut] = []
 
 
 class ManufacturerProgressionOut(_BaseSchema):
+    is_estimate: bool = True
     manufacturer_id: int
     manufacturer_name: str
     points: list[ProgressionPointOut] = []
 
 
 class TeamProgressionOut(_BaseSchema):
+    is_estimate: bool = True
     team_id: int
     team_name: str
     car_number: str

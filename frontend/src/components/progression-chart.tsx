@@ -30,7 +30,7 @@ export type Series = {
   points: { round: number; cumulativePoints: number }[];
 };
 
-type ChartRow = { round: number } & Record<string, number>;
+type ChartRow = { round: number } & Record<string, number | null>;
 
 function pivot(series: Series[]): ChartRow[] {
   const rounds = new Set<number>();
@@ -43,7 +43,7 @@ function pivot(series: Series[]): ChartRow[] {
       const row: ChartRow = { round };
       for (const s of series) {
         const pt = s.points.find((x) => x.round === round);
-        row[s.label] = pt?.cumulativePoints ?? 0;
+        row[s.key] = pt?.cumulativePoints ?? null;
       }
       return row;
     });
@@ -91,7 +91,8 @@ export function ProgressionChart({ series }: { series: Series[] }) {
           <Line
             key={s.key}
             type="monotone"
-            dataKey={s.label}
+            dataKey={s.key}
+            name={s.label}
             stroke={LINE_COLORS[i % LINE_COLORS.length]}
             strokeWidth={2}
             dot={{

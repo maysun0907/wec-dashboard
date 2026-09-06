@@ -6,6 +6,7 @@ from app.db import get_db
 from app.ingest import alkamel
 from app.rounds import driver_in_round
 from app.scoring import points_for
+from app.race_state import is_classified
 from app.season import YearParam, resolve_season
 
 router = APIRouter(tags=["events"])
@@ -137,7 +138,9 @@ def session_results(
     class_pos_by_id: dict[int, int] = {}
     by_class: dict[int, list[models.SessionResult]] = {}
     for r in results:
-        by_class.setdefault(r.car.race_class_id, []).append(r)
+        class_pos_by_id[r.id] = 0
+        if is_classified(r.status):
+            by_class.setdefault(r.car.race_class_id, []).append(r)
     for rows_in_class in by_class.values():
         rows_in_class.sort(key=lambda r: r.position)
         for i, r in enumerate(rows_in_class, start=1):
@@ -177,6 +180,7 @@ def session_results(
                 drivers=r.drivers or " / ".join(drivers_by_car.get(r.car_id, [])),
                 driver_refs=refs,
                 race_class=r.car.race_class.name,
+                status=r.status,
                 laps=r.laps,
                 gap=r.gap,
                 best_lap=r.best_lap,
