@@ -67,6 +67,7 @@ def test_official_grid_restores_distinct_q_hp_and_penalty_order(monkeypatch):
         db.add_all([sess, *cars]); db.flush()
         for car in cars:
             db.add(models.SessionResult(session_id=sess.id, car_id=car.id, position=1, best_lap="1:30.127", hyperpole_lap="1:30.127"))
+        db.add(models.SessionResult(session_id=sess.id, car_id=cars[0].id, position=3, best_lap="1:30.127"))
         db.commit()
         monkeypatch.setattr(a, "_season_param_for_year", lambda _: "15_2026")
         monkeypatch.setattr(a, "_event_options_for_season", lambda _: [(5, "05_COTA")])

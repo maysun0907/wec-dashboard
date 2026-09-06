@@ -906,6 +906,12 @@ def enrich_qualifying_drivers(
                 raise ValueError(f"Empty qualifying classification: {entry[2]}")
             loaded.append((entry, document))
         for row in results:
+            if by_car_number[row.car.number] is not row:
+                # Some source tables repeat a car (e.g. amended grids).
+                # Keep one result per car so class positions stay correct.
+                db.delete(row)
+                updated += 1
+                continue
             row.qualifying_lap = row.hyperpole_lap = row.best_lap = None
             row.qualifying_driver = row.hyperpole_driver = None
             row.s1_time = row.s2_time = row.s3_time = None
