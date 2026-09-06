@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.db import get_db
+from app.race_state import completed_race_filter
 from app.season import YearParam, resolve_season
 
 router = APIRouter(prefix="/circuits", tags=["circuits"])
@@ -16,10 +17,10 @@ def list_circuits(
     db: Session = Depends(get_db),
 ) -> list[models.Circuit]:
     """List circuits, filtered to those that host an event in the
-    resolved season. Pass `year=` explicitly to pin a season; without it
-    the API uses the latest ingested season. To get every circuit ever,
-    pass `year=0` (no season matches → unfiltered fallback)."""
+    resolved season. Unknown seasons return no circuits, like other lists."""
     season = resolve_season(db, year)
+    if season is None:
+        return []
     q = db.query(models.Circuit).order_by(models.Circuit.name)
     if season is not None:
         q = q.filter(
@@ -57,6 +58,8 @@ def get_circuit(
     if event_ids:
         for session in (
             db.query(models.Session)
+            .join(models.Event, models.Session.event_id == models.Event.id)
+            .filter(completed_race_filter())
             .filter(
                 models.Session.event_id.in_(event_ids),
                 models.Session.type == "RACE",

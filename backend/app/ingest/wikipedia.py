@@ -17,11 +17,12 @@ import httpx
 from bs4 import BeautifulSoup, Tag
 
 from app.circuit_tz import tz_for_circuit
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, func
 from sqlalchemy.orm import Session
 
 from app import models
 from app.db import SessionLocal, engine
+from app.ingest.snapshot import source_snapshot
 from app.ingest._common import (
     get_or_create_race_class,
     get_or_create_season,
@@ -1218,7 +1219,8 @@ def _clear_season(db: Session, season_id: int) -> None:
     db.execute(
         delete(models.CarDriver).where(models.CarDriver.season_id == season_id)
     )
-    db.execute(delete(models.Car).where(models.Car.season_id == season_id))
+    # Retain stable car IDs and per-entry images. _ingest_entries updates
+    # matching entries and prunes cars no longer present after parsing.
     db.flush()
 
 
@@ -1308,6 +1310,9 @@ def _ingest_entries(
     driver_titles: dict[str, str],
 ) -> tuple[int, int]:
     car_drivers_count = 0
+    existing = {(c.number, c.race_class_id): c for c in db.query(models.Car)
+                .filter_by(season_id=season_id).all()}
+    retained = set()
     for entry in grouped:
         manuf = upsert_manufacturer(db, _extract_manufacturer(entry["car"]))
         if not manuf.logo_url:
@@ -1318,16 +1323,18 @@ def _ingest_entries(
         car_model = upsert_car_model(
             db, entry["car"], manufacturer_id=manuf.id
         )
-        car = models.Car(
-            season_id=season_id,
-            team_id=team.id,
-            race_class_id=race_class_ids[entry["race_class"]],
-            number=entry["number"],
-            model=entry["car"],
-            car_model_id=car_model.id,
-        )
-        db.add(car)
+        key = (entry["number"], race_class_ids[entry["race_class"]])
+        car = existing.get(key)
+        if car is None:
+            car = models.Car(season_id=season_id, number=key[0],
+                             race_class_id=key[1], team_id=team.id)
+            db.add(car)
+            existing[key] = car
+        car.team_id = team.id
+        car.model = entry["car"]
+        car.car_model_id = car_model.id
         db.flush()
+        retained.add(car.id)
         for driver_info in entry["drivers"]:
             driver = upsert_driver(db, driver_info["name"])
             if not driver.photo_url:
@@ -1345,6 +1352,8 @@ def _ingest_entries(
                 )
             )
             car_drivers_count += 1
+    db.execute(delete(models.Car).where(models.Car.season_id == season_id,
+                                        models.Car.id.not_in(retained)))
     db.flush()
     return len(grouped), car_drivers_count
 
@@ -1950,6 +1959,7 @@ def _ingest_standings(
 # ---------------------------------------------------------------------------
 
 
+@source_snapshot
 def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
     import structlog
     from app.logging import configure_logging
@@ -1972,6 +1982,13 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
     db.info["require_official_timing"] = True
     try:
         season = get_or_create_season(db, year)
+        def timing_counts():
+            return dict(db.query(models.SessionResult.session_id, func.count(models.SessionResult.id))
+                        .join(models.Session, models.SessionResult.session_id == models.Session.id)
+                        .join(models.Event, models.Session.event_id == models.Event.id)
+                        .filter(models.Event.season_id == season.id)
+                        .group_by(models.SessionResult.session_id).all())
+        previous_counts = timing_counts()
         for name in (
             "HYPERCAR",
             "LMP1",
@@ -2065,6 +2082,10 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
                 "posters": 0,
             }
 
+        db.commit()
+        refreshed_counts = timing_counts()
+        if any(refreshed_counts.get(sid, 0) < count for sid, count in previous_counts.items()):
+            raise SourceDataError("Timing coverage decreased; previous season retained for review")
         db.commit()
         transaction.commit()
         summary = {

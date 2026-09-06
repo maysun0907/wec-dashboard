@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
+from app.race_state import completed_race_filter
 from app.scoring import class_position_for, points_for, preload_class_positions
 from app.season import YearParam, resolve_season
 
@@ -19,8 +21,9 @@ def _manufacturer_career(
         db.query(models.Season, models.Car, models.RaceClass)
         .join(models.Car, models.Car.season_id == models.Season.id)
         .join(models.Team, models.Car.team_id == models.Team.id)
+        .outerjoin(models.CarModel, models.Car.car_model_id == models.CarModel.id)
         .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
-        .filter(models.Team.manufacturer_id == manufacturer_id)
+        .filter(func.coalesce(models.CarModel.manufacturer_id, models.Team.manufacturer_id) == manufacturer_id)
         .order_by(models.Season.year.desc())
         .all()
     )
@@ -58,8 +61,10 @@ def _manufacturer_career(
         result_rows = (
             db.query(models.SessionResult)
             .join(models.Session, models.SessionResult.session_id == models.Session.id)
+            .join(models.Event, models.Session.event_id == models.Event.id)
             .filter(models.SessionResult.car_id.in_(car_ids))
             .filter(models.Session.type == "RACE")
+            .filter(completed_race_filter())
             .all()
         )
         preload_class_positions(db, (sr.session_id for sr in result_rows))
@@ -127,9 +132,10 @@ def get_manufacturer(
     car_rows = (
         db.query(models.Car, models.Team, models.RaceClass)
         .join(models.Team, models.Car.team_id == models.Team.id)
+        .outerjoin(models.CarModel, models.Car.car_model_id == models.CarModel.id)
         .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
         .options(joinedload(models.Car.car_model))
-        .filter(models.Team.manufacturer_id == manufacturer_id)
+        .filter(func.coalesce(models.CarModel.manufacturer_id, models.Team.manufacturer_id) == manufacturer_id)
         .filter(models.Car.season_id == season.id)
         .all()
     )
@@ -172,6 +178,7 @@ def get_manufacturer(
             .filter(models.Car.id.in_(car_ids))
             .filter(models.Session.type == "RACE")
             .filter(models.Event.season_id == season.id)
+            .filter(completed_race_filter())
             .order_by(models.Event.round, models.SessionResult.position)
             .all()
         )

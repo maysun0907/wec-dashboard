@@ -110,7 +110,8 @@ def test_full_ingest_rolls_back_even_after_helper_commit(db, monkeypatch):
         assert check.query(models.SessionResult).count() == 2
 
 
-def test_failed_full_refresh_does_not_disable_hot_timing(monkeypatch):
+@pytest.mark.parametrize("error", [wikipedia.SourceDataError("bad source"), ValueError("roster mismatch")])
+def test_failed_full_refresh_does_not_disable_hot_timing(monkeypatch, error):
     now = datetime(2026, 9, 6, 18, tzinfo=timezone.utc)
     snapshot = scheduled.ScheduleSnapshot(
         events=(scheduled.EventSchedule(1, 1, 2026, 5, "Lone Star Le Mans", now.date(), now.date()),),
@@ -122,7 +123,7 @@ def test_failed_full_refresh_does_not_disable_hot_timing(monkeypatch):
     ticks = [0.0]
     refreshes = []
     def rejected(**_):
-        raise wikipedia.SourceDataError("season source unavailable")
+        raise error
     monkeypatch.setattr(scheduled, "scheduler_lock", lock)
     monkeypatch.setattr(scheduled, "load_schedule", lambda _: snapshot)
     monkeypatch.setattr(scheduled, "refresh_active_sessions", lambda *_: refreshes.append(True) or {})
@@ -132,3 +133,88 @@ def test_failed_full_refresh_does_not_disable_hot_timing(monkeypatch):
         sleep_fn=lambda seconds: ticks.__setitem__(0, ticks[0] + seconds),
     )
     assert refreshes
+
+
+def test_live_results_never_count_as_career_wins(db):
+    from app.routers.drivers import _driver_career, get_driver
+    from app.routers.teams import _team_career
+    _, _, _, drivers = fixture_rows(db)
+    races = db.query(models.Session).order_by(models.Session.id).all()
+    races[0].result_status = "live"  # still live even if the scheduled date is old
+    races[1].result_status = "completed"
+    db.commit()
+    assert _driver_career(db, drivers[0].id)[0].races == 0
+    assert _driver_career(db, drivers[1].id)[0].wins == 1
+    assert get_driver(drivers[0].id, year=2020, db=db).results == []
+    assert _team_career(db, db.query(models.Team).one().id)[0].races == 1
+    wins, _ = _driver_wins_and_podiums(db)
+    assert [r["name"] for r in wins] == ["Substitute"]
+
+
+def test_manufacturer_uses_vehicle_brand_not_team_default(db):
+    from app.routers.manufacturers import get_manufacturer
+    fixture_rows(db)
+    brands = [models.Manufacturer(name=n) for n in ("Ford", "Porsche")]
+    db.add_all(brands); db.flush()
+    car = db.query(models.Car).one()
+    car.team.manufacturer_id = brands[0].id
+    model = models.CarModel(slug="963", name="963", manufacturer_id=brands[1].id)
+    db.add(model); db.flush()
+    car.car_model_id = model.id
+    db.commit()
+    assert get_manufacturer(brands[0].id, 2020, db).cars == []
+    assert len(get_manufacturer(brands[1].id, 2020, db).cars) == 1
+
+
+def test_published_hour_not_weather_controls_latest_race_file(monkeypatch):
+    prefix = "Results/15_2026/05_COTA/673_FIA%20WEC/202609061300_Race/"
+    html = (f'<a href="{prefix}01_Hour%201/03_Classification_Race.CSV">x</a>'
+            f'<a href="{prefix}02_Hour%202/26_Weather_Race.CSV">x</a>')
+    monkeypatch.setattr(alkamel, "_event_html", lambda *_: html)
+    assert "01_Hour" in alkamel._list_race_csvs("15_2026", "05_COTA")[1]
+
+
+def test_race_state_distinguishes_full_duration_from_final():
+    prefix = "Results/15_2026/05_COTA/673_FIA%20WEC/202609061300_Race/"
+    assert alkamel.race_result_status(prefix + "01_Hour%201/03_Classification_Race.CSV", "Lone Star Le Mans") == "live"
+    assert alkamel.race_result_status(prefix + "06_Hour%206/03_Classification_Race.CSV", "Lone Star Le Mans") == "completed"
+    assert alkamel.race_result_status(prefix + "06_Hour%206/03_Classification_Race_Final.CSV", "Lone Star Le Mans") == "final"
+
+
+def test_timing_cache_expires_between_refreshes(monkeypatch):
+    from app.ingest.snapshot import source_snapshot
+    calls = []
+    class Response:
+        text = "source"
+        def raise_for_status(self): pass
+    monkeypatch.setattr(alkamel.httpx, "get", lambda *args, **kwargs: calls.append(args[0]) or Response())
+    @source_snapshot
+    def refresh():
+        alkamel._fetch("https://example.test/file")
+        alkamel._fetch("https://example.test/file")
+    refresh(); refresh()
+    assert len(calls) == 2
+
+
+def test_reingest_preserves_car_id_and_image(db, monkeypatch):
+    season, _, rc, _ = fixture_rows(db)
+    car = db.query(models.Car).one()
+    stable_id = car.id
+    car.image_url = "https://example.test/car.png"
+    db.commit()
+    wikipedia._clear_season(db, season.id)
+    monkeypatch.setattr(wikipedia, "fetch_manufacturer_logo", lambda _: None)
+    wikipedia._ingest_entries(db, season.id, {rc.name:rc.id}, [{
+        "car":"Ferrari 499P", "entrant":"Team", "race_class":rc.name,
+        "number":"1", "drivers":[{"name":"Full Season", "rounds":"All"}],
+    }], {})
+    db.commit()
+    car = db.query(models.Car).one()
+    assert car.id == stable_id
+    assert car.image_url == "https://example.test/car.png"
+
+
+def test_download_slug_cannot_escape_output_directory():
+    from app.fetch_car_image import fetch
+    with pytest.raises(ValueError, match="slug"):
+        fetch("../../unexpected", "https://example.test/image.png")

@@ -5,7 +5,7 @@ what Alembic introspects for autogenerate.
 """
 from datetime import date, datetime
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -101,6 +101,9 @@ class Session(Base):
     event_id: Mapped[int] = mapped_column(ForeignKey("events.id"), index=True)
     type: Mapped[str] = mapped_column(String(10))  # FP1/FP2/FP3/Q/RACE
     start_time: Mapped[datetime | None] = mapped_column(default=None)
+    result_status: Mapped[str | None] = mapped_column(String(20), default=None)
+    result_source_url: Mapped[str | None] = mapped_column(default=None)
+    results_updated_at: Mapped[datetime | None] = mapped_column(default=None)
     weather: Mapped[str | None] = mapped_column(String(50), default=None)
     # Pre-computed weather summary (median across the session). Pulled
     # by app.ingest.alkamel from the 26_Weather CSV so /weather is a
@@ -113,7 +116,7 @@ class Session(Base):
     # Pre-computed per-car race lap chart (race sessions only). JSON
     # blob of `schemas.LapChart` so the API doesn't have to refetch +
     # reparse the 2 MB Al Kamel race-analysis CSV per page hit.
-    lap_chart_json: Mapped[str | None] = mapped_column(default=None)
+    lap_chart_json: Mapped[str | None] = mapped_column(Text, default=None)
 
     event: Mapped["Event"] = relationship()
 

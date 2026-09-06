@@ -10,11 +10,17 @@ export async function mapWithConcurrency<T, R>(
 
   const results = new Array<R>(items.length);
   let nextIndex = 0;
+  let failed = false;
 
   async function worker() {
-    while (nextIndex < items.length) {
+    while (!failed && nextIndex < items.length) {
       const index = nextIndex++;
-      results[index] = await mapper(items[index]!, index);
+      try {
+        results[index] = await mapper(items[index]!, index);
+      } catch (error) {
+        failed = true;
+        throw error;
+      }
     }
   }
 

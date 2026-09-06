@@ -24,7 +24,7 @@ from __future__ import annotations
 import csv
 import io
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Iterable
 from urllib.parse import quote, unquote, urlencode
 from uuid import uuid4
@@ -36,6 +36,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models
 from app.circuit_tz import tz_for_circuit
+from app.ingest.snapshot import documents
 
 
 def _timestamp_to_utc(stamp: str, circuit_tz: str | None) -> datetime | None:
@@ -57,6 +58,9 @@ BASE = "https://fiawec.alkamelsystems.com"
 
 
 def _fetch(url: str) -> str:
+    cache = documents.get()
+    if cache is not None and url in cache:
+        return cache[url]
     r = httpx.get(
         url,
         headers={"User-Agent": USER_AGENT, "Accept-Language": "en",
@@ -65,6 +69,8 @@ def _fetch(url: str) -> str:
         timeout=20.0,
     )
     r.raise_for_status()
+    if cache is not None:
+        cache[url] = r.text
     return r.text
 
 
@@ -347,15 +353,32 @@ def _list_race_csvs(
             classifications[hour] = f"{BASE}/{href}"
         elif re.match(r"^23_Analysis_Race", fname, re.IGNORECASE):
             analyses[hour] = f"{BASE}/{href}"
-    if not by_hour:
+    if not classifications:
         return None
-    last_hour = max(by_hour)
+    # A new hour's weather/analysis can appear before its classification.
+    # Keep serving the latest published classification in that interval.
+    last_hour = max(classifications)
     cl = classifications.get(last_hour)
     if cl is None:
         return None
     an = analyses.get(last_hour, "")
     timestamp = by_hour[last_hour][0]
     return timestamp, cl, an
+
+
+def race_result_status(url: str, event_name: str) -> str:
+    """Final means explicitly final; a full-duration snapshot is completed.
+
+    Do not infer completion merely because the scheduled finish has passed:
+    red flags can extend a race, and the last available file may be mid-race.
+    """
+    if re.search(r"[_ /]Final(?:\.|_)", unquote(url), re.IGNORECASE):
+        return "final"
+    from app.ingest.scheduled import _race_duration
+    match = _RACE_HOUR_RE.search(url)
+    if match and int(match.group(4)) >= _race_duration(event_name).total_seconds() / 3600:
+        return "completed"
+    return "live"
 
 
 # ---------------------------------------------------------------------------
@@ -1292,6 +1315,10 @@ def enrich_race_results(
             if db.info.get("require_official_timing"):
                 raise ValueError(f"Empty race classification: {classification_url}")
             continue
+
+        race_session.result_status = race_result_status(classification_url, ev.name)
+        race_session.result_source_url = classification_url
+        race_session.results_updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
         for existing in results:
             if by_car_number[existing.car.number] is not existing:

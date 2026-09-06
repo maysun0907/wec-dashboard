@@ -27,6 +27,7 @@ from sqlalchemy import text
 from app import models
 from app.db import SessionLocal, engine
 from app.ingest.wikipedia import SourceDataError
+from app.ingest.snapshot import source_snapshot
 from app.logging import configure_logging
 
 
@@ -284,6 +285,7 @@ def scheduler_lock() -> Iterator[bool]:
                 connection.commit()
 
 
+@source_snapshot
 def refresh_active_sessions(
     snapshot: ScheduleSnapshot,
     now: datetime,
@@ -404,6 +406,10 @@ def run_scheduled_ingest(
                     year=year,
                     error=str(exc),
                 )
+            except Exception as exc:
+                # Network/standings validation failures also roll back the
+                # full rebuild. Live collection uses independent sources.
+                log.exception("scheduled_full_ingest_failed", year=year, error=str(exc))
             snapshot = load_schedule(year)
         else:
             log.info("scheduled_ingest_skipped", reason=plan.reason, year=year)

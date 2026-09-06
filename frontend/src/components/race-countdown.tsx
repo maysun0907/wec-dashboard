@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 type Parts = { days: number; hours: number; minutes: number; seconds: number };
 
 function compute(targetMs: number): Parts {
-  const diff = Math.max(0, targetMs - Date.now());
+  const diff = Number.isFinite(targetMs) ? Math.max(0, targetMs - Date.now()) : 0;
   return {
     days: Math.floor(diff / 86_400_000),
     hours: Math.floor((diff / 3_600_000) % 24),
@@ -23,11 +23,8 @@ export function RaceCountdown({ targetIso }: { targetIso: string | null }) {
   // Null targetIso happens when the API hasn't filled the next race's
   // RACE.startTime yet — render an empty placeholder rather than NaN.
   const target = targetIso ? new Date(targetIso).getTime() : Number.NaN;
-  // Compute initial digits server-side so the first paint isn't a frozen
-  // 00:00:00:00. Server Date.now() and client Date.now() differ by a few
-  // ms which would normally trip a hydration warning — suppress on the
-  // root since the discrepancy is correct, not a bug.
-  const [parts, setParts] = useState<Parts>(() => compute(target));
+  // Server and first client paint must agree. Start ticking after mount.
+  const [parts, setParts] = useState<Parts>({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
   useEffect(() => {
     const tick = () => setParts(compute(target));
@@ -40,15 +37,14 @@ export function RaceCountdown({ targetIso }: { targetIso: string | null }) {
   return (
     <div
       className="flex flex-wrap items-stretch gap-2 sm:gap-3"
-      suppressHydrationWarning
     >
-      <Unit value={pad(parts.days)} label={t("countdownDays")} />
+      <Unit value={Number.isFinite(target) ? pad(parts.days) : "—"} label={t("countdownDays")} />
       <Sep />
-      <Unit value={pad(parts.hours)} label={t("countdownHours")} />
+      <Unit value={Number.isFinite(target) ? pad(parts.hours) : "—"} label={t("countdownHours")} />
       <Sep />
-      <Unit value={pad(parts.minutes)} label={t("countdownMin")} />
+      <Unit value={Number.isFinite(target) ? pad(parts.minutes) : "—"} label={t("countdownMin")} />
       <Sep />
-      <Unit value={pad(parts.seconds)} label={t("countdownSec")} />
+      <Unit value={Number.isFinite(target) ? pad(parts.seconds) : "—"} label={t("countdownSec")} />
     </div>
   );
 }

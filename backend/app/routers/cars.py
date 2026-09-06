@@ -1,8 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
+from app.race_state import completed_race_filter
 from app.scoring import class_position_for, preload_class_positions
 from app.season import YearParam, resolve_season
 
@@ -15,10 +17,12 @@ def _model_stats(
     rows = (
         db.query(models.SessionResult, models.Session, models.Car)
         .join(models.Session, models.SessionResult.session_id == models.Session.id)
+        .join(models.Event, models.Session.event_id == models.Event.id)
         .join(models.Car, models.SessionResult.car_id == models.Car.id)
         .filter(models.Car.car_model_id == car_model_id)
         .filter(models.Car.season_id == season_id)
         .filter(models.Session.type.in_(["RACE", "Q"]))
+        .filter(or_(models.Session.type == "Q", completed_race_filter()))
         .all()
     )
     preload_class_positions(db, (sess.id for _sr, sess, _car in rows))

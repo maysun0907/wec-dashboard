@@ -16,6 +16,7 @@ overwrite.
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from io import BytesIO
 from pathlib import Path
@@ -36,6 +37,8 @@ def _try_rembg(data: bytes) -> bytes | None:
 
 
 def fetch(slug: str, url: str, force: bool = False) -> Path:
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug):
+        raise ValueError("Invalid car-model slug")
     out = _OUT_DIR / f"{slug}.png"
     if out.exists() and not force:
         raise FileExistsError(f"{out} exists — pass --force to overwrite")

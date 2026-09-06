@@ -23,4 +23,17 @@ describe("mapWithConcurrency", () => {
       "concurrency must be a positive integer",
     );
   });
+
+  it("stops scheduling pending work after a failure", async () => {
+    const visited: number[] = [];
+    await expect(mapWithConcurrency([1, 2, 3, 4], 2, async (n) => {
+      visited.push(n);
+      if (n === 1) throw new Error("source unavailable");
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return n;
+    })).rejects.toThrow("source unavailable");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(visited).not.toContain(3);
+    expect(visited).not.toContain(4);
+  });
 });

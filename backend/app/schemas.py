@@ -106,8 +106,11 @@ class SessionOut(_OrmBase):
     id: int
     type: str
     start_time: datetime | None = None
+    result_status: str | None = None
+    result_source_url: str | None = None
+    results_updated_at: datetime | None = None
 
-    @field_validator("start_time")
+    @field_validator("start_time", "results_updated_at")
     @classmethod
     def explicit_utc(cls, value: datetime | None) -> datetime | None:
         # DB timestamps are naive UTC, not the viewer's local clock. Include

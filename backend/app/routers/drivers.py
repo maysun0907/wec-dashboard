@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
+from app.race_state import completed_race_filter, driver_participated
 from app.scoring import class_position_for, points_for, preload_class_positions
 from app.season import YearParam, resolve_season
 
@@ -66,6 +67,7 @@ def _driver_career(
             models.Team,
             models.Manufacturer,
             models.RaceClass,
+            models.CarDriver.rounds,
         )
         .join(models.CarDriver, models.CarDriver.season_id == models.Season.id)
         .join(models.Car, models.CarDriver.car_id == models.Car.id)
@@ -82,7 +84,8 @@ def _driver_career(
     )
 
     out: list[schemas.DriverSeasonOut] = []
-    for season, car, team, manuf, rc in rows:
+    driver = db.get(models.Driver, driver_id)
+    for season, car, team, manuf, rc, rounds in rows:
         standing = (
             db.query(models.StandingDriver)
             .filter_by(
@@ -95,12 +98,16 @@ def _driver_career(
         # Race tallies: walk every race-session result for this car and run
         # class_position_for to compute the in-class finish.
         result_rows = (
-            db.query(models.SessionResult)
+            db.query(models.SessionResult, models.Event)
             .join(models.Session, models.SessionResult.session_id == models.Session.id)
+            .join(models.Event, models.Session.event_id == models.Event.id)
             .filter(models.SessionResult.car_id == car.id)
             .filter(models.Session.type == "RACE")
+            .filter(completed_race_filter())
             .all()
         )
+        result_rows = [sr for sr, ev in result_rows if driver is not None
+                       and driver_participated(driver.name, rounds, ev.round, sr.drivers)]
         preload_class_positions(db, (sr.session_id for sr in result_rows))
         races = len(result_rows)
         wins = 0
@@ -189,8 +196,8 @@ def get_driver(
         .all()
     )
 
-    # Race results for this car (overall position; per-driver attendance not
-    # tracked in v1 — every listed driver is treated as having shared the car).
+    attendance = db.query(models.CarDriver).filter_by(car_id=car.id, driver_id=driver_id).one()
+    # Only completed races actually entered by this driver belong in history.
     result_rows = (
         db.query(models.SessionResult, models.Event)
         .join(models.Session, models.SessionResult.session_id == models.Session.id)
@@ -198,9 +205,12 @@ def get_driver(
         .filter(models.SessionResult.car_id == car.id)
         .filter(models.Session.type == "RACE")
         .filter(models.Event.season_id == season.id)
+        .filter(completed_race_filter())
         .order_by(models.Event.round)
         .all()
     )
+    result_rows = [(sr, ev) for sr, ev in result_rows
+                   if driver_participated(driver.name, attendance.rounds, ev.round, sr.drivers)]
     preload_class_positions(db, (sr.session_id for sr, _ev in result_rows))
 
     def _cp(sr: models.SessionResult) -> int:

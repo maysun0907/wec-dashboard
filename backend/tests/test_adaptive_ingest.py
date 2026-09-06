@@ -392,7 +392,7 @@ def test_clear_season_preserves_session_id_and_removes_rebuilt_children() -> Non
         assert preserved.id == stable_id
         assert db.query(models.SessionResult).count() == 0
         assert db.query(models.PitStopEvent).count() == 0
-        assert db.query(models.Car).count() == 0
+        assert db.query(models.Car).one().id == car.id
     finally:
         db.close()
 
