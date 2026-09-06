@@ -26,6 +26,8 @@ import io
 import re
 from datetime import datetime
 from typing import Iterable
+from urllib.parse import quote, unquote, urlencode
+from uuid import uuid4
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -63,6 +65,34 @@ def _fetch(url: str) -> str:
     )
     r.raise_for_status()
     return r.text
+
+
+def _event_html(season: str, event: str) -> str:
+    """Validate file ownership: the portal can serve another event's cache."""
+    query = f"season={quote(season)}&evvent={quote(event)}"
+    expected = f"Results/{season}/{event}/"
+    reverse_query = f"evvent={quote(event)}&season={quote(season)}"
+    form_query = urlencode({"season": season, "evvent": event})
+    for path, params in (("/", query), ("/index.php", query),
+                         ("/", reverse_query), ("/index.php", reverse_query),
+                         ("/", form_query), ("/index.php", form_query),
+                         ("/index.php", query + "&_refresh=" + uuid4().hex)):
+        try:
+            html = _fetch(f"{BASE}{path}?{params}")
+        except httpx.HTTPError:
+            continue
+        links = re.findall(r'href="(Results/[^"]+)"', html)
+        if any(unquote(link).startswith(expected) for link in links):
+            # Strip links for other seasons/events even on mixed listings.
+            return re.sub(
+                r'href="(Results/[^"]+)"',
+                lambda m: m.group(0) if unquote(m.group(1)).startswith(expected)
+                else 'href=""',
+                html,
+            )
+        if not links:
+            return html  # no published documents yet
+    raise ValueError(f"Al Kamel returned files for another event: {season}/{event}")
 
 
 # ---------------------------------------------------------------------------
@@ -125,8 +155,8 @@ def _event_options_for_season(season_param: str) -> list[tuple[int, str]]:
 # optional class qualifier.
 _SESSION_FOLDER_RE = re.compile(
     r"Results/[^/]+/[^/]+/(\d+_FIA%20WEC)/(\d{12})_"
-    r"(Qualifying|Hyperpole|Free%20Practice%20[123]|Final%20Practice)"
-    r"(?:%20([A-Za-z0-9]+))?/",
+    r"(Qualifying|Hyperpole(?:%20[12])?|Free%20Practice%20[123]|Final%20Practice)"
+    r"(?:%20([A-Za-z0-9-]+))?/",
     re.IGNORECASE,
 )
 
@@ -154,9 +184,7 @@ def _list_session_csvs(
     'FP3' and timestamp is the 12-char YYYYMMDDHHMM stamp from the
     folder name (circuit-local; convert with the event's tz)."""
     try:
-        html = _fetch(
-            f"{BASE}/?season={season_param}&evvent={evvent_param}"
-        )
+        html = _event_html(season_param, evvent_param)
     except httpx.HTTPError:
         return []
     folders: dict[str, tuple[str, str, str]] = {}
@@ -200,9 +228,7 @@ def find_weather_url(
     the latest published hour so the hot collector advances through changing
     conditions. Returns None if no file exists yet."""
     try:
-        html = _fetch(
-            f"{BASE}/?season={season_param}&evvent={evvent_param}"
-        )
+        html = _event_html(season_param, evvent_param)
     except httpx.HTTPError:
         return None
     race_candidates: list[tuple[int, str]] = []
@@ -298,9 +324,7 @@ def _list_race_csvs(
     weekend's main race. Returns (timestamp, classification_url,
     analysis_url) or None when no race data has been published."""
     try:
-        html = _fetch(
-            f"{BASE}/?season={season_param}&evvent={evvent_param}"
-        )
+        html = _event_html(season_param, evvent_param)
     except httpx.HTTPError:
         return None
     by_hour: dict[int, tuple[str, str, str]] = {}
@@ -870,11 +894,27 @@ def enrich_qualifying_drivers(
             .all()
         )
         by_car_number = {r.car.number: r for r in results}
+        official_grid: dict[str, dict[str, str]] = {}
+        hp_stage: dict[str, str] = {}
+        loaded = []
+        # Fetch all classifications before replacing stale qualifying fields.
+        # A partial fetch must not erase the last known classification.
+        for entry in sorted(csvs, key=lambda x: x[4]):
+            document = _fetch(entry[2])
+            if not _parse_classification(document):
+                raise ValueError(f"Empty qualifying classification: {entry[2]}")
+            loaded.append((entry, document))
+        for row in results:
+            row.qualifying_lap = row.hyperpole_lap = row.best_lap = None
+            row.qualifying_driver = row.hyperpole_driver = None
+            row.s1_time = row.s2_time = row.s3_time = None
 
-        for kind, _cls, classification_url, analysis_url, _ts in csvs:
-            try:
-                cl_csv = _fetch(classification_url)
-            except httpx.HTTPError:
+        for (kind, _cls, classification_url, analysis_url, _ts), cl_csv in loaded:
+            records = _parse_csv(cl_csv)
+            if records and "QP_HC" in records[0]:
+                # Combined classification is the official grid, not another
+                # Q1 session. TIME is the grid-deciding lap, not the Q1 lap.
+                official_grid = {r["NUMBER"]: r for r in records if r.get("NUMBER")}
                 continue
             classification = _parse_classification(cl_csv)
             if not classification:
@@ -902,6 +942,8 @@ def enrich_qualifying_drivers(
                         if not (s1 and s2 and s3):
                             continue
                         num = lap["number"]
+                        if lt_ms != _hms_to_ms(classification.get(num, "")):
+                            continue  # exclude deleted laps from sector data
                         if num not in best_ms_by_car or lt_ms < best_ms_by_car[num]:
                             best_ms_by_car[num] = lt_ms
                             sectors_by_car[num] = (s1, s2, s3)
@@ -910,6 +952,8 @@ def enrich_qualifying_drivers(
             drv_field = "hyperpole_driver" if kind == "HP" else "qualifying_driver"
 
             for car_no, lap_time in classification.items():
+                if kind == "HP":
+                    hp_stage[car_no] = _ts
                 row = by_car_number.get(car_no)
                 if row is None:
                     car = car_by_number.get(car_no)
@@ -918,6 +962,7 @@ def enrich_qualifying_drivers(
                     row = models.SessionResult(
                         session_id=q_session.id,
                         car_id=car.id,
+                        car=car,
                         position=0,  # finalized after the loops below
                     )
                     db.add(row)
@@ -941,7 +986,7 @@ def enrich_qualifying_drivers(
                 # HP sectors override Q sectors (same precedence as
                 # best_lap above).
                 triple = sectors_by_car.get(car_no)
-                if triple is not None:
+                if triple is not None and (kind == "HP" or not row.hyperpole_lap):
                     s1, s2, s3 = triple
                     if row.s1_time != s1 or row.s2_time != s2 or row.s3_time != s3:
                         row.s1_time = s1
@@ -951,14 +996,32 @@ def enrich_qualifying_drivers(
                 if changed:
                     updated += 1
 
-        # Re-rank Q SessionResult overall positions by best_lap ms
-        # so the API layer's class_position_for derives sensible
-        # per-class ranks. Rows without a parseable best_lap go to
-        # the back.
+        for number, data in official_grid.items():
+            row = by_car_number.get(number)
+            if row is None:
+                continue
+            q = data.get("QP_HC") or data.get("QP_LMGT3") or ""
+            hp = data.get("HP_HC") or data.get("HP_LMGT3") or ""
+            row.qualifying_lap = _normalize_lap_time(q) or None
+            row.hyperpole_lap = _normalize_lap_time(hp) or None
+            row.best_lap = _normalize_lap_time(data.get("TIME") or hp or q) or None
+            if not hp:
+                row.hyperpole_driver = None
+            updated += 1
+
+        # Prefer the published classification. Without a combined file (Le
+        # Mans), keep classes together and rank HP2 ahead of HP1 ahead of Q.
+        class_order = {"HYPERCAR": 0, "LMP1": 0, "LMP2": 1,
+                       "LMGTE_PRO": 2, "LMGT3": 3, "LMGTE_AM": 3}
         ranked = sorted(
             by_car_number.values(),
             key=lambda r: (
-                _lap_to_ms(r.best_lap or "") or 10**12,
+                (0, int(official_grid[r.car.number]["POSITION"]), 0, 0)
+                if r.car.number in official_grid
+                and official_grid[r.car.number].get("POSITION", "").isdigit()
+                else (1, class_order.get(r.car.race_class.name, 9),
+                      -int(hp_stage.get(r.car.number, "0")),
+                      _lap_to_ms(r.best_lap or "") or 10**12)
             ),
         )
         for i, r in enumerate(ranked, start=1):

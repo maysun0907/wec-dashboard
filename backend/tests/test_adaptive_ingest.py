@@ -473,9 +473,9 @@ def test_race_weather_uses_latest_available_hour(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     html = (
-        '<a href="Results/2026/WEC/04_FIA%20WEC/202607121000_Race/'
+        '<a href="Results/2026/04_EVENT/04_FIA%20WEC/202607121000_Race/'
         '01_Hour%201/26_Weather_Race.CSV">H1</a>'
-        '<a href="Results/2026/WEC/04_FIA%20WEC/202607121000_Race/'
+        '<a href="Results/2026/04_EVENT/04_FIA%20WEC/202607121000_Race/'
         '03_Hour%203/26_Weather_Race.CSV">H3</a>'
     )
     monkeypatch.setattr(alkamel, "_fetch", lambda _url: html)

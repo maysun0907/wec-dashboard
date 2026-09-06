@@ -217,8 +217,6 @@ def parse_race_page(
     with the earliest start, matching our 5-bucket schema."""
     soup = BeautifulSoup(html, "lxml")
     schema_schedule = _schema_schedule(soup, year)
-    if schema_schedule:
-        return schema_schedule
 
     text = soup.get_text(" ", strip=True)
     # The race timetable precedes the first "Track info" heading. Do not
@@ -269,7 +267,10 @@ def parse_race_page(
         utc = local.astimezone(ZoneInfo("UTC")).replace(tzinfo=None)
         if kind not in by_type or utc < by_type[kind]:
             by_type[kind] = utc
-    return sorted(by_type.items(), key=lambda kv: kv[1])
+    # FIA's JSON-LD sometimes labels American/Asian local times with the
+    # website's European offset. The visible timetable is track-local.
+    # Prefer those clock times converted with the circuit's IANA timezone.
+    return sorted(by_type.items(), key=lambda kv: kv[1]) or schema_schedule
 
 
 def fetch_schedule_for_event(
