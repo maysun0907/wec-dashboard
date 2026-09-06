@@ -6,9 +6,9 @@ attribute names; pydantic translates on serialize.
 
 Use `_OrmBase` for schemas that hydrate from SQLAlchemy ORM rows.
 """
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from pydantic.alias_generators import to_camel
 
 _CAMEL_CONFIG = ConfigDict(
@@ -106,6 +106,15 @@ class SessionOut(_OrmBase):
     id: int
     type: str
     start_time: datetime | None = None
+
+    @field_validator("start_time")
+    @classmethod
+    def explicit_utc(cls, value: datetime | None) -> datetime | None:
+        # DB timestamps are naive UTC, not the viewer's local clock. Include
+        # the offset on the wire so browsers in Korea and elsewhere agree.
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
 
 
 class EventDetailOut(_BaseSchema):

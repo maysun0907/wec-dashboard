@@ -10,6 +10,12 @@ from app.ingest import alkamel as a
 from app.ingest.fiawec_schedule import parse_race_page
 
 
+def test_api_session_time_has_explicit_utc_offset():
+    from app.schemas import SessionOut
+    result = SessionOut(id=1, type="RACE", start_time=datetime(2026, 9, 6, 18))
+    assert result.model_dump(mode="json", by_alias=True)["startTime"] == "2026-09-06T18:00:00Z"
+
+
 def test_wrong_event_cache_retries_and_filters_mixed_links(monkeypatch):
     wrong = '<a href="Results/15_2026/01_IMOLA/645_FIA%20WEC/file.CSV">x</a>'
     right = '<a href="Results/15_2026/05_CIRCUIT%20OF%20THE%20AMERICAS/673_FIA%20WEC/file.CSV">x</a>'
