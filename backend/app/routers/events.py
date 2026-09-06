@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session, joinedload
 from app import models, schemas
 from app.db import get_db
 from app.ingest import alkamel
-from app.lap_chart import compute_lap_chart
 from app.rounds import driver_in_round
 from app.scoring import points_for
 from app.season import YearParam, resolve_season
@@ -237,9 +236,8 @@ def session_lap_chart(
 ) -> schemas.LapChart:
     """Per-lap position trajectories for a race session. Reads from
     `Session.lap_chart_json` (computed at ingest from Al Kamel's
-    analysis CSV). Falls back to a live compute when the column is
-    still NULL — that result is then persisted so subsequent requests
-    are pure DB reads."""
+    analysis CSV). Unpublished charts return 404 without external I/O or
+    writes: only the collector may generate and replace this snapshot."""
     session = db.get(models.Session, session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -251,12 +249,7 @@ def session_lap_chart(
     if session.lap_chart_json:
         return schemas.LapChart.model_validate_json(session.lap_chart_json)
 
-    chart = compute_lap_chart(db, session)
-    if chart is None:
-        raise HTTPException(status_code=404, detail="No timing data available")
-    session.lap_chart_json = chart.model_dump_json(by_alias=False)
-    db.commit()
-    return chart
+    raise HTTPException(status_code=404, detail="No timing data available")
 
 
 @router.get(

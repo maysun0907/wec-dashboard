@@ -936,6 +936,8 @@ def enrich_qualifying_drivers(
                 try:
                     analysis_text = _fetch(analysis_url)
                 except httpx.HTTPError:
+                    if db.info.get("require_official_timing"):
+                        raise
                     analysis_text = ""
                 if analysis_text:
                     analysis = _parse_analysis_drivers(analysis_text)
@@ -1126,8 +1128,12 @@ def ingest_practice_results(
             try:
                 rows = _parse_classification_full(_fetch(classification_url))
             except httpx.HTTPError:
+                if db.info.get("require_official_timing"):
+                    raise
                 continue
             if not rows:
+                if db.info.get("require_official_timing"):
+                    raise ValueError(f"Empty practice classification: {classification_url}")
                 continue
             session.start_time = _timestamp_to_utc(timestamp, circuit_tz)
             analysis: dict[str, list[tuple[str, str]]] = {}
@@ -1135,6 +1141,8 @@ def ingest_practice_results(
                 try:
                     analysis = _parse_analysis_drivers(_fetch(analysis_url))
                 except httpx.HTTPError:
+                    if db.info.get("require_official_timing"):
+                        raise
                     analysis = {}
             classification = {r["number"]: r["time"] for r in rows if r["time"]}
             best_lap_drivers = _drivers_for_session(classification, analysis)
@@ -1277,8 +1285,12 @@ def enrich_race_results(
                 _fetch(classification_url)
             )
         except httpx.HTTPError:
+            if db.info.get("require_official_timing"):
+                raise
             continue
         if not classification_rows:
+            if db.info.get("require_official_timing"):
+                raise ValueError(f"Empty race classification: {classification_url}")
             continue
 
         for existing in results:
@@ -1294,6 +1306,8 @@ def enrich_race_results(
             try:
                 analysis_text = _fetch(analysis_url)
             except httpx.HTTPError:
+                if db.info.get("require_official_timing"):
+                    raise
                 analysis_text = ""
             if analysis_text:
                 pit_events = _parse_pit_events(analysis_text)

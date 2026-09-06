@@ -21,7 +21,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app import models
-from app.db import SessionLocal
+from app.db import SessionLocal, engine
 from app.ingest._common import (
     get_or_create_race_class,
     get_or_create_season,
@@ -1964,7 +1964,12 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
     # instead of failing halfway through a database insert.
     entry_groups, driver_titles = _parse_entry_groups(soup)
 
-    db = SessionLocal()
+    # Helpers historically commit independently. Bind them to savepoints so
+    # those commits cannot publish half a rebuilt season to API readers.
+    connection = engine.connect()
+    transaction = connection.begin()
+    db = SessionLocal(bind=connection, join_transaction_mode="create_savepoint")
+    db.info["require_official_timing"] = True
     try:
         season = get_or_create_season(db, year)
         for name in (
@@ -2020,9 +2025,8 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
         # rounds whose Wikipedia article is still a stub).
         fiawec_filled = _ingest_fiawec_schedule(db, season.id, year)
         # Annotate Q sessions with the actual driver per car using Al
-        # Kamel's analysis CSVs. Best-effort: the timing portal can be
-        # slow / partially populated, and we still want the rest of the
-        # ingest to commit if this fails.
+        # Kamel's analysis CSVs. Reject unavailable published timing rather
+        # than replace good records with an incomplete season rebuild.
         try:
             from app.ingest.alkamel import (
                 enrich_qualifying_drivers,
@@ -2040,11 +2044,9 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             alkamel_race_n = enrich_race_results(db, season.id, year)
             alkamel_weather_n = enrich_session_weather(db, season.id, year)
         except Exception as exc:  # pragma: no cover - network
-            print(f"  alkamel enrichment skipped: {exc}")
-            alkamel_drivers_n = 0
-            alkamel_practice_n = 0
-            alkamel_race_n = 0
-            alkamel_weather_n = 0
+            # Wikipedia was rebuilt above; accepting a failed official pass
+            # would replace good timing with incomplete fallback records.
+            raise SourceDataError("Official timing refresh failed; previous season retained") from exc
 
         # Mirror FIA-blessed asset URLs (manufacturer logos, car
         # renders, circuit maps) into the DB. Pure URL refresh — no
@@ -2064,6 +2066,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             }
 
         db.commit()
+        transaction.commit()
         summary = {
             "events": events_n,
             "cars": cars_n,
@@ -2089,9 +2092,11 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
         return summary
     except Exception:
         db.rollback()
+        transaction.rollback()
         raise
     finally:
         db.close()
+        connection.close()
 
 
 def main() -> None:

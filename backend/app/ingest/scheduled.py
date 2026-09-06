@@ -397,16 +397,13 @@ def run_scheduled_ingest(
             try:
                 ingest_once(year=year, url=url)
             except SourceDataError as exc:
-                # A third-party layout change must never corrupt or erase the
-                # existing season.  The ingester has already rejected it
-                # before any write; finish this cron run cleanly while making
-                # the reason searchable in Railway logs.
+                # Retain the last snapshot, but do not let a season-page
+                # failure disable independent live timing refreshes.
                 log.error(
                     "scheduled_full_ingest_source_rejected",
                     year=year,
                     error=str(exc),
                 )
-                return
             snapshot = load_schedule(year)
         else:
             log.info("scheduled_ingest_skipped", reason=plan.reason, year=year)

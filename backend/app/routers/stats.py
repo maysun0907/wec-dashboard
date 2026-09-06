@@ -1,4 +1,5 @@
 from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.db import get_db
+from app.rounds import driver_in_round
 
 router = APIRouter(prefix="/stats", tags=["stats"])
 
@@ -16,6 +18,13 @@ def _championship_titles(
 ) -> list[dict[str, Any]]:
     """Return top entities by championship titles (position == 1) across
     every (season, race_class). `kind` selects the table."""
+    # Only completed calendars can contribute a championship title. This
+    # deliberately excludes a current leader before the season's last race.
+    completed = (
+        db.query(models.Event.season_id)
+        .group_by(models.Event.season_id)
+        .having(func.max(models.Event.date_end) < datetime.now(timezone.utc).date())
+    )
     if kind == "drivers":
         rows = (
             db.query(
@@ -28,7 +37,8 @@ def _championship_titles(
                 models.StandingDriver,
                 models.StandingDriver.driver_id == models.Driver.id,
             )
-            .filter(models.StandingDriver.position == 1)
+            .filter(models.StandingDriver.position == 1,
+                    models.StandingDriver.season_id.in_(completed))
             .group_by(models.Driver.id, models.Driver.name, models.Driver.photo_url)
             .order_by(func.count(models.StandingDriver.id).desc(), models.Driver.name)
             .limit(15)
@@ -56,7 +66,8 @@ def _championship_titles(
                 models.StandingManufacturer,
                 models.StandingManufacturer.manufacturer_id == models.Manufacturer.id,
             )
-            .filter(models.StandingManufacturer.position == 1)
+            .filter(models.StandingManufacturer.position == 1,
+                    models.StandingManufacturer.season_id.in_(completed))
             .group_by(
                 models.Manufacturer.id,
                 models.Manufacturer.name,
@@ -92,7 +103,8 @@ def _championship_titles(
                 models.Manufacturer,
                 models.Team.manufacturer_id == models.Manufacturer.id,
             )
-            .filter(models.StandingTeam.position == 1)
+            .filter(models.StandingTeam.position == 1,
+                    models.StandingTeam.season_id.in_(completed))
             .group_by(
                 models.Team.id,
                 models.Team.name,
@@ -128,27 +140,26 @@ def _driver_wins_and_podiums(db: Session) -> tuple[list[dict], list[dict]]:
             models.SessionResult.car_id,
             models.SessionResult.position,
             models.Car.race_class_id,
+            models.Event.round,
+            models.SessionResult.drivers,
         )
         .join(models.Car, models.SessionResult.car_id == models.Car.id)
         .join(models.Session, models.SessionResult.session_id == models.Session.id)
-        .filter(models.Session.type == "RACE")
+        .join(models.Event, models.Session.event_id == models.Event.id)
+        .filter(models.Session.type == "RACE",
+                models.Event.date_end < datetime.now(timezone.utc).date())
         .all()
     )
 
     # Group by (session_id, race_class_id) → sorted [(position, car_id)]
-    groups: dict[tuple[int, int], list[tuple[int, int]]] = defaultdict(list)
-    for session_id, car_id, position, race_class_id in rows:
-        groups[(session_id, race_class_id)].append((position, car_id))
-    # car_id → wins / podiums
-    car_wins: dict[int, int] = defaultdict(int)
-    car_podiums: dict[int, int] = defaultdict(int)
+    groups = defaultdict(list)
+    for session_id, car_id, position, race_class_id, round_num, drivers in rows:
+        groups[(session_id, race_class_id)].append((position, car_id, round_num, drivers))
+    podium_results = []
     for cars in groups.values():
         cars.sort(key=lambda c: c[0])
-        for class_pos, (_, car_id) in enumerate(cars, start=1):
-            if class_pos == 1:
-                car_wins[car_id] += 1
-            if class_pos <= 3:
-                car_podiums[car_id] += 1
+        for class_pos, (_, car_id, round_num, drivers) in enumerate(cars[:3], start=1):
+            podium_results.append((car_id, round_num, drivers, class_pos))
 
     # Resolve cars → drivers (one driver may have multiple cars across seasons)
     car_driver_rows = (
@@ -157,24 +168,34 @@ def _driver_wins_and_podiums(db: Session) -> tuple[list[dict], list[dict]]:
             models.Driver.id,
             models.Driver.name,
             models.Driver.photo_url,
+            models.CarDriver.rounds,
         )
         .join(models.Driver, models.CarDriver.driver_id == models.Driver.id)
         .all()
     )
     driver_wins: dict[int, dict[str, Any]] = {}
     driver_podiums: dict[int, dict[str, Any]] = {}
-    for car_id, driver_id, name, photo in car_driver_rows:
-        if car_id in car_wins:
-            d = driver_wins.setdefault(
-                driver_id, {"id": driver_id, "name": name, "photo_url": photo, "wins": 0}
-            )
-            d["wins"] += car_wins[car_id]
-        if car_id in car_podiums:
+    by_car = defaultdict(list)
+    for car_id, driver_id, name, photo, rounds in car_driver_rows:
+        by_car[car_id].append((driver_id, name, photo, rounds))
+    for car_id, round_num, drivers, class_pos in podium_results:
+        actual_names = {n.strip().casefold() for n in (drivers or "").split("/") if n.strip()}
+        for driver_id, name, photo, rounds in by_car[car_id]:
+            if actual_names:
+                if name.casefold() not in actual_names:
+                    continue
+            elif not driver_in_round(rounds, round_num):
+                continue
+            if class_pos == 1:
+                d = driver_wins.setdefault(
+                    driver_id, {"id": driver_id, "name": name, "photo_url": photo, "wins": 0}
+                )
+                d["wins"] += 1
             d = driver_podiums.setdefault(
                 driver_id,
                 {"id": driver_id, "name": name, "photo_url": photo, "podiums": 0},
             )
-            d["podiums"] += car_podiums[car_id]
+            d["podiums"] += 1
 
     top_wins = sorted(
         driver_wins.values(), key=lambda d: (-d["wins"], d["name"])
