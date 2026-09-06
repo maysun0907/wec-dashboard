@@ -875,11 +875,9 @@ def enrich_qualifying_drivers(
         circuit_tz = (
             tz_for_circuit(ev.circuit.name) if ev.circuit else None
         )
+        q_timestamps = [ts for kind, _cls, _cl, _an, ts in csvs if kind == "Q"]
+        stamp = min(q_timestamps) if q_timestamps else csvs[0][4]
         if q_session is None:
-            q_timestamps = [
-                ts for kind, _cls, _cl, _an, ts in csvs if kind == "Q"
-            ]
-            stamp = min(q_timestamps) if q_timestamps else csvs[0][4]
             q_session = models.Session(
                 event_id=ev.id,
                 type="Q",
@@ -905,6 +903,9 @@ def enrich_qualifying_drivers(
             if not _parse_classification(document):
                 raise ValueError(f"Empty qualifying classification: {entry[2]}")
             loaded.append((entry, document))
+        # Published timing folders capture the actual session start, including
+        # delays and split-class sessions absent from the advance timetable.
+        q_session.start_time = _timestamp_to_utc(stamp, circuit_tz)
         for row in results:
             if by_car_number[row.car.number] is not row:
                 # Some source tables repeat a car (e.g. amended grids).
@@ -1128,6 +1129,7 @@ def ingest_practice_results(
                 continue
             if not rows:
                 continue
+            session.start_time = _timestamp_to_utc(timestamp, circuit_tz)
             analysis: dict[str, list[tuple[str, str]]] = {}
             if analysis_url:
                 try:
