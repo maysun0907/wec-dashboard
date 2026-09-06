@@ -1,4 +1,5 @@
 import { mapWithConcurrency } from "@/lib/concurrency";
+import { cache } from "react";
 import {
   ARCHIVE_REVALIDATE_SECONDS,
   eventDataRevalidateSeconds,
@@ -580,14 +581,22 @@ export function isApiNotFound(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 404;
 }
 
-async function api<T>(path: string, opts: FetchOpts = {}): Promise<T> {
+// A timeout signal opts out of fetch request memoization. Share identical
+// reads within one server render explicitly; persistent freshness still uses
+// the race-aware Next cache below. Primitive arguments ensure cache hits.
+const readApi = cache(async (path: string, revalidate: number): Promise<unknown> => {
   const res = await fetch(`${API_URL}${path}`, {
-    next: { revalidate: opts.revalidate ?? 300 },
+    signal: AbortSignal.timeout(15_000),
+    next: { revalidate },
   });
   if (!res.ok) {
     throw new ApiError(path, res.status, res.statusText);
   }
-  return res.json() as Promise<T>;
+  return res.json();
+});
+
+async function api<T>(path: string, opts: FetchOpts = {}): Promise<T> {
+  return readApi(path, opts.revalidate ?? 300) as Promise<T>;
 }
 
 /** Append `year=` to the path if specified. Falsy values omit the param so

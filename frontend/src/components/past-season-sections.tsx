@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { format, parseISO } from "date-fns";
 import {
@@ -267,9 +266,9 @@ function ChampionSlot({
     </div>
   );
   return (
-    <Link href={value.href} className="block h-full">
+    <PublicLink href={value.href} className="block h-full">
       {inner}
-    </Link>
+    </PublicLink>
   );
 }
 

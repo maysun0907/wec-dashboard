@@ -252,7 +252,7 @@ export default async function RaceDetailPage({
             </span>
             <StatusBadge status={status} label={tStatus(status)} />
           </div>
-          <CardTitle className="flex items-center gap-2 text-2xl sm:text-3xl">
+          <CardTitle as="h1" className="flex items-center gap-2 text-2xl sm:text-3xl">
             <Flag code={event.circuit.country} flagOnly className="text-2xl" />
             {event.name}
           </CardTitle>

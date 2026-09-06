@@ -72,7 +72,7 @@ export default async function SimulatorPage({
       />
 
       <ChampionshipSimulator
-        key={initialPicksParam ?? ""}
+        key={`${seasonYear}:${initialPicksParam ?? ""}`}
         initialPicksParam={initialPicksParam}
         todayIso={todayIso}
         events={events}

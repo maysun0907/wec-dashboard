@@ -35,12 +35,11 @@ waiters stay on the event loop instead of occupying synchronous worker threads.
 The API serves at `http://localhost:8000`. Browse `/docs` for the
 auto-generated OpenAPI UI.
 
-### Live Al Kamel CSV endpoints
+### Collected Al Kamel data endpoints
 
-A handful of session endpoints fetch Al Kamel CSVs at request time
-and cache the parsed result per session id (in-process, indefinitely
-once non-empty). Don't be surprised by a 1-3 second cold-start hit
-the first time each is called for a given session.
+Session endpoints read collected database snapshots only. They never fetch
+timing sources or write data during a public GET. The collector refreshes
+results, weather, pit stops and lap charts independently of visitor requests.
 
 | Endpoint | What it returns |
 | --- | --- |
@@ -51,7 +50,7 @@ the first time each is called for a given session.
 
 ## Seed mock data (dev only)
 
-`python -m app.seed` wipes the DB and re-inserts the 2026 Hypercar +
+`ALLOW_LOCAL_SEED=delete-local-data python -m app.seed` wipes a local development DB and re-inserts the 2026 Hypercar +
 LMGT3 grids with mock results through round 2. Idempotent. Runs the
 car-spec curator at the end so `category` / `engine` / `year` / power
 weight come back populated.
@@ -91,8 +90,9 @@ app.ingest.wikipedia` — that fans out into the full pipeline:
    manufacturer logos, car-render PNGs, circuit-layout PNGs and round
    posters from the FIA's grid + per-race pages.
 
-Each step is idempotent and best-effort — if the Al Kamel CSV hasn't
-been published yet, the rest of the pipeline still commits.
+The full rebuild is atomic. Source validation failures roll it back to the
+last good snapshot; independently scheduled hot timing refreshes can continue.
+Unpublished future sessions are not treated as corrupt completed results.
 
 ### Adaptive race-week cadence
 

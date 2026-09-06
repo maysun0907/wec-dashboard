@@ -11,6 +11,13 @@ function request(
 }
 
 describe("public URL proxy", () => {
+  it("keeps the language of retired BoP links", () => {
+    for (const [from, to] of [["/bop", "/en/rules"], ["/ko/bop", "/ko/rules"]]) {
+      const response = proxy(request(from));
+      expect(response.status).toBe(308);
+      expect(response.headers.get("location")).toBe(`https://www.wecdash.com${to}`);
+    }
+  });
   it("rewrites a canonical season URL and injects route context", () => {
     const response = proxy(request("/ko/2025/races?class=HYPERCAR"));
 

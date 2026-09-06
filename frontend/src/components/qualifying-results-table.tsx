@@ -21,6 +21,7 @@ import { TeamLink } from "@/components/entity-link";
 import { PublicLink } from "@/components/public-link";
 import { RaceClassFilter } from "@/components/race-class-filter";
 import { RACE_CLASSES, type SessionResult } from "@/lib/api";
+import { lapTimeMs } from "@/lib/lap-time";
 
 type SortMode = "grid" | "q" | "hyperpole";
 
@@ -29,13 +30,6 @@ const SORT_OPTIONS: Array<{ mode: SortMode; tKey: "sortGrid" | "sortQ" | "sortHy
   { mode: "q", tKey: "sortQ" },
   { mode: "hyperpole", tKey: "sortHyperpole" },
 ];
-
-function lapMs(lap: string | null | undefined): number | null {
-  if (!lap) return null;
-  const m = lap.match(/^(\d+):(\d{2})\.(\d+)$/);
-  if (!m) return null;
-  return Number(m[1]) * 60_000 + Number(m[2]) * 1_000 + Number(m[3]);
-}
 
 function normalize(s: string): string {
   return s
@@ -112,12 +106,12 @@ export function QualifyingResultsTable({ rows }: { rows: SessionResult[] }) {
         : rows;
     const copy = [...filtered];
     if (sort === "grid") {
-      copy.sort((a, b) => a.position - b.position);
+      copy.sort((a, b) => (a.position || Infinity) - (b.position || Infinity));
     } else {
       const key = sort === "q" ? "qualifyingLap" : "hyperpoleLap";
       copy.sort((a, b) => {
-        const am = lapMs(a[key]);
-        const bm = lapMs(b[key]);
+        const am = lapTimeMs(a[key]);
+        const bm = lapTimeMs(b[key]);
         if (am === null && bm === null) return a.position - b.position;
         if (am === null) return 1;
         if (bm === null) return -1;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Plus, X } from "lucide-react";
 import { type Season } from "@/lib/api";
@@ -20,6 +20,7 @@ type Props = {
 
 export function SeasonComparePicker({ selected, catalog }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const t = useTranslations("seasons");
   const remaining = catalog
     .map((s) => s.year)
@@ -28,8 +29,8 @@ export function SeasonComparePicker({ selected, catalog }: Props) {
 
   function pushYears(years: number[]) {
     const params = new URLSearchParams();
-    if (years.length > 0) params.set("years", years.join(","));
-    router.push(`/seasons/compare?${params.toString()}`, { scroll: false });
+    params.set("years", years.join(","));
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
   function add(year: number) {

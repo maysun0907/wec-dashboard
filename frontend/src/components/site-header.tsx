@@ -44,7 +44,7 @@ export async function SiteHeader() {
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
           <LocaleSwitcher />
           <SeasonSwitcher seasons={seasons} selected={selected} />
-          <SiteSearch />
+          <SiteSearch key={publicSeasonYear} year={publicSeasonYear} />
           <MobileMenu seasonYear={publicSeasonYear} />
         </div>
       </div>

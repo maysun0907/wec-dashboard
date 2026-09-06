@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app import models, schemas
 from app.db import get_db
+from app.standing_snapshot import latest_snapshot_filter
 from app.rounds import driver_in_round
 from app.race_state import completed_race_filter, classified_result_filter
 
@@ -39,6 +40,7 @@ def _championship_titles(
                 models.StandingDriver.driver_id == models.Driver.id,
             )
             .filter(models.StandingDriver.position == 1,
+                    latest_snapshot_filter(models.StandingDriver),
                     models.StandingDriver.season_id.in_(completed))
             .group_by(models.Driver.id, models.Driver.name, models.Driver.photo_url)
             .order_by(func.count(models.StandingDriver.id).desc(), models.Driver.name)
@@ -68,6 +70,7 @@ def _championship_titles(
                 models.StandingManufacturer.manufacturer_id == models.Manufacturer.id,
             )
             .filter(models.StandingManufacturer.position == 1,
+                    latest_snapshot_filter(models.StandingManufacturer),
                     models.StandingManufacturer.season_id.in_(completed))
             .group_by(
                 models.Manufacturer.id,
@@ -105,6 +108,7 @@ def _championship_titles(
                 models.Team.manufacturer_id == models.Manufacturer.id,
             )
             .filter(models.StandingTeam.position == 1,
+                    latest_snapshot_filter(models.StandingTeam),
                     models.StandingTeam.season_id.in_(completed))
             .group_by(
                 models.Team.id,

@@ -224,7 +224,7 @@ export default async function DriverDetailPage({
                 </TeamLink>
               )}
             </div>
-            <CardTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl sm:text-3xl">
+            <CardTitle as="h1" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl sm:text-3xl">
               {driver.nationality && (
                 <Flag code={driver.nationality} flagOnly className="text-2xl" />
               )}

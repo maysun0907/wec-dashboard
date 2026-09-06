@@ -111,7 +111,7 @@ export default async function SeasonComparePage({
   const seasons = await getSeasons();
 
   // Default: the two most recent ingested seasons.
-  if (years.length === 0) {
+  if (years.length === 0 && sp.years === undefined) {
     years = seasons.slice(0, 2).map((s) => s.year);
   }
 

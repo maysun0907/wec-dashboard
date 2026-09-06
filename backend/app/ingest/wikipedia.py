@@ -1255,8 +1255,11 @@ def _ingest_calendar(
         soup, "Schedule"
     )
     if table is None:
-        return 0
+        raise ValueError("Calendar table missing; refusing to replace season")
     rounds = parse_calendar(table, year=year)
+    round_numbers = [rd["round"] for rd in rounds]
+    if not rounds or len(set(round_numbers)) != len(round_numbers):
+        raise ValueError("Empty or duplicate calendar rounds; refusing to replace season")
     seen_rounds: set[int] = set()
     for rd in rounds:
         circuit = _upsert_circuit(db, rd["circuit_name"], rd["country"])

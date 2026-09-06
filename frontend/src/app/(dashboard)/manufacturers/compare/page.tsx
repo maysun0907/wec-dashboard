@@ -56,7 +56,7 @@ export default async function ManufacturerComparePage({
   ]);
 
   // Default to the championship's top 3 so the page is useful on first load.
-  if (ids.length === 0) {
+  if (ids.length === 0 && sp.ids === undefined) {
     ids = standings.slice(0, 3).map((s) => s.manufacturerId);
   }
 

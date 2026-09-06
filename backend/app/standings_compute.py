@@ -33,6 +33,10 @@ def compute_self_standings(
     """Wipe and rebuild standings_drivers / standings_teams /
     standings_manufacturers for one season from SessionResults +
     Q pole-position bonuses. Returns row counts per table."""
+    # Experiments must never overwrite production's published classifications.
+    from app.seed import _assert_local_seed_allowed
+
+    _assert_local_seed_allowed(db)
     today = date.today()
 
     # Completed RACE events in round order.

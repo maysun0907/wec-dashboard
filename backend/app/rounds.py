@@ -18,7 +18,7 @@ def driver_in_round(rounds: str | None, round_num: int) -> bool:
     if not rounds:
         return True
     s = rounds.strip().lower()
-    if s in {"all", "various"}:
+    if s in {"", "all", "various"}:
         return True
     if s in {"tbc", "tba"}:
         return False

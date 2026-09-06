@@ -1,16 +1,30 @@
-"""Seed Railway Postgres with development mock data.
+"""Seed an explicitly confirmed local database with development mock data.
 
 Idempotent: deletes existing rows in FK-safe order, then re-inserts.
 Run from `backend/`:
 
-    .venv/bin/python -m app.seed
+    ALLOW_LOCAL_SEED=delete-local-data .venv/bin/python -m app.seed
 """
 from datetime import date
+import os
 
 from sqlalchemy import delete
 
 from app import models
 from app.db import SessionLocal
+from app.config import settings
+
+
+def _assert_local_seed_allowed(db) -> None:
+    url = db.get_bind().url
+    if (
+        os.environ.get("ALLOW_LOCAL_SEED") != "delete-local-data"
+        or os.environ.get("RAILWAY_ENVIRONMENT_ID")
+        or os.environ.get("ENVIRONMENT", "development").lower() != "development"
+        or settings.environment.lower() not in {"dev", "development", "test"}
+        or (url.get_backend_name() != "sqlite" and url.host not in {"localhost", "127.0.0.1", "::1"})
+    ):
+        raise RuntimeError("Seed requires a local development database and ALLOW_LOCAL_SEED=delete-local-data")
 
 # ---------------------------------------------------------------------------
 # Reference data
@@ -235,10 +249,12 @@ STANDINGS = {
 
 
 def _clear(db) -> None:
+    _assert_local_seed_allowed(db)
     # Delete in reverse FK dependency order. PitStopEvent + BopAdjustment
     # are FK-children of Session/Event/Car/CarModel — must drop before
     # the parents.
     for model in [
+        models.SourceRevision,
         models.PitStopEvent,
         models.BopAdjustment,
         models.SessionResult,

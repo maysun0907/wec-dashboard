@@ -49,7 +49,7 @@ def _dedupe_duplicate_models(db, log) -> int:
         # the most Cars referencing it.
         def _name_match(cm: models.CarModel) -> int:
             mfr = cm.manufacturer.name if cm.manufacturer else ""
-            return 1 if mfr and name.lower().startswith(mfr.lower()) else 0
+            return 1 if mfr and cm.name.lower().startswith(mfr.lower()) else 0
 
         def _car_count(cm: models.CarModel) -> int:
             return (
@@ -62,6 +62,30 @@ def _dedupe_duplicate_models(db, log) -> int:
         canonical = group[0]
         losers = group[1:]
         for loser in losers:
+            # Conflicting published adjustments must not be silently merged.
+            # Preserve both models for review if the same event disagrees.
+            adjustments = db.query(models.BopAdjustment).filter_by(car_model_id=loser.id).all()
+            targets = {adj.event_id: adj for adj in db.query(models.BopAdjustment).filter_by(car_model_id=canonical.id)}
+            fields = ("min_weight_kg", "max_power_kw", "max_energy_per_stint_mj", "success_handicap_kg")
+            if any(adj.event_id in targets and any(
+                getattr(adj, field) is not None and getattr(targets[adj.event_id], field) is not None
+                and getattr(adj, field) != getattr(targets[adj.event_id], field)
+                for field in fields
+            ) for adj in adjustments):
+                log.warning("car_model_merge_conflict", kept=canonical.id, other=loser.id)
+                continue
+            for adj in adjustments:
+                target = targets.get(adj.event_id)
+                if target is None:
+                    adj.car_model_id = canonical.id
+                else:
+                    for field in fields:
+                        if getattr(target, field) is None:
+                            setattr(target, field, getattr(adj, field))
+                    db.delete(adj)
+            for field in _FIELDS:
+                if getattr(canonical, field) is None:
+                    setattr(canonical, field, getattr(loser, field))
             (
                 db.query(models.Car)
                 .filter(models.Car.car_model_id == loser.id)
@@ -75,6 +99,7 @@ def _dedupe_duplicate_models(db, log) -> int:
                 dropped_slug=loser.slug,
                 dropped_mfr=loser.manufacturer.name if loser.manufacturer else None,
             )
+            db.flush()
             db.delete(loser)
             merged += 1
     return merged

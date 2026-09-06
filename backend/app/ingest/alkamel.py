@@ -630,6 +630,7 @@ def _parse_race_classification(text: str) -> list[dict[str, str]]:
                 "class": (r.get("CLASS") or "").strip(),
                 "team": (r.get("TEAM") or "").strip(),
                 "status": (r.get("STATUS") or "").strip(),
+                "drivers": " / ".join(r[f"DRIVER_{i}"].strip() for i in range(1, 6) if r.get(f"DRIVER_{i}", "").strip()),
                 "laps": (r.get("LAPS") or r.get(" LAPS") or "").strip(),
                 "gap": (
                     r.get("GAP_FIRST") or r.get(" GAP_FIRST") or ""
@@ -657,6 +658,9 @@ def _apply_race_classification(
     classification seen by the collector.
     """
     changed = False
+    if data.get("drivers") and row.drivers != data["drivers"]:
+        row.drivers = data["drivers"]
+        changed = True
     try:
         position = int(data["position"])
     except (KeyError, ValueError):
@@ -835,10 +839,10 @@ def _drivers_for_session(
 
 
 def _lap_to_ms(lap: str) -> int | None:
-    m = re.match(r"^(\d+):(\d{2})\.(\d+)$", lap)
+    m = re.match(r"^(\d+):([0-5]\d)(?:\.(\d{1,3}))?$", lap)
     if not m:
         return None
-    return int(m.group(1)) * 60_000 + int(m.group(2)) * 1_000 + int(m.group(3))
+    return int(m.group(1)) * 60_000 + int(m.group(2)) * 1_000 + int((m.group(3) or "").ljust(3, "0"))
 
 
 # ---------------------------------------------------------------------------
@@ -1265,6 +1269,23 @@ def ingest_practice_seasons(
     return out
 
 
+def canonical_race_lineup(raw: str, candidates: list[models.Driver]) -> str:
+    """Keep published membership/order while resolving known roster spellings.
+
+    A uniquely matching surname within the same car resolves Philip/Phil and
+    Daniel/Dan aliases. Ambiguous/new names stay visible in their source form.
+    """
+    from app.ingest.fiawec_standings import _normalize_name
+    names = []
+    for source_name in (name.strip() for name in raw.split("/") if name.strip()):
+        tokens = set(_normalize_name(source_name).split())
+        exact = [driver for driver in candidates if set(_normalize_name(driver.name).split()) == tokens]
+        matches = exact or [driver for driver in candidates if _normalize_name(driver.name).split()[-1:] and
+                           _normalize_name(driver.name).split()[-1] in tokens]
+        names.append(matches[0].name if len(matches) == 1 else _format_driver_name(source_name))
+    return " / ".join(dict.fromkeys(names))
+
+
 def validate_race_snapshot(session, existing, incoming, status, source_url, cars):
     """Reject partial/stale published snapshots before mutating good timing.
 
@@ -1274,6 +1295,10 @@ def validate_race_snapshot(session, existing, incoming, status, source_url, cars
     numbers = [row["number"] for row in incoming]
     if len(numbers) != len(set(numbers)):
         raise ValueError(f"Duplicate race cars: {source_url}")
+    for row in incoming:
+        if "position" in row and is_classified(row.get("status")):
+            if not row["position"].isdigit() or int(row["position"]) < 1:
+                raise ValueError(f"Invalid classified position: {source_url}")
     if {row.car.number for row in existing} - set(numbers):
         raise ValueError(f"Race coverage decreased: {source_url}")
     states = {None: 0, "live": 1, "completed": 2, "final": 3}
@@ -1343,6 +1368,14 @@ def enrich_race_results(
             .all()
         )
         car_by_number = {c.number: c for c in season_cars}
+        crew_by_number: dict[str, list[models.Driver]] = {}
+        for car, driver in (
+            db.query(models.Car, models.Driver)
+            .join(models.CarDriver, models.CarDriver.car_id == models.Car.id)
+            .join(models.Driver, models.CarDriver.driver_id == models.Driver.id)
+            .filter(models.Car.season_id == season_id)
+        ):
+            crew_by_number.setdefault(car.number, []).append(driver)
 
         race_csvs = _list_race_csvs(season_param, evvent_param)
         if race_csvs is None:
@@ -1362,6 +1395,10 @@ def enrich_race_results(
             continue
 
         incoming_status = race_result_status(classification_url, ev.name)
+        for classification in classification_rows:
+            classification["drivers"] = canonical_race_lineup(
+                classification.get("drivers", ""), crew_by_number.get(classification["number"], [])
+            )
         validate_race_snapshot(race_session, results, classification_rows,
                                incoming_status, classification_url, car_by_number)
         from app.ingest.revisions import record_revision
@@ -1469,6 +1506,7 @@ def enrich_race_results(
                     gap=r["gap"] or None,
                     best_lap=r["best_lap"] or None,
                     status=r["status"] or None,
+                    drivers=r.get("drivers") or None,
                     pit_stops=pit_counts.get(r["number"]),
                     top_speed_kph=top_speed_by_car.get(r["number"]),
                 )
@@ -1493,6 +1531,7 @@ def enrich_race_results(
         # (which itself imports alkamel for the parser helpers). ----
         from app.lap_chart import compute_lap_chart
 
+        db.flush()
         try:
             chart = compute_lap_chart(db, race_session, laps=analysis_laps)
         except Exception:  # noqa: BLE001 — one bad race shouldn't kill the whole season ingest
@@ -1500,12 +1539,8 @@ def enrich_race_results(
         if chart is not None:
             race_session.lap_chart_json = chart.model_dump_json(by_alias=False)
 
-    if updated:
-        db.commit()
-    else:
-        # Lap-chart writes happen even when no SessionResult rows
-        # changed — flush them so they survive the function call.
-        db.commit()
+    # Provenance and lap charts can change without result telemetry changing.
+    db.commit()
     return updated
 
 

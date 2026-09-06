@@ -15,6 +15,7 @@
     "searchTitle": "검색",
     "searchPlaceholder": "드라이버, 팀, 서킷 검색…",
     "searchEmpty": "검색 결과가 없습니다.",
+    "searchError": "검색을 불러오지 못했습니다. 닫았다 다시 열어 주세요.",
     "navigation": "메뉴",
     "navigationDescription": "사이트 섹션을 검색하거나 탐색합니다.",
     "openMenu": "메뉴 열기",

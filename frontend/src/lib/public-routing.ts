@@ -266,6 +266,10 @@ export function switchSeasonInPublicHref(
       ? current.internalPath
       : getSeasonLandingPath(url.pathname);
   const nextPath = buildPublicPath(targetInternalPath, locale, year);
+  // Entity IDs and simulator picks belong to the previous season's grid.
+  if (current?.year !== year) {
+    for (const parameter of ["ids", "p", "session"]) url.searchParams.delete(parameter);
+  }
   return nextPath ? `${nextPath}${url.search}${url.hash}` : href;
 }
 

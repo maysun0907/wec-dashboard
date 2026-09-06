@@ -10,6 +10,19 @@ from app.ingest import alkamel as a
 from app.ingest.fiawec_schedule import parse_race_page
 
 
+def test_race_classification_preserves_official_lineup_and_aliases():
+    parsed = a._parse_race_classification("POSITION;NUMBER;DRIVER_1;DRIVER_2;DRIVER_3;STATUS\n1;8;Sébastien BUEMI;Brendon HARTLEY;Ryo HIRAKAWA;Classified")
+    assert "Ryo HIRAKAWA" in parsed[0]["drivers"]
+    candidates = [models.Driver(name=name) for name in ["Phil Hanson", "Ye Yifei", "Dan Harper"]]
+    assert a.canonical_race_lineup("Philip HANSON / Yifei YE / Daniel HARPER / New DRIVER", candidates) == "Phil Hanson / Ye Yifei / Dan Harper / New Driver"
+
+
+def test_race_amendment_replaces_driver_lineup():
+    row = models.SessionResult(position=1, drivers="Old Driver")
+    assert a._apply_race_classification(row, {"position": "1", "drivers": "New Driver"}, pit_stops=None, top_speed_kph=None)
+    assert row.drivers == "New Driver"
+
+
 def test_api_session_time_has_explicit_utc_offset():
     from app.schemas import SessionOut
     result = SessionOut(id=1, type="RACE", start_time=datetime(2026, 9, 6, 18))

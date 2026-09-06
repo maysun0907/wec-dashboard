@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import { ChevronDown } from "lucide-react";
@@ -32,9 +32,7 @@ export function SeasonSwitcher({ seasons, selected }: Props) {
   const router = useRouter();
   const locale = localeOrDefault(useLocale());
   const [pending, startTransition] = useTransition();
-  const [value, setValue] = useState<string>(
-    selected === null ? LATEST_VALUE : String(selected),
-  );
+  const value = selected === null ? LATEST_VALUE : String(selected);
 
   if (seasons.length === 0) return null;
   // Don't bother rendering a switcher for a single-season database.
@@ -43,7 +41,6 @@ export function SeasonSwitcher({ seasons, selected }: Props) {
   const latest = seasons[0]!;
 
   function handleChange(next: string) {
-    setValue(next);
     const year = next === LATEST_VALUE ? null : Number(next);
     startTransition(async () => {
       await setSelectedSeason(year);

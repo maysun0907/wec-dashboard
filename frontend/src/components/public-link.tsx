@@ -38,5 +38,7 @@ export function PublicLink({ href, seasonYear, ...props }: Props) {
     }
   }
 
-  return <Link href={publicHref} {...props} />;
+  // Tables can expose hundreds of detail links. Do not render their server
+  // components speculatively just because they enter the viewport.
+  return <Link href={publicHref} prefetch={false} {...props} />;
 }

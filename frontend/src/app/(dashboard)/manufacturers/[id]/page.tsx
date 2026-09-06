@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -228,12 +227,12 @@ export default async function ManufacturerDetailPage({
         >
           ← {tStandings("title")}
         </PublicLink>
-        <Link
+        <PublicLink
           href={`/manufacturers/compare?ids=${manufacturer.id}`}
           className="inline-flex items-center rounded-md border border-border bg-secondary/40 px-3 py-1.5 text-sm font-medium hover:bg-secondary"
         >
           {tCommon("compare")} →
-        </Link>
+        </PublicLink>
       </div>
 
       <Card className="relative overflow-hidden">
@@ -244,7 +243,7 @@ export default async function ManufacturerDetailPage({
             size="xl"
           />
           <div className="min-w-0 flex-1 space-y-1">
-            <CardTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl sm:text-3xl">
+            <CardTitle as="h1" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl sm:text-3xl">
               {manufacturer.country && (
                 <Flag
                   code={manufacturer.country}

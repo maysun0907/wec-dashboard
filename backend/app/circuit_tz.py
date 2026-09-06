@@ -3,6 +3,11 @@ Used by the ingester to convert session-schedule local times into UTC."""
 
 
 CIRCUIT_TIMEZONE: dict[str, str] = {
+    "Circuit de Barcelona-Catalunya": "Europe/Madrid",
+    "Monza Circuit": "Europe/Rome",
+    "Autodromo Enzo e Dino Ferrari": "Europe/Rome",
+    "Autodromo Nazionale Monza": "Europe/Rome",
+    "Lusail International Circuit": "Asia/Qatar",
     "Imola Circuit": "Europe/Rome",
     "Autodromo Nazionale di Monza": "Europe/Rome",
     "Circuit de Spa-Francorchamps": "Europe/Brussels",

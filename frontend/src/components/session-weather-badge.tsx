@@ -2,22 +2,6 @@ import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 import { getSessionWeather } from "@/lib/api";
 
-/** Pick an at-a-glance condition emoji from rain + humidity. We don't
- *  have a cloud-cover reading from Al Kamel, so humidity is the proxy:
- *  85+ = overcast, 65-84 = partly cloudy, 45-64 = mostly clear, <45 =
- *  clear. Rain wins outright. */
-function conditionEmoji(
-  humidity: number | null,
-  rain: boolean,
-): string {
-  if (rain) return "🌧️";
-  if (humidity == null) return "🌡️";
-  if (humidity >= 85) return "☁️";
-  if (humidity >= 65) return "⛅";
-  if (humidity >= 45) return "🌤️";
-  return "☀️";
-}
-
 /** Small inline badge that shows session weather summary. Server
  *  component — fetches at render time and serves nothing if the Al
  *  Kamel weather CSV hasn't been published yet. */
@@ -43,7 +27,8 @@ export async function SessionWeatherBadge({
     return null;
   }
   const t = await getTranslations("raceDetail");
-  const emoji = conditionEmoji(w.humidityPct, w.rain);
+  // Humidity is not cloud cover; only show conditions the source reports.
+  const emoji = w.rain ? "🌧️" : "🌡️";
   // Build the parts list bottom-up so a session that only reports
   // rain (no temperatures) still shows the rain emoji + "Rain" text
   // — the original code gated the emoji on airTempC and rendered an

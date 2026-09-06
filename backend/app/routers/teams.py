@@ -3,9 +3,11 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
+from app.career import career_results, career_tallies
 from app.race_state import is_classified, completed_race_filter
 from app.scoring import class_position_for, points_for, preload_class_positions
 from app.season import YearParam, resolve_season
+from app.standing_snapshot import latest_snapshot_filter
 
 router = APIRouter(prefix="/teams", tags=["teams"])
 
@@ -85,50 +87,16 @@ def _team_career(db: Session, team_id: int) -> list[schemas.TeamSeasonOut]:
     )
 
     out: list[schemas.TeamSeasonOut] = []
+    standings = {(row.season_id, row.race_class_id, row.car_number): row for row in
+                 db.query(models.StandingTeam).filter(
+                     models.StandingTeam.team_id == team_id,
+                     latest_snapshot_filter(models.StandingTeam)).all()}
+    results_by_car = career_results(db, [car.id for _, car, _ in rows])
     for season, car, rc in rows:
         # Match standing by car_number when set (LMGT3); else just by
         # (team, season, race_class) — older teams' trophies were per-team.
-        standing = (
-            db.query(models.StandingTeam)
-            .filter_by(
-                team_id=team_id,
-                season_id=season.id,
-                race_class_id=rc.id,
-                car_number=car.number,
-            )
-            .first()
-        )
-        if standing is None:
-            standing = (
-                db.query(models.StandingTeam)
-                .filter_by(
-                    team_id=team_id,
-                    season_id=season.id,
-                    race_class_id=rc.id,
-                    car_number=None,
-                )
-                .first()
-            )
-
-        result_rows = (
-            db.query(models.SessionResult)
-            .join(models.Session, models.SessionResult.session_id == models.Session.id)
-            .join(models.Event, models.Session.event_id == models.Event.id)
-            .filter(models.SessionResult.car_id == car.id)
-            .filter(models.Session.type == "RACE")
-            .filter(completed_race_filter())
-            .all()
-        )
-        preload_class_positions(db, (sr.session_id for sr in result_rows))
-        races = len(result_rows)
-        wins = 0
-        podiums = 0
-        for sr in result_rows:
-            cp = class_position_for(db, sr.session_id, rc.id, sr.position if is_classified(sr.status) else 0)
-            if cp == 1:
-                wins += 1
-            if 1 <= cp <= 3:
-                podiums += 1
+        standing = standings.get((season.id, rc.id, car.number)) or standings.get((season.id, rc.id, None))
+        races, wins, podiums = career_tallies(db, [sr for sr, _ in results_by_car[car.id]])
 
         out.append(
             schemas.TeamSeasonOut(

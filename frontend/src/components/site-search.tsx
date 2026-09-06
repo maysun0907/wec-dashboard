@@ -23,7 +23,6 @@ import {
 } from "@/lib/api";
 import {
   buildPublicPath,
-  getDefaultSeasonYear,
   localeOrDefault,
 } from "@/lib/public-routing";
 
@@ -33,9 +32,10 @@ type Catalog = {
   circuits: Circuit[];
 };
 
-export function SiteSearch() {
+export function SiteSearch({ year }: { year: number }) {
   const [open, setOpen] = useState(false);
   const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [failed, setFailed] = useState(false);
   const router = useRouter();
   const locale = localeOrDefault(useLocale());
   const t = useTranslations("nav");
@@ -62,17 +62,20 @@ export function SiteSearch() {
   useEffect(() => {
     if (!open || catalog !== null) return;
     let cancelled = false;
-    Promise.all([getDrivers(), getTeams(), getCircuits()])
+    Promise.all([getDrivers(year), getTeams(year), getCircuits(year)])
       .then(([drivers, teams, circuits]) => {
-        if (!cancelled) setCatalog({ drivers, teams, circuits });
+        if (!cancelled) {
+          setFailed(false);
+          setCatalog({ drivers, teams, circuits });
+        }
       })
       .catch(() => {
-        // best-effort; keep dialog open and show "No results"
+        if (!cancelled) setFailed(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [open, catalog]);
+  }, [open, catalog, year]);
 
   // Dedupe teams by id (Toyota Racing has #7 and #8 → one team-entry suffices).
   const dedupedTeams = useMemo(() => {
@@ -94,7 +97,7 @@ export function SiteSearch() {
   ) {
     track("Search Result Selected", { entity_type: entityType });
     setOpen(false);
-    router.push(buildPublicPath(url, locale, getDefaultSeasonYear()) ?? url);
+    router.push(buildPublicPath(url, locale, year) ?? url);
   }
 
   return (
@@ -103,8 +106,8 @@ export function SiteSearch() {
         type="button"
         onClick={() => setOpen(true)}
         className="inline-flex size-8 shrink-0 items-center justify-center rounded-sm border border-border bg-secondary/40 text-muted-foreground transition-colors hover:border-foreground/30 hover:bg-secondary hover:text-foreground"
-        aria-label="Search drivers, teams, circuits"
-        title="Search (⌘K)"
+        aria-label={t("searchTitle")}
+        title={`${t("search")} (⌘K)`}
       >
         <Search className="size-4" />
       </button>
@@ -118,12 +121,12 @@ export function SiteSearch() {
         <CommandInput placeholder={t("searchPlaceholder")} />
         <CommandList>
           <CommandEmpty>
-            {catalog === null ? t("loading") : t("searchEmpty")}
+            {failed ? t("searchError") : catalog === null ? t("loading") : t("searchEmpty")}
           </CommandEmpty>
           {catalog && (
             <>
               <CommandGroup heading={t("drivers")}>
-                {catalog.drivers.map((d) => (
+                {catalog.drivers.filter((d, i, rows) => rows.findIndex((row) => row.id === d.id) === i).map((d) => (
                   <CommandItem
                     key={`d-${d.id}`}
                     value={`driver ${d.name} ${d.team} ${d.carNumber}`}

@@ -4,9 +4,11 @@ from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
+from app.career import career_results, career_tallies
 from app.race_state import is_classified, completed_race_filter
 from app.scoring import class_position_for, points_for, preload_class_positions
 from app.season import YearParam, resolve_season
+from app.standing_snapshot import latest_snapshot_filter
 
 router = APIRouter(prefix="/manufacturers", tags=["manufacturers"])
 
@@ -43,40 +45,19 @@ def _manufacturer_career(
         bucket["car_ids"].append(car.id)
 
     out: list[schemas.ManufacturerSeasonOut] = []
+    standings = {(row.season_id, row.race_class_id): row for row in
+                 db.query(models.StandingManufacturer).filter(
+                     models.StandingManufacturer.manufacturer_id == manufacturer_id,
+                     latest_snapshot_filter(models.StandingManufacturer)).all()}
+    results_by_car = career_results(db, [car.id for _, car, _ in rows])
     for (season_id, race_class_id), bucket in grouped.items():
         season = bucket["season"]
         rc = bucket["race_class"]
         car_ids = bucket["car_ids"]
 
-        standing = (
-            db.query(models.StandingManufacturer)
-            .filter_by(
-                manufacturer_id=manufacturer_id,
-                season_id=season_id,
-                race_class_id=race_class_id,
-            )
-            .first()
-        )
-
-        result_rows = (
-            db.query(models.SessionResult)
-            .join(models.Session, models.SessionResult.session_id == models.Session.id)
-            .join(models.Event, models.Session.event_id == models.Event.id)
-            .filter(models.SessionResult.car_id.in_(car_ids))
-            .filter(models.Session.type == "RACE")
-            .filter(completed_race_filter())
-            .all()
-        )
-        preload_class_positions(db, (sr.session_id for sr in result_rows))
-        races = len(result_rows)
-        wins = 0
-        podiums = 0
-        for sr in result_rows:
-            cp = class_position_for(db, sr.session_id, race_class_id, sr.position if is_classified(sr.status) else 0)
-            if cp == 1:
-                wins += 1
-            if 1 <= cp <= 3:
-                podiums += 1
+        standing = standings.get((season_id, race_class_id))
+        result_rows = [sr for car_id in car_ids for sr, _ in results_by_car[car_id]]
+        races, wins, podiums = career_tallies(db, result_rows)
 
         out.append(
             schemas.ManufacturerSeasonOut(
@@ -187,6 +168,7 @@ def get_manufacturer(
     # Manufacturers' championship rows (Hypercar only in WEC).
     standing_rows = (
         db.query(models.StandingManufacturer)
+        .filter(latest_snapshot_filter(models.StandingManufacturer))
         .options(joinedload(models.StandingManufacturer.race_class))
         .filter(models.StandingManufacturer.manufacturer_id == manufacturer_id)
         .filter(models.StandingManufacturer.season_id == season.id)

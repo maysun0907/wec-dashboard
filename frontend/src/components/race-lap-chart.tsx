@@ -47,7 +47,8 @@ export function RaceLapChart({
   revalidate: number;
 }) {
   const t = useTranslations("raceDetail");
-  const [chart, setChart] = useState<LapChart | null>(null);
+  const [loaded, setLoaded] = useState<{ sessionId: number; chart: LapChart } | null>(null);
+  const chart = loaded?.sessionId === sessionId ? loaded.chart : null;
   const [failedSessionId, setFailedSessionId] = useState<number | null>(null);
   const [classes, setClasses] = useState<Set<RaceClass>>(new Set());
   const [mode, setMode] = useState<Mode>("overall");
@@ -68,7 +69,7 @@ export function RaceLapChart({
       .then((data) => {
         if (cancelled) return;
         setFailedSessionId(null);
-        setChart(data);
+        setLoaded({ sessionId, chart: data });
         // Default: show every class in the field.
         const present = new Set<RaceClass>(
           data.cars.map((c) => c.raceClass),
@@ -77,7 +78,8 @@ export function RaceLapChart({
       })
       .catch(() => {
         if (!cancelled) setFailedSessionId(sessionId);
-      });
+      })
+      .finally(() => window.clearTimeout(timeout));
     return () => {
       cancelled = true;
       window.clearTimeout(timeout);

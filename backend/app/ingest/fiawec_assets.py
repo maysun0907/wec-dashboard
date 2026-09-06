@@ -86,21 +86,6 @@ CAR_MODEL_SLUG_BY_FIA: dict[str, str] = {
     "porsche-911-gt3-r": "porsche-911-gt3-r-992-2",
 }
 
-# Distinguishing substring per country to look up an FIA race page
-# slug. Slugs change year-on-year because of title sponsors
-# (totalenergies-, rolex-, bapco-energies-), so we resolve them
-# dynamically from the homepage rather than hard-coding.
-RACE_SLUG_HINT_BY_COUNTRY: dict[str, str] = {
-    "QAT": "qatar",
-    "ITA": "imola",
-    "BEL": "spa-francorchamps",
-    "FRA": "24-hours-of-le-mans",
-    "BRA": "sao-paulo",
-    "USA": "lone-star",
-    "JPN": "fuji",
-    "BHR": "bahrain",
-}
-
 # Manufacturer-logo URL pattern: `/uploads/{slug}[-{hash6}]-{hashlong}.png`.
 _LOGO_RE = re.compile(r"/uploads/([a-z]+(?:-[a-z]+)*?)-[a-f0-9-]{16,}\.png$")
 # Car-render URL pattern: `/uploads/{year}-wec-{number}-{model}-droit[e]-{hash}.png`.
@@ -325,7 +310,7 @@ def _scrape_grid_live(
     year: int,
 ) -> tuple[dict[str, str], dict[str, str], dict[str, str]]:
     candidates: list[str] = []
-    for path in (f"/en/page/grid", f"/en/car/{year}"):
+    for path in ("/en/page/grid", f"/en/car/{year}"):
         try:
             html = _fetch(f"{BASE}{path}")
         except httpx.HTTPError:
@@ -377,7 +362,7 @@ def _scrape_grid_wayback(
     # captures from July onwards).
     snapshots: list[tuple[str, str]] = []
     for target in (
-        f"https://www.fiawec.com/en/page/grid",
+        "https://www.fiawec.com/en/page/grid",
         f"https://www.fiawec.com/en/car/{year}",
     ):
         snap = _wayback_closest(target, year)
@@ -415,32 +400,6 @@ def _scrape_grid_wayback(
             if logo_m and logo_m.group(1) not in skip_logo_slugs:
                 mfr_logos.setdefault(logo_m.group(1), wayback_url)
     return mfr_logos, car_renders_by_model, car_renders_by_number
-
-
-def _resolve_race_slugs(year: int) -> dict[str, str]:
-    """Walk the FIA homepage and return ``{country: race_page_slug}``
-    for every round in the given season. The home page lists each
-    race link as ``/en/race/<slug>-<year>``."""
-    # Trailing slash matters — `/en` 301-redirects to `/en/` and
-    # using the canonical form skips the redirect hop entirely.
-    try:
-        html = _fetch(f"{BASE}/en/")
-    except httpx.HTTPError:
-        return {}
-    out: dict[str, str] = {}
-    # Find every /en/race/<slug>-<year> link on the page first, then
-    # match per-country. Skip prologue listings — those are pre-season
-    # test days, not the actual round.
-    candidates = [
-        m
-        for m in re.findall(rf'/en/race/([a-z0-9-]+-{year})\b', html)
-        if "prologue" not in m
-    ]
-    for country, hint in RACE_SLUG_HINT_BY_COUNTRY.items():
-        match = next((c for c in candidates if hint in c), None)
-        if match is not None:
-            out[country] = match
-    return out
 
 
 def _scrape_race_assets(race_slug: str) -> tuple[str | None, str | None]:
@@ -581,36 +540,31 @@ def ingest_fiawec_assets(
     # of them is thin and per-week (different slugs each round), so
     # the cost/benefit doesn't pencil out for a backfill.
     updated_posters = 0
-    race_slugs = _resolve_race_slugs(year) if year >= LIVE_GRID_MIN_YEAR else {}
+    from app.ingest.fiawec_schedule import discover_race_slugs, slug_for_event
+
+    race_slugs = discover_race_slugs(year) if year >= LIVE_GRID_MIN_YEAR else {}
     if verbose:
         print(f"  race-slug resolver: {len(race_slugs)} resolved")
         for country, slug in race_slugs.items():
             print(f"    {country} -> {slug}")
-    for country, race_slug in race_slugs.items():
+    events = (db.query(models.Event).join(models.Season)
+              .filter(models.Season.year == year).all())
+    for event in events:
+        race_slug = slug_for_event(event.name, year, race_slugs)
+        if race_slug is None:
+            continue
         track_url, poster_url = _scrape_race_assets(race_slug)
         if verbose:
             print(
-                f"  {country}: track={'ok' if track_url else 'no'}, "
+                f"  {event.name}: track={'ok' if track_url else 'no'}, "
                 f"poster={'ok' if poster_url else 'no'}"
             )
         if track_url is not None:
-            circuit = (
-                db.query(models.Circuit)
-                .filter(models.Circuit.country == country)
-                .first()
-            )
+            circuit = db.get(models.Circuit, event.circuit_id)
             if circuit is not None and circuit.layout_image != track_url:
                 circuit.layout_image = track_url
                 updated_circuits += 1
         if poster_url is not None:
-            event = (
-                db.query(models.Event)
-                .join(models.Season, models.Event.season_id == models.Season.id)
-                .join(models.Circuit, models.Event.circuit_id == models.Circuit.id)
-                .filter(models.Season.year == year)
-                .filter(models.Circuit.country == country)
-                .first()
-            )
             if event is not None and event.poster_url != poster_url:
                 event.poster_url = poster_url
                 updated_posters += 1

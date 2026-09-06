@@ -86,7 +86,7 @@ export default async function ComparePage({
   const revalidate = seasonDataRevalidateSeconds(events);
 
   // Default: top 3 in the chosen class so the page is useful on first load.
-  if (ids.length === 0) {
+  if (ids.length === 0 && sp.ids === undefined) {
     const standings = await getDriverStandings(raceClass, year, {
       revalidate,
     });
