@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timezone, timedelta
 
 import pytest
 from bs4 import BeautifulSoup
@@ -58,8 +58,8 @@ def _session() -> tuple[Session, models.Season, dict[str, int]]:
             circuit_id=circuit.id,
             round=4,
             name="6 Hours of São Paulo",
-            date_start=date.today() - timedelta(days=2),
-            date_end=date.today() - timedelta(days=1),
+            date_start=datetime.now(timezone.utc).date() - timedelta(days=2),
+            date_end=datetime.now(timezone.utc).date() - timedelta(days=1),
         )
     )
     peugeot = models.Manufacturer(name="Peugeot")

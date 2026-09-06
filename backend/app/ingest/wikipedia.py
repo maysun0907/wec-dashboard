@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app import models
 from app.db import SessionLocal, engine
 from app.ingest.snapshot import source_snapshot
+from app.race_state import completed_race_filter
 from app.ingest._common import (
     get_or_create_race_class,
     get_or_create_season,
@@ -1716,12 +1717,13 @@ def _ingest_fiawec_schedule(db: Session, season_id: int, year: int) -> int:
 
 
 def _last_completed_event_id(db: Session, season_id: int) -> int | None:
-    today = date.today()
     ev = (
         db.query(models.Event)
+        .outerjoin(models.Session, (models.Session.event_id == models.Event.id)
+                   & (models.Session.type == "RACE"))
         .filter(
             models.Event.season_id == season_id,
-            models.Event.date_end < today,
+            completed_race_filter(),
         )
         .order_by(models.Event.round.desc())
         .first()
@@ -1792,7 +1794,7 @@ def _ingest_standings(
     after_event_id = _last_completed_event_id(db, season_id)
     # Top-tier class flipped from LMP1 to Hypercar in 2021.
     top_class = "HYPERCAR" if year >= 2021 else "LMP1"
-    strict = year == date.today().year and after_event_id is not None
+    strict = year == current_utc_year() and after_event_id is not None
 
     counts = {"drivers": 0, "manufacturers": 0, "teams": 0}
 
@@ -2019,7 +2021,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             soup, db, season.id, race_class_ids
         )
         after_event_id = _last_completed_event_id(db, season.id)
-        if year == date.today().year and after_event_id is not None:
+        if year == current_utc_year() and after_event_id is not None:
             # The current official FIA page is server-rendered and carries
             # the authoritative championship tables, including zero-point
             # entrants and manufacturer-specific eligibility rules.
