@@ -49,26 +49,6 @@ const FREQUENCY: Record<string, Frequency> = {
   "/seasons/compare": "monthly",
 };
 
-function lastModifiedForSeason(
-  year: number,
-  latestYear: number,
-): Date | undefined {
-  return year === latestYear
-    ? undefined
-    : new Date(`${year}-12-31T00:00:00.000Z`);
-}
-
-function lastModifiedForEvent(
-  event: { dateStart?: string | null; dateEnd?: string | null },
-): Date | undefined {
-  for (const value of [event.dateEnd, event.dateStart]) {
-    if (!value) continue;
-    const timestamp = Date.parse(value);
-    if (Number.isFinite(timestamp)) return new Date(timestamp);
-  }
-  return undefined;
-}
-
 function publicPath(
   internalPath: string,
   locale: Locale,
@@ -139,7 +119,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           base,
           internalPath,
           year,
-          lastModified: lastModifiedForSeason(year, latestYear),
           changeFrequency: FREQUENCY[internalPath] ?? "weekly",
           priority: PRIORITY[internalPath] ?? 0.5,
         }),
@@ -169,7 +148,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           base,
           internalPath: `/races/${event.id}`,
           year: latestYear,
-          lastModified: lastModifiedForEvent(event),
           changeFrequency: "weekly",
           priority: 0.7,
         }),
@@ -225,7 +203,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           base,
           internalPath: `/cars/${car.slug}`,
           year,
-          lastModified: lastModifiedForSeason(year, latestYear),
           changeFrequency: "monthly",
           priority: 0.5,
         }),

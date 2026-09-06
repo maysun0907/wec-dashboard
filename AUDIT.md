@@ -1,5 +1,65 @@
 # Reliability review — 2026-09-07
 
+## Expanded verification and refactoring
+
+- Backend: 113 tests passed on local Python 3.14 and production-compatible
+  Python 3.11. Ruff correctness checks (`F,E9`) and Bandit passed.
+- Frontend: 115 tests passed; ESLint, TypeScript, production build and npm
+  audit passed. GitHub verification now runs on pull requests and main pushes.
+- Isolated API sweep: 19,212 requests across every documented GET route,
+  existing identifiers, all 14 seasons, classes and invalid parameters:
+  16,917 HTTP 200, 1,850 HTTP 422, 120 HTTP 404, 325 HTTP 400; zero 5xx.
+  These are local snapshot checks, not production latency measurements.
+- Browser checks: 40 navigation scenarios plus four expanded accessibility
+  scenarios across Chromium, Firefox, WebKit and
+  iPhone-sized WebKit. All page families in both languages; entity details;
+  search success/failure; language/season navigation; compare removal;
+  simulator input/reset; race session tabs and class filters; historical
+  2012/2018/2023/2025 pages; legacy redirects and invalid identifiers.
+  Homepage plus six data/tool page accessibility checks found no
+  serious/critical WCAG violations after fixing simulator selector semantics
+  and regulation definition-list markup and keyboard access to scroll tables;
+  desktop/mobile screenshots were also inspected.
+- GitHub-hosted verification could not start: the account reports a billing
+  lock. No billing/security settings were changed. The corresponding checks
+  were run locally; this is not recorded as a successful GitHub Actions run.
+- PostgreSQL 17: full migration chain and schema comparison passed. Full
+  2026 source reconciliation passed after the final collector changes;
+  archive reconciliation was separately exercised against the local copy.
+
+### Changes in this pass
+
+- Shared latest-standing snapshot selection respects round chronology and
+  separate class calendars. Career/title reads no longer count intermediate
+  standings as extra titles. Fourteen-season career tests use at most five
+  SQL statements per driver/team/manufacturer profile.
+- Batch career queries and remove duplicate historical lookup logic; keep
+  race history across a driver's car changes and prefer the vehicle's brand.
+- Import actual official race lineups, resolve known same-car name aliases,
+  preserve unmatched substitute names and record lineup corrections.
+- Match circuit assets to the actual event, not a country-wide first match;
+  reuse schedule slug discovery. Missing/empty/duplicate calendar inputs fail
+  before replacing valid data. Local mock/experimental standings writers
+  require explicit local-only confirmation.
+- Preserve BoP references when merging duplicate car models, reject conflicting
+  published adjustments, and resolve curated BoP by exact season and round.
+- Disable speculative table-link rendering; memoize identical timeout-bounded
+  API reads per server render while retaining adaptive persistent caching.
+- Preserve language/season in search and comparisons, including deliberately
+  empty selections. Reject duplicate/obsolete simulator picks. Use published
+  positions to resolve equal-point leaders and fix fractional lap-time sorting.
+- Fix Safari timestamp hydration, detail-page headings, accessible search
+  controls, retired Korean BoP links and preview CORS scope. Stop inferring
+  clouds from humidity or sitemap modification dates from race/year dates.
+
+### Coverage interpretation
+
+The automated sweeps enumerate API identifiers and browser page families;
+they are not a line-by-line proof or independent verification of every
+historical sporting fact. Unit-suite backend statement coverage alone was
+55% before the final regression additions; integration/source/browser checks
+are separate. Existing source-authority constraints below still apply.
+
 ## Verification performed
 
 - Backend test suite: 92 passing tests, including result-state, attendance,

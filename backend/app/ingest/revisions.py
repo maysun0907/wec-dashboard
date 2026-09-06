@@ -9,7 +9,10 @@ from app import models
 def record_revision(db, *, scope: str, source_url: str, payload) -> bool:
     serialized = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     digest = hashlib.sha256(serialized.encode()).hexdigest()
-    latest = (db.query(models.SourceRevision).filter_by(scope=scope)
+    # SessionLocal disables autoflush. Include revisions already queued by
+    # this transaction before comparing with persisted history.
+    pending = [row for row in db.new if isinstance(row, models.SourceRevision) and row.scope == scope]
+    latest = pending[-1] if pending else (db.query(models.SourceRevision).filter_by(scope=scope)
               .order_by(models.SourceRevision.id.desc()).first())
     if latest and latest.content_hash == digest:
         return False

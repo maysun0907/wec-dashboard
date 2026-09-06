@@ -15,6 +15,7 @@
     "searchTitle": "Search",
     "searchPlaceholder": "Search drivers, teams, circuits…",
     "searchEmpty": "No matches.",
+    "searchError": "Search is unavailable. Close and reopen to retry.",
     "navigation": "Navigation",
     "navigationDescription": "Search or browse the available site sections.",
     "openMenu": "Open menu",

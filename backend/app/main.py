@@ -50,7 +50,7 @@ app.add_middleware(
         "https://wec-dashboard-seven.vercel.app",
     ],
     allow_origin_regex=(
-        r"^https://wec-dashboard-[a-z0-9-]+-maysun0907\.vercel\.app$"
+        r"^https://wec-dashboard-[a-z0-9-]+-(?:maysun0907|erins-projects-122e4cb5)\.vercel\.app$"
     ),
     allow_credentials=False,
     allow_methods=["GET", "OPTIONS"],

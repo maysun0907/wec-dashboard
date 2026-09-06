@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import Link from "next/link";
+import { PublicLink } from "@/components/public-link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +40,7 @@ export default function DashboardError({
           <div className="flex gap-2">
             <Button onClick={() => reset()}>{t("tryAgain")}</Button>
             <Button asChild variant="outline">
-              <Link href="/">{t("goHome")}</Link>
+              <PublicLink href="/">{t("goHome")}</PublicLink>
             </Button>
           </div>
         </CardContent>

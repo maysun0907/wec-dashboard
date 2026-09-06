@@ -45,8 +45,8 @@ const POINTS_LONG = [38, 27, 23, 18, 15, 12, 9, 6, 3, 2];
 const POINTS_STANDARD = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 const POLE_POINT = 1;
 
-function pointsFor(eventName: string): number[] {
-  if (/24 Hours|1812 km|8 Hours/i.test(eventName)) return POINTS_LONG;
+export function pointsFor(eventName: string): number[] {
+  if (/24 Hours|1812\s*km|8 Hours|24시간|8시간/i.test(eventName)) return POINTS_LONG;
   return POINTS_STANDARD;
 }
 
@@ -70,6 +70,17 @@ type PickSlot = "p1" | "p2" | "p3" | "pole";
 const SLOT_ORDER: PickSlot[] = ["p1", "p2", "p3", "pole"];
 
 type RoundPicks = Partial<Record<PickSlot, string>>; // slot -> car number
+export function updateRoundPick(current: RoundPicks, slot: PickSlot, carNumber: string): RoundPicks {
+  const next = { ...current };
+  if (slot !== "pole" && carNumber) {
+    for (const podium of ["p1", "p2", "p3"] as const) {
+      if (next[podium] === carNumber) delete next[podium];
+    }
+  }
+  if (carNumber) next[slot] = carNumber;
+  else delete next[slot];
+  return next;
+}
 type ClassPicks = Record<number, RoundPicks>; // eventId -> RoundPicks
 type Picks = Record<RaceClass, ClassPicks>;
 
@@ -125,11 +136,12 @@ function encodePicks(picks: Picks): string {
   return toBase64Url(JSON.stringify(out));
 }
 
-function decodePicks(param: string | null): Picks | null {
-  if (!param) return null;
+export function decodePicks(param: string | null): Picks | null {
+  if (!param || param.length > 16000) return null;
   try {
     const json = fromBase64Url(param);
     const parsed = JSON.parse(json) as CompactPicks;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
     const result: Picks = {
       HYPERCAR: {},
       LMP1: {},
@@ -139,21 +151,23 @@ function decodePicks(param: string | null): Picks | null {
       LMGTE_AM: {},
     };
     for (const [tag, rounds] of Object.entries(parsed)) {
+      if (!Object.hasOwn(TAG_TO_CLASS, tag)) continue;
       const cls = TAG_TO_CLASS[tag];
-      if (!cls) continue;
+      if (!rounds || typeof rounds !== "object" || Array.isArray(rounds)) continue;
       const classPicks: ClassPicks = {};
       for (const [eid, tuple] of Object.entries(rounds)) {
         if (
+          !/^[1-9]\d{0,9}$/.test(eid) ||
           !Array.isArray(tuple) ||
           tuple.length !== 4 ||
-          !tuple.every((value) => typeof value === "string")
+          !tuple.every((value) => typeof value === "string" && /^(?:\d{1,4})?$/.test(value))
         ) {
           continue;
         }
         const slots: RoundPicks = {};
         if (tuple[0]) slots.p1 = tuple[0];
-        if (tuple[1]) slots.p2 = tuple[1];
-        if (tuple[2]) slots.p3 = tuple[2];
+        if (tuple[1] && tuple[1] !== tuple[0]) slots.p2 = tuple[1];
+        if (tuple[2] && tuple[2] !== tuple[0] && tuple[2] !== tuple[1]) slots.p3 = tuple[2];
         if (tuple[3]) slots.pole = tuple[3];
         if (Object.keys(slots).length > 0) classPicks[Number(eid)] = slots;
       }
@@ -175,6 +189,21 @@ function fromBase64Url(s: string): string {
   return atob(b64 + "=".repeat(pad));
 }
 
+export function prunePicks(picks: Picks, events: Pick<Event, "id">[], teams: Pick<TeamEntry, "raceClass" | "carNumber">[]): Picks {
+  const eventIds = new Set(events.map((event) => event.id));
+  const valid = { ...EMPTY_PICKS };
+  for (const cls of RACE_CLASSES) {
+    const cars = new Set(teams.filter((team) => team.raceClass === cls).map((team) => team.carNumber));
+    valid[cls] = {};
+    for (const [id, slots] of Object.entries(picks[cls])) {
+      if (!eventIds.has(Number(id))) continue;
+      const filtered = Object.fromEntries(Object.entries(slots).filter(([, car]) => cars.has(car)));
+      if (Object.keys(filtered).length) valid[cls][Number(id)] = filtered;
+    }
+  }
+  return valid;
+}
+
 type SimRow = {
   key: string;
   name: string;
@@ -194,16 +223,22 @@ function pointsForSlot(eventName: string, slot: PickSlot): number {
   return POLE_POINT;
 }
 
-function rankRows(
+export function rankRows(
   rows: Omit<SimRow, "position" | "positionDelta">[],
   currentPositionByKey: Map<string, number>,
 ): SimRow[] {
+  const unchanged = rows.every((row) => row.delta === 0);
   rows.sort(
     (a, b) =>
-      b.simulated - a.simulated || a.name.localeCompare(b.name),
+      b.simulated - a.simulated ||
+      (currentPositionByKey.get(a.key) ?? Infinity) - (currentPositionByKey.get(b.key) ?? Infinity) ||
+      a.name.localeCompare(b.name),
   );
   return rows.map((r, i) => {
-    const newPos = i + 1;
+    // With no projection, retain published shared positions (driver crews
+    // often tie). A projection is an estimate, not an official countback.
+    const newPos = unchanged
+      ? currentPositionByKey.get(r.key) ?? i + 1 : i + 1;
     const oldPos = currentPositionByKey.get(r.key);
     const positionDelta = oldPos !== undefined ? newPos - oldPos : 0;
     return { ...r, position: newPos, positionDelta };
@@ -406,7 +441,7 @@ export function ChampionshipSimulator({
   );
 
   const [picks, setPicks] = useState<Picks>(
-    () => decodePicks(initialPicksParam) ?? EMPTY_PICKS,
+    () => prunePicks(decodePicks(initialPicksParam) ?? EMPTY_PICKS, upcoming, teams),
   );
   const [copied, setCopied] = useState(false);
 
@@ -449,9 +484,7 @@ export function ChampionshipSimulator({
   ) {
     setPicks((prev) => {
       const cur = prev[raceClass][eventId] ?? {};
-      const next: RoundPicks = { ...cur };
-      if (carNumber === "") delete next[slot];
-      else next[slot] = carNumber;
+      const next = updateRoundPick(cur, slot, carNumber);
       return {
         ...prev,
         [raceClass]: { ...prev[raceClass], [eventId]: next },
@@ -649,7 +682,7 @@ function ClassPanel({
                         value={picks[e.id]?.[slot] ?? ""}
                         onValueChange={(v) => onPick(e.id, slot, v)}
                       >
-                        <SelectTrigger className="flex-1">
+                        <SelectTrigger className="flex-1" aria-label={`${e.name} ${slotLabel[slot]}`}>
                           <SelectValue placeholder="—" />
                         </SelectTrigger>
                         <SelectContent>
@@ -688,18 +721,14 @@ function ClassPanel({
                 </CardDescription>
               </div>
               {championships.length > 1 && (
-                <Tabs
-                  value={activeChamp}
-                  onValueChange={(v) => setActiveChamp(v as ChampType)}
-                >
-                  <TabsList variant="line">
+                <div role="group" aria-label={t("predictedStandings")} className="flex gap-1">
                     {championships.map((champ) => (
-                      <TabsTrigger key={champ} value={champ}>
+                      <Button key={champ} size="sm" variant={activeChamp === champ ? "secondary" : "ghost"}
+                        aria-pressed={activeChamp === champ} onClick={() => setActiveChamp(champ)}>
                         {champLabel[champ]}
-                      </TabsTrigger>
+                      </Button>
                     ))}
-                  </TabsList>
-                </Tabs>
+                </div>
               )}
             </div>
           </CardHeader>

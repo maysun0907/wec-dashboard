@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Plus, X } from "lucide-react";
 import {
@@ -32,6 +32,7 @@ type Props = {
 
 export function ManufacturerComparePicker({ selected, catalog }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const t = useTranslations("manufacturers");
   const tc = useTranslations("nav");
@@ -51,8 +52,8 @@ export function ManufacturerComparePicker({ selected, catalog }: Props) {
 
   function pushIds(ids: number[]) {
     const params = new URLSearchParams();
-    if (ids.length > 0) params.set("ids", ids.join(","));
-    router.push(`/manufacturers/compare?${params.toString()}`, {
+    params.set("ids", ids.join(","));
+    router.push(`${pathname}?${params.toString()}`, {
       scroll: false,
     });
   }

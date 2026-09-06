@@ -4,7 +4,7 @@ Idempotent. Run from ``backend/``:
 
     .venv/bin/python -m app.curate_bop
 
-Resolves (round_number, car_model_slug) → (event_id, car_model_id) on
+Resolves (season_year, round_number, car_model_slug) → (event_id, car_model_id) on
 each call so the script tolerates round renumbering or model renames
 between seasons (it just won't find the row and will warn).
 """
@@ -30,13 +30,14 @@ def main() -> None:
     log = structlog.get_logger(__name__)
     db = SessionLocal()
     inserted = updated = unchanged = 0
-    missing: list[tuple[int, str]] = []
+    missing: list[tuple[int, int, str]] = []
     try:
-        for (round_num, slug), values in BOP.items():
+        for (year, round_num, slug), values in BOP.items():
             event = (
                 db.query(models.Event)
-                .filter(models.Event.round == round_num)
-                .first()
+                .join(models.Season, models.Event.season_id == models.Season.id)
+                .filter(models.Season.year == year, models.Event.round == round_num)
+                .one_or_none()
             )
             cm = (
                 db.query(models.CarModel)
@@ -44,7 +45,7 @@ def main() -> None:
                 .first()
             )
             if event is None or cm is None:
-                missing.append((round_num, slug))
+                missing.append((year, round_num, slug))
                 continue
 
             adj = (

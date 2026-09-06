@@ -59,6 +59,7 @@ export function DriversTableFilter({ drivers }: { drivers: DriverEntry[] }) {
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder={t("searchPlaceholder")}
+            aria-label={t("searchPlaceholder")}
             className="h-9 pl-9"
           />
         </div>
@@ -85,7 +86,7 @@ export function DriversTableFilter({ drivers }: { drivers: DriverEntry[] }) {
           </TableHeader>
           <TableBody>
             {filtered.map((d) => (
-              <TableRow key={d.id}>
+              <TableRow key={`${d.id}:${d.raceClass}:${d.carNumber}`}>
                 <TableCell className="pl-4 font-mono tabular-nums">
                   {d.carNumber}
                 </TableCell>

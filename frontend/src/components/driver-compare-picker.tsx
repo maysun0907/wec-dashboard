@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Plus, X } from "lucide-react";
 import {
@@ -49,6 +49,7 @@ type Props = {
 export function DriverComparePicker({ selected, catalog, raceClass }: Props) {
   const t = useTranslations("drivers");
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
   const selectedIds = useMemo(
@@ -63,15 +64,16 @@ export function DriverComparePicker({ selected, catalog, raceClass }: Props) {
     () =>
       catalog
         .filter((d) => d.raceClass === raceClass && !selectedIds.has(d.id))
+        .filter((d, i, rows) => rows.findIndex((row) => row.id === d.id) === i)
         .sort((a, b) => a.name.localeCompare(b.name)),
     [catalog, raceClass, selectedIds],
   );
 
   function pushIds(ids: number[]) {
     const params = new URLSearchParams();
-    if (ids.length > 0) params.set("ids", ids.join(","));
+    params.set("ids", ids.join(","));
     params.set("class", raceClass);
-    router.push(`/drivers/compare?${params.toString()}`, { scroll: false });
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
   function add(id: number) {
@@ -89,7 +91,7 @@ export function DriverComparePicker({ selected, catalog, raceClass }: Props) {
     // current class.
     const params = new URLSearchParams();
     params.set("class", next);
-    router.push(`/drivers/compare?${params.toString()}`, { scroll: false });
+    router.push(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
   const atMax = selected.length >= MAX_DRIVERS;

@@ -142,16 +142,16 @@ describe("sitemap", () => {
     expect(urls).toContain("https://www.wecdash.com/ko/2026/cars/test-car");
   });
 
-  it("only publishes stable, source-backed last-modified dates", async () => {
+  it("does not invent modification dates from race dates or season years", async () => {
     const entries = await sitemap();
     const byUrl = new Map(entries.map((entry) => [entry.url, entry]));
 
     expect(
       byUrl.get("https://www.wecdash.com/en/2025/standings")?.lastModified,
-    ).toEqual(new Date("2025-12-31T00:00:00.000Z"));
+    ).toBeUndefined();
     expect(
       byUrl.get("https://www.wecdash.com/en/races/101")?.lastModified,
-    ).toEqual(new Date("2026-03-02T00:00:00.000Z"));
+    ).toBeUndefined();
     expect(
       byUrl.get("https://www.wecdash.com/en/2026/standings")?.lastModified,
     ).toBeUndefined();

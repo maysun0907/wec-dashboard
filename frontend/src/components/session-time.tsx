@@ -34,9 +34,9 @@ export function SessionTime({
 
   return (
     <div className={className}>
-      <div className="text-sm tabular-nums">{fmt(circuitTz)}</div>
+      <div className="text-sm tabular-nums">{viewerTz === null ? `${date.toISOString().slice(0, 16).replace("T", " ")} UTC` : fmt(circuitTz)}</div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-        Circuit local
+        {viewerTz === null ? "UTC" : "Circuit local"}
       </div>
       {showViewer && (
         <>

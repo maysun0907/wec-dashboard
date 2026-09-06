@@ -3,6 +3,11 @@
  *  Values are stable (unlike country codes which change with season's
  *  daylight rules — Intl handles that). */
 export const CIRCUIT_TIMEZONE: Record<string, string> = {
+  "Circuit de Barcelona-Catalunya": "Europe/Madrid",
+  "Monza Circuit": "Europe/Rome",
+  "Autodromo Enzo e Dino Ferrari": "Europe/Rome",
+  "Autodromo Nazionale Monza": "Europe/Rome",
+  "Lusail International Circuit": "Asia/Qatar",
   "Imola Circuit": "Europe/Rome",
   "Autodromo Nazionale di Monza": "Europe/Rome",
   "Circuit de Spa-Francorchamps": "Europe/Brussels",

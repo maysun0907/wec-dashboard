@@ -65,49 +65,24 @@ export function DriverList({
   separator?: string;
   stacked?: boolean;
 }) {
-  if (refs.length === 0) {
-    if (stacked) {
-      const parts = text
-        .split(/\s*\/\s*/)
-        .map((s) => s.trim())
-        .filter(Boolean);
-      return (
-        <span className={className}>
-          {parts.map((nm, i) => (
-            <span key={`${nm}-${i}`} className="block">
-              {nm}
-            </span>
-          ))}
-        </span>
-      );
-    }
-    return <span className={className}>{text}</span>;
-  }
-  if (stacked) {
-    return (
-      <span className={className}>
-        {refs.map((d) => (
-          <PublicLink
-            key={d.id}
-            href={`/drivers/${d.id}`}
-            className={cn("block", HOVER)}
-          >
-            {d.name}
-          </PublicLink>
-        ))}
-      </span>
-    );
-  }
+  // A published lineup can include a new/substitute driver not yet linked
+  // to a profile. Keep their name visible instead of dropping it when only
+  // some of the other drivers have IDs.
+  const names = text.split(/\s*\/\s*/).map((name) => name.trim()).filter(Boolean);
+  const ids = new Map(refs.map((ref) => [ref.name.toLowerCase(), ref.id]));
+  const completeRefs = names.length > 0
+    ? names.map((name) => ({ name, id: ids.get(name.toLowerCase()) }))
+    : refs;
   return (
     <span className={className}>
-      {refs.map((d, i) => (
-        <span key={d.id}>
-          {i > 0 && (
+      {completeRefs.map((d, i) => (
+        <span key={`${d.name}-${i}`} className={stacked ? "block" : undefined}>
+          {!stacked && i > 0 && (
             <span className="text-muted-foreground/60">{separator}</span>
           )}
-          <PublicLink href={`/drivers/${d.id}`} className={HOVER}>
+          {d.id === undefined ? d.name : <PublicLink href={`/drivers/${d.id}`} className={HOVER}>
             {d.name}
-          </PublicLink>
+          </PublicLink>}
         </span>
       ))}
     </span>

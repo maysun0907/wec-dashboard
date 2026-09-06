@@ -55,6 +55,180 @@ def fixture_rows(db):
     return season, circuit, rc, drivers
 
 
+def test_revision_deduplicates_unflushed_changes(db):
+    from app.ingest.revisions import record_revision
+    db.autoflush = False
+    kwargs = dict(scope="test", source_url="https://example.test", payload={"x": 1})
+    assert record_revision(db, **kwargs)
+    assert not record_revision(db, **kwargs)
+    db.commit()
+    assert db.query(models.SourceRevision).count() == 1
+
+
+def test_seed_requires_explicit_local_confirmation(db, monkeypatch):
+    from app.seed import _assert_local_seed_allowed
+    monkeypatch.delenv("ALLOW_LOCAL_SEED", raising=False)
+    with pytest.raises(RuntimeError, match="local development"):
+        _assert_local_seed_allowed(db)
+    monkeypatch.setenv("ALLOW_LOCAL_SEED", "delete-local-data")
+    monkeypatch.setenv("ENVIRONMENT", "development")
+    monkeypatch.delenv("RAILWAY_ENVIRONMENT_ID", raising=False)
+    _assert_local_seed_allowed(db)
+    monkeypatch.setenv("RAILWAY_ENVIRONMENT_ID", "production")
+    with pytest.raises(RuntimeError):
+        _assert_local_seed_allowed(db)
+
+
+def test_blank_round_attendance_is_full_season():
+    from app.rounds import driver_in_round
+    assert driver_in_round("  ", 2)
+
+
+@pytest.mark.parametrize("lap, expected", [("1:23.1", 83100), ("1:23.12", 83120), ("1:23.123", 83123), ("1:63.123", None), ("DNF", None)])
+def test_lap_fraction_precision(lap, expected):
+    assert alkamel._lap_to_ms(lap) == expected
+
+
+def test_missing_or_empty_calendar_preserves_events(db, monkeypatch):
+    from bs4 import BeautifulSoup
+    season, *_ = fixture_rows(db)
+    soup = BeautifulSoup("<html></html>", "lxml")
+    with pytest.raises(ValueError, match="Calendar table missing"):
+        wikipedia._ingest_calendar(soup, db, season.id, 2020)
+    monkeypatch.setattr(wikipedia, "find_table_by_heading", lambda *args: soup)
+    monkeypatch.setattr(wikipedia, "parse_calendar", lambda *args, **kwargs: [])
+    with pytest.raises(ValueError, match="Empty or duplicate"):
+        wikipedia._ingest_calendar(soup, db, season.id, 2020)
+    assert db.query(models.Event).count() == 2
+
+
+def test_driver_history_includes_car_changes_and_model_manufacturer(db):
+    from app.routers.drivers import get_driver, list_drivers
+    season, _, rc, drivers = fixture_rows(db)
+    old_car = db.query(models.Car).one()
+    manufacturer = models.Manufacturer(name="Correct", logo_url="https://example.test/correct.png")
+    db.add(manufacturer); db.flush()
+    model = models.CarModel(name="Correct Car", slug="correct-car", manufacturer_id=manufacturer.id)
+    db.add(model); db.flush()
+    new_car = models.Car(season_id=season.id, team_id=old_car.team_id, race_class_id=rc.id,
+                         number="2", car_model_id=model.id)
+    db.add(new_car); db.flush()
+    db.add(models.CarDriver(car_id=new_car.id, driver_id=drivers[0].id, season_id=season.id, rounds="2"))
+    race = db.query(models.Session).join(models.Event).filter(models.Event.round == 2).one()
+    result = db.query(models.SessionResult).filter_by(session_id=race.id).one()
+    result.car_id = new_car.id
+    db.commit()
+    detail = get_driver(drivers[0].id, season.year, db)
+    assert [row.round for row in detail.results] == [1, 2]
+    assert detail.manufacturer == "Correct"
+    assert next(row for row in list_drivers(season.year, db) if row.car_number == "2").manufacturer_logo_url == manufacturer.logo_url
+
+
+def test_cors_allows_only_owned_preview_domains():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    with TestClient(app) as client:
+        for origin, allowed in [
+            ("https://wec-dashboard-abc-erins-projects-122e4cb5.vercel.app", True),
+            ("https://wec-dashboard-abc-attacker.vercel.app", False),
+        ]:
+            response = client.get("/", headers={"Origin": origin})
+            assert (response.headers.get("access-control-allow-origin") == origin) is allowed
+
+
+def test_race_assets_match_event_not_first_circuit_in_country(db, monkeypatch):
+    from app.ingest import fiawec_assets, fiawec_schedule
+    season, circuit, *_ = fixture_rows(db)
+    season.year = 2026
+    circuit.country = "ITA"
+    other = models.Circuit(name="Monza", country="ITA", length_km=5.7)
+    db.add(other); db.flush()
+    events = db.query(models.Event).order_by(models.Event.round).all()
+    events[0].name = "6 Hours of Imola"
+    events[1].name = "6 Hours of Monza"
+    events[1].circuit_id = other.id
+    db.commit()
+    monkeypatch.setattr(fiawec_assets, "_scrape_grid", lambda year: ({}, {}, {}))
+    monkeypatch.setattr(fiawec_schedule, "discover_race_slugs", lambda year: {"imola": "6-hours-of-imola-2026", "monza": "6-hours-of-monza-2026"})
+    monkeypatch.setattr(fiawec_assets, "_scrape_race_assets", lambda slug: (f"https://example.test/{slug}.png", f"https://example.test/{slug}-poster.png"))
+    result = fiawec_assets.ingest_fiawec_assets(db, 2026)
+    assert result["circuits"] == 2
+    assert "imola" in circuit.layout_image
+    assert "monza" in other.layout_image
+    assert "monza" in events[1].poster_url
+
+
+def test_championship_titles_count_only_latest_snapshot(db):
+    season, _, rc, drivers = fixture_rows(db)
+    events = db.query(models.Event).order_by(models.Event.round).all()
+    for ev in events:
+        db.add(models.StandingDriver(season_id=season.id, race_class_id=rc.id,
+                                    driver_id=drivers[0].id, position=1, points=25 * ev.round,
+                                    after_event_id=ev.id))
+    db.commit()
+    assert _championship_titles(db, "drivers")[0]["titles"] == 1
+    from app.routers.drivers import _driver_career
+    assert _driver_career(db, drivers[0].id)[0].points == 50
+
+
+def test_latest_snapshot_keeps_classes_with_different_last_rounds(db):
+    from app.standing_snapshot import latest_snapshot_filter
+    season, _, rc, drivers = fixture_rows(db)
+    other = models.RaceClass(name="LMP2")
+    db.add(other); db.flush()
+    events = db.query(models.Event).order_by(models.Event.round).all()
+    for cls, ev in [(rc, events[0]), (rc, events[1]), (other, events[0])]:
+        db.add(models.StandingDriver(season_id=season.id, race_class_id=cls.id,
+                                    driver_id=drivers[0].id, position=1, points=25,
+                                    after_event_id=ev.id))
+    db.commit()
+    rows = db.query(models.StandingDriver).filter(latest_snapshot_filter(models.StandingDriver)).all()
+    assert {(row.race_class_id, row.after_event_id) for row in rows} == {(rc.id, events[1].id), (other.id, events[0].id)}
+
+
+def test_model_dedupe_preserves_bop_and_specs(db):
+    import structlog
+    from app.curate_car_models import _dedupe_duplicate_models
+    fixture_rows(db)
+    maker = models.Manufacturer(name="Test")
+    db.add(maker); db.flush()
+    canonical = models.CarModel(name="Test car", slug="canonical", manufacturer_id=maker.id)
+    duplicate = models.CarModel(name="Test car", slug="duplicate", power_hp=500)
+    db.add_all([canonical, duplicate]); db.flush()
+    db.add(models.BopAdjustment(event_id=db.query(models.Event).first().id,
+                               car_model_id=duplicate.id, min_weight_kg=1000))
+    db.commit()
+    assert _dedupe_duplicate_models(db, structlog.get_logger()) == 1
+    db.commit()
+    assert db.query(models.BopAdjustment).one().car_model_id == canonical.id
+    assert canonical.power_hp == 500
+
+
+def test_actual_lineup_refs_include_substitute_outside_planned_round(db):
+    from app.routers.events import session_results
+    _, _, _, drivers = fixture_rows(db)
+    result = db.query(models.SessionResult).first()
+    result.drivers = drivers[1].name
+    db.commit()
+    output = session_results(result.session_id, db)
+    assert output[0].driver_refs[0].id == drivers[1].id
+
+
+def test_bop_curator_targets_exact_season(db, monkeypatch):
+    from app import curate_bop
+    season, circuit, _, _ = fixture_rows(db)
+    newer = models.Season(year=2021, championship_name="WEC")
+    model = models.CarModel(name="Test", slug="test")
+    db.add_all([newer, model]); db.flush()
+    target = models.Event(season_id=newer.id, circuit_id=circuit.id, round=1, name="Test", date_start=date(2021,1,1), date_end=date(2021,1,1))
+    db.add(target); db.commit()
+    target_id = target.id
+    monkeypatch.setattr(curate_bop, "SessionLocal", lambda: db)
+    monkeypatch.setattr(curate_bop, "BOP", {(2021, 1, "test"): {"min_weight_kg": 1000}})
+    curate_bop.main()
+    assert db.query(models.BopAdjustment).one().event_id == target_id
+
+
 def test_driver_wins_follow_round_participation(db):
     fixture_rows(db)
     wins, podiums = _driver_wins_and_podiums(db)
@@ -336,7 +510,7 @@ def test_archive_partial_standings_roll_back_previous_snapshot(db, monkeypatch):
 
 
 def test_latest_standings_follows_round_not_database_id(db):
-    from app.routers.standings import _latest_after_event
+    from app.standing_snapshot import latest_snapshot_filter
     season, _, rc, drivers = fixture_rows(db)
     events = db.query(models.Event).order_by(models.Event.id).all()
     events[0].round, events[1].round = 3, 1
@@ -344,7 +518,7 @@ def test_latest_standings_follows_round_not_database_id(db):
         db.add(models.StandingDriver(season_id=season.id, driver_id=drivers[0].id,
                                    race_class_id=rc.id, after_event_id=ev.id, position=1, points=100))
     db.commit()
-    assert _latest_after_event(db, models.StandingDriver, season.id) == events[0].id
+    assert db.query(models.StandingDriver).filter(latest_snapshot_filter(models.StandingDriver)).one().after_event_id == events[0].id
 
 
 def test_practice_refresh_preserves_row_identity_and_rejects_partial_file(db, monkeypatch):

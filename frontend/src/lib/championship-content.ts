@@ -14,7 +14,7 @@ export type ChampionshipSnapshot = {
   manufacturers: StandingManufacturer[];
 };
 
-function leadersByPoints<T>(
+function leadersByPoints<T extends { position: number }>(
   rows: T[],
   key: (row: T) => string,
   points: (row: T) => number,
@@ -29,7 +29,9 @@ function leadersByPoints<T>(
   const values = [...unique.values()];
   if (values.length === 0) return [];
   const leaderPoints = Math.max(...values.map(points));
-  return values.filter((row) => points(row) === leaderPoints);
+  const tied = values.filter((row) => points(row) === leaderPoints);
+  const publishedPosition = Math.min(...tied.map((row) => row.position));
+  return tied.filter((row) => row.position === publishedPosition);
 }
 
 /** Build one fact-only championship summary per class from standings rows. */

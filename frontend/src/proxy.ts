@@ -85,6 +85,10 @@ function rewritePublicRoute(
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (shouldBypassPublicRouting(pathname)) return NextResponse.next();
+  const legacyBop = pathname.match(/^\/(?:(en|ko)\/)?bop\/?$/);
+  if (legacyBop) {
+    return redirectToPublicPath(request, `/${legacyBop[1] ?? DEFAULT_LOCALE}/rules`, 308);
+  }
 
   // Next 16 can run Proxy again for the internal destination of a rewrite.
   // Let that second pass reach the App Router instead of treating `/races`,

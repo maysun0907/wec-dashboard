@@ -3,7 +3,15 @@ from datetime import date, datetime
 from app.ingest.fiawec_schedule import (
     is_session_time_within_event_window,
     parse_race_page,
+    slug_for_event,
 )
+
+
+def test_race_slug_requires_venue_match_not_shared_duration():
+    slugs = {"imola": "6-hours-of-imola-2026", "monza": "6-hours-of-monza-2026", "le mans": "24-hours-of-le-mans-2026-1"}
+    assert slug_for_event("6 Hours of Monza", 2026, slugs) == slugs["monza"]
+    assert slug_for_event("6 Hours of Barcelona", 2026, slugs) is None
+    assert slug_for_event("24 Hours of Le Mans", 2026, slugs) == slugs["le mans"]
 
 
 RACE_PAGE_WITH_JSON_LD = """

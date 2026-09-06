@@ -225,7 +225,7 @@ export default async function TeamDetailPage({
             size="xl"
           />
           <div className="space-y-1">
-            <CardTitle className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl sm:text-3xl">
+            <CardTitle as="h1" className="flex flex-wrap items-center gap-x-2 gap-y-1 text-2xl sm:text-3xl">
               <span>{team.name}</span>
               <ChampionBadge
                 titles={team.seasons.filter(

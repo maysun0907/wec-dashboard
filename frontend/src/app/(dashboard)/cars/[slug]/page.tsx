@@ -200,7 +200,7 @@ export default async function CarDetailPage({
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
               {seasonYear} FIA WEC
             </p>
-            <CardTitle className="text-2xl sm:text-3xl">{car.name}</CardTitle>
+            <CardTitle as="h1" className="text-2xl sm:text-3xl">{car.name}</CardTitle>
             <CardDescription className="flex items-center gap-2">
               <ManufacturerLogo
                 src={car.manufacturerLogoUrl}

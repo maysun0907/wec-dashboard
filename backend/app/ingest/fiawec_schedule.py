@@ -68,7 +68,7 @@ def discover_race_slugs(year: int) -> dict[str, str]:
         m = RACE_URL_RE.search(href)
         if not m:
             continue
-        slug_body, slug_year = m.group(1), int(m.group(2))
+        slug_year = int(m.group(2))
         if slug_year != year:
             continue
         # Reconstruct the full slug (with optional -N tail).
@@ -86,7 +86,7 @@ def slug_for_event(event_name: str, year: int, slugs: dict[str, str]) -> str | N
     tokens = [
         t
         for t in tokens
-        if t not in {"the", "of", "hours", "hour", "km", "le", "mans"}
+        if t not in {"the", "of", "hours", "hour", "km", "le"} and not t.isdigit()
     ]
     if not tokens:
         return None

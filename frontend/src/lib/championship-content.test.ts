@@ -59,6 +59,13 @@ const entry = (
 });
 
 describe("buildChampionshipSnapshot", () => {
+  it("uses published countback rather than declaring every equal-point entry a leader", () => {
+    const snapshot = buildChampionshipSnapshot([
+      driver({ driverId: 1, points: 42, position: 1 }),
+      driver({ driverId: 2, points: 42, position: 2 }),
+    ], [], []);
+    expect(snapshot[0]?.drivers.map((row) => row.driverId)).toEqual([1]);
+  });
   it("returns an empty snapshot when no standings exist", () => {
     expect(buildChampionshipSnapshot([], [], [])).toEqual([]);
   });

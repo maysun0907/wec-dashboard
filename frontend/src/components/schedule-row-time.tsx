@@ -48,7 +48,7 @@ export function ScheduleRowTime({ iso, circuitTz, now, status }: Props) {
   const showViewer = viewerTz !== null && viewerTz !== circuitTz;
   return (
     <span className="inline-flex flex-wrap gap-x-2">
-      <span>{fmt(date, circuitTz, locale)}</span>
+      <span>{viewerTz === null ? `${date.toISOString().slice(0, 16).replace("T", " ")} UTC` : fmt(date, circuitTz, locale)}</span>
       {showViewer && (
         <>
           <span className="text-muted-foreground/50">·</span>

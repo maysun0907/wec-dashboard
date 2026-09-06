@@ -125,11 +125,11 @@ def session_results(
             .all()
         )
         for cd, d in rows:
+            name_to_id[d.name] = d.id
             if round_num is not None and not driver_in_round(cd.rounds, round_num):
                 continue
             drivers_by_car.setdefault(cd.car_id, []).append(d.name)
             driver_refs_by_car.setdefault(cd.car_id, []).append((d.id, d.name))
-            name_to_id[d.name] = d.id
 
     # Compute class positions in Python from the already-loaded result
     # set rather than running one count() per result. The previous

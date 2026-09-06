@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
+from app.career import career_results, career_tallies
 from app.race_state import is_classified, completed_race_filter, driver_participated
 from app.scoring import class_position_for, points_for, preload_class_positions
 from app.season import YearParam, resolve_season
+from app.standing_snapshot import latest_snapshot_filter
 
 router = APIRouter(prefix="/drivers", tags=["drivers"])
 
@@ -30,8 +33,9 @@ def list_drivers(
         .join(models.CarDriver, models.CarDriver.driver_id == models.Driver.id)
         .join(models.Car, models.CarDriver.car_id == models.Car.id)
         .join(models.Team, models.Car.team_id == models.Team.id)
+        .outerjoin(models.CarModel, models.Car.car_model_id == models.CarModel.id)
         .outerjoin(
-            models.Manufacturer, models.Team.manufacturer_id == models.Manufacturer.id
+            models.Manufacturer, func.coalesce(models.CarModel.manufacturer_id, models.Team.manufacturer_id) == models.Manufacturer.id
         )
         .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
         .filter(models.Car.season_id == season.id)
@@ -72,9 +76,10 @@ def _driver_career(
         .join(models.CarDriver, models.CarDriver.season_id == models.Season.id)
         .join(models.Car, models.CarDriver.car_id == models.Car.id)
         .join(models.Team, models.Car.team_id == models.Team.id)
+        .outerjoin(models.CarModel, models.Car.car_model_id == models.CarModel.id)
         .outerjoin(
             models.Manufacturer,
-            models.Team.manufacturer_id == models.Manufacturer.id,
+            func.coalesce(models.CarModel.manufacturer_id, models.Team.manufacturer_id) == models.Manufacturer.id,
         )
         .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
         .filter(models.CarDriver.driver_id == driver_id)
@@ -85,39 +90,16 @@ def _driver_career(
 
     out: list[schemas.DriverSeasonOut] = []
     driver = db.get(models.Driver, driver_id)
+    standings = {(row.season_id, row.race_class_id): row for row in
+                 db.query(models.StandingDriver).filter(
+                     models.StandingDriver.driver_id == driver_id,
+                     latest_snapshot_filter(models.StandingDriver)).all()}
+    results_by_car = career_results(db, [car.id for _, car, *_ in rows])
     for season, car, team, manuf, rc, rounds in rows:
-        standing = (
-            db.query(models.StandingDriver)
-            .filter_by(
-                driver_id=driver_id,
-                season_id=season.id,
-                race_class_id=rc.id,
-            )
-            .first()
-        )
-        # Race tallies: walk every race-session result for this car and run
-        # class_position_for to compute the in-class finish.
-        result_rows = (
-            db.query(models.SessionResult, models.Event)
-            .join(models.Session, models.SessionResult.session_id == models.Session.id)
-            .join(models.Event, models.Session.event_id == models.Event.id)
-            .filter(models.SessionResult.car_id == car.id)
-            .filter(models.Session.type == "RACE")
-            .filter(completed_race_filter())
-            .all()
-        )
-        result_rows = [sr for sr, ev in result_rows if driver is not None
+        standing = standings.get((season.id, rc.id))
+        result_rows = [sr for sr, ev in results_by_car[car.id] if driver is not None
                        and driver_participated(driver.name, rounds, ev.round, sr.drivers)]
-        preload_class_positions(db, (sr.session_id for sr in result_rows))
-        races = len(result_rows)
-        wins = 0
-        podiums = 0
-        for sr in result_rows:
-            cp = class_position_for(db, sr.session_id, rc.id, sr.position if is_classified(sr.status) else 0)
-            if cp == 1:
-                wins += 1
-            if 1 <= cp <= 3:
-                podiums += 1
+        races, wins, podiums = career_tallies(db, result_rows)
         out.append(
             schemas.DriverSeasonOut(
                 year=season.year,
@@ -160,21 +142,24 @@ def get_driver(
         )
 
     # Current-season car / team / class
-    row = (
+    rows = (
         db.query(models.Car, models.Team, models.Manufacturer, models.RaceClass)
         .join(models.CarDriver, models.CarDriver.car_id == models.Car.id)
         .join(models.Team, models.Car.team_id == models.Team.id)
+        .outerjoin(models.CarModel, models.Car.car_model_id == models.CarModel.id)
         .outerjoin(
-            models.Manufacturer, models.Team.manufacturer_id == models.Manufacturer.id
+            models.Manufacturer, func.coalesce(models.CarModel.manufacturer_id, models.Team.manufacturer_id) == models.Manufacturer.id
         )
         .join(models.RaceClass, models.Car.race_class_id == models.RaceClass.id)
         .options(joinedload(models.Car.car_model))
         .filter(models.CarDriver.driver_id == driver_id)
         .filter(models.CarDriver.season_id == season.id)
-        .first()
+        .filter(models.Car.season_id == season.id)
+        .order_by(models.Car.id.desc())
+        .all()
     )
 
-    if row is None:
+    if not rows:
         return schemas.DriverDetailOut(
             id=driver.id,
             name=driver.name,
@@ -183,7 +168,8 @@ def get_driver(
             seasons=career,
         )
 
-    car, team, manuf, rc = row
+    car, team, manuf, rc = rows[0]
+    cars_by_id = {row[0].id: row[0] for row in rows}
 
     # Co-drivers in the same car for the same season — keep rounds for each.
     co_driver_rows = (
@@ -196,13 +182,16 @@ def get_driver(
         .all()
     )
 
-    attendance = db.query(models.CarDriver).filter_by(car_id=car.id, driver_id=driver_id).one()
+    attendance = {row.car_id: row.rounds for row in db.query(models.CarDriver).filter(
+        models.CarDriver.car_id.in_(cars_by_id), models.CarDriver.driver_id == driver_id,
+        models.CarDriver.season_id == season.id,
+    )}
     # Only completed races actually entered by this driver belong in history.
     result_rows = (
         db.query(models.SessionResult, models.Event)
         .join(models.Session, models.SessionResult.session_id == models.Session.id)
         .join(models.Event, models.Session.event_id == models.Event.id)
-        .filter(models.SessionResult.car_id == car.id)
+        .filter(models.SessionResult.car_id.in_(cars_by_id))
         .filter(models.Session.type == "RACE")
         .filter(models.Event.season_id == season.id)
         .filter(completed_race_filter())
@@ -210,17 +199,18 @@ def get_driver(
         .all()
     )
     result_rows = [(sr, ev) for sr, ev in result_rows
-                   if driver_participated(driver.name, attendance.rounds, ev.round, sr.drivers)]
+                   if driver_participated(driver.name, attendance[sr.car_id], ev.round, sr.drivers)]
     preload_class_positions(db, (sr.session_id for sr, _ev in result_rows))
 
     def _cp(sr: models.SessionResult) -> int:
         return class_position_for(
-            db, sr.session_id, car.race_class_id, sr.position if is_classified(sr.status) else 0
+            db, sr.session_id, cars_by_id[sr.car_id].race_class_id, sr.position if is_classified(sr.status) else 0
         )
 
     standing = (
         db.query(models.StandingDriver)
-        .filter_by(driver_id=driver_id, season_id=season.id)
+        .filter(latest_snapshot_filter(models.StandingDriver))
+        .filter_by(driver_id=driver_id, season_id=season.id, race_class_id=rc.id)
         .first()
     )
 
