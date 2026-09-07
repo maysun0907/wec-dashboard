@@ -230,9 +230,6 @@ def _resolve_driver(
         for driver in candidates
         if _normalize_name(driver.name) == normalized
     ]
-    if len(exact) == 1:
-        return exact[0]
-
     # The championship can retain a former / event-specific car number for
     # substitutes. Driver points belong to the person, not that car. Only
     # accept an unambiguous full-name match within this season and class;
@@ -241,10 +238,12 @@ def _resolve_driver(
         driver.id: driver for driver in (class_candidates or [])
         if _normalize_name(driver.name) == normalized
     }
-    if len(class_exact) == 1:
-        return next(iter(class_exact.values()))
     if len(exact) > 1 or len(class_exact) > 1:
         raise ValueError(f"ambiguous {race_class} driver {published_name!r}")
+    if len(exact) == 1:
+        return exact[0]
+    if len(class_exact) == 1:
+        return next(iter(class_exact.values()))
 
     surname = normalized.split()[-1] if normalized else ""
     surname_matches = [

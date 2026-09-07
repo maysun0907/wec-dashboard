@@ -13,6 +13,7 @@ from inspect import signature
 
 import httpx
 import structlog
+from sqlalchemy.exc import SQLAlchemyError
 
 from app import models
 from app.db import SessionLocal
@@ -96,10 +97,17 @@ def unchanged_sources(kind: str):
             scope = f"{kind}:{year}"
             now = datetime.now(timezone.utc).replace(tzinfo=None)
             log = structlog.get_logger(__name__)
-            with SessionLocal() as db:
-                checkpoint = db.get(models.IngestCheckpoint, scope)
-                previous = checkpoint.manifest if checkpoint else None
-                fresh = checkpoint is not None and now - checkpoint.completed_at < RECHECK_AFTER
+            try:
+                with SessionLocal() as db:
+                    checkpoint = db.get(models.IngestCheckpoint, scope)
+                    previous = checkpoint.manifest if checkpoint else None
+                    fresh = (checkpoint is not None
+                             and timedelta(0) <= now - checkpoint.completed_at < RECHECK_AFTER)
+            except SQLAlchemyError as exc:
+                # This optimization must not disable ingestion during a
+                # checkpoint schema/cache outage. Do not record a new marker.
+                log.warning("ingest_checkpoint_unavailable", scope=scope, error=str(exc))
+                return function(*args, **kwargs)
             state = Inputs()
             if (fresh and previous and previous.get("version") == FORMAT_VERSION
                     and previous.get("invocation") == invocation):

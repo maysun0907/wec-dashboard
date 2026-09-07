@@ -1,5 +1,22 @@
 # Reliability review — 2026-09-07
 
+## Post-race collection follow-up
+
+- Scope: championship driver identity, off-week source checkpoints, and the
+  scheduler's live/post-race failure paths. This is a focused follow-up, not
+  a new claim of line-by-line verification of the entire repository.
+- Resolve substitute drivers across car numbers only by a unique normalized
+  full name in the same season and class. Keep roster coverage validation,
+  duplicate-row rejection and the car-scoped alias fallback.
+- After a full-season failure, independently reconcile up to two races from
+  the past 14 days outside their live windows. Include already-final files
+  so late corrections remain eligible; wrap helper commits in an outer
+  transaction to avoid publishing partial recovery.
+- Missing checkpoint storage falls back to normal ingestion. Future-dated
+  checkpoints cannot suppress a rebuild.
+- Backend: 134 tests passed. Frontend: 115 tests passed, plus ESLint and
+  TypeScript checks. These checks do not measure production throughput.
+
 ## Expanded verification and refactoring
 
 - Backend: 113 tests passed on local Python 3.14 and production-compatible

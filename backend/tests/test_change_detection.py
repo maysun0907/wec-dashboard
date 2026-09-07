@@ -171,3 +171,22 @@ def test_cold_scheduler_uses_change_detection(collector, monkeypatch):
             now_fn=lambda: datetime(2026, 7, 21, 6, tzinfo=timezone.utc),
         )
     assert len(calls) == 1
+
+
+def test_missing_checkpoint_table_does_not_disable_ingestion(collector):
+    refresh, calls, _, _, _, _, sessions = collector
+    with sessions() as db:
+        models.IngestCheckpoint.__table__.drop(db.get_bind())
+    assert refresh() == {"rebuilt": True}
+    assert calls == [2026]
+
+
+def test_future_checkpoint_does_not_suppress_rebuild(collector):
+    refresh, calls, _, _, _, _, sessions = collector
+    refresh()
+    with sessions() as db:
+        checkpoint = db.get(models.IngestCheckpoint, "test:2026")
+        checkpoint.completed_at += timedelta(days=2)
+        db.commit()
+    assert refresh() == {"rebuilt": True}
+    assert len(calls) == 2
