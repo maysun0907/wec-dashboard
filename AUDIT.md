@@ -1,5 +1,50 @@
 # Reliability review — 2026-09-07
 
+## Race integrity and browser follow-up
+
+- Correct Le Mans full-distance scoring to 50/36/30/24/20/16/12/8/4/2;
+  keep the separate 8–10 hour and 6 hour tables. Replace incorrect test
+  expectations, simulator calculations and both language explanations.
+  Published championship totals remain independent of these estimates.
+- Match driver standing entries within the same class and select transfers
+  by the latest scheduled round at that snapshot. Prefer the car's brand.
+  Carry crew round eligibility to simulations and deduplicate awarded IDs.
+- Calculate live duration from untranslated names, choose event dates in
+  circuit time, and prefer completed/final or fresh live source state.
+  Refresh visible race-detail/live pages once per minute during race week;
+  suspend requests in hidden tabs and clean up on navigation. Existing
+  source polling and server caches still determine end-to-end freshness.
+- Reject duplicate classified positions, class mismatches and unidentified
+  entries before publishing timing. Le Mans guest entries in tracked classes
+  require explicit guest mode and source team/crew identity; log omitted
+  non-season entries. Full guest-roster ingestion is not claimed here.
+- Remove cancelled-event BoP dependencies transactionally and clear old
+  posters when the circuit changes. Checkpoint write failures cannot mask a
+  completed ingest, and schedule reload failure cannot abort all hot polls.
+- Persist full/hot/recovery outcomes and last success in a reserved health
+  checkpoint namespace. `/health/ingest` returns non-cached 503 on failed,
+  missing or stale collection; race-week/hot thresholds are stricter.
+  It is separate from Railway's process liveness check to avoid API restart
+  loops. This adds a diagnostic endpoint, not an external alert subscription.
+- Browser verification exposed stale season-selector props after navigation;
+  use the canonical URL and verify switching in both directions.
+- Local source reconciliation: 2026 full ingest succeeded on isolated
+  PostgreSQL, with 8 events, 35 season cars, 110 driver standings and 176
+  race rows. COTA's 35 rows match official position (unclassified normalized
+  to zero), laps, best lap and status. Le Mans class winners return 50 points.
+- Local API sweep: 19,213 requests across 14 seasons; no unexpected failures.
+  The offline ingestion-health endpoint intentionally returns degraded 503.
+  This is regression/integration evidence, not proof of all historical facts
+  or a production load benchmark.
+- Final checks: 144 backend tests, 121 frontend tests, Ruff, Bandit, ESLint,
+  TypeScript, production build, npm production dependency audit and PostgreSQL
+  schema comparison passed. All 44 browser scenarios passed across Chromium,
+  Firefox, WebKit and mobile WebKit (the final mobile scenario was rerun
+  after overlapping test runners collided while cleaning trace artifacts).
+  The season-switch regression also passed five consecutive Chromium runs.
+  GitHub-hosted jobs remain blocked by the account billing lock; local runs
+  are not represented as successful GitHub Actions checks.
+
 ## Post-race collection follow-up
 
 - Scope: championship driver identity, off-week source checkpoints, and the

@@ -247,6 +247,12 @@ export default async function RulesPage() {
                   <td className="px-2 text-right">3</td>
                   <td className="pl-2 text-right">2</td>
                 </tr>
+                <tr className="border-t">
+                  <td className="py-2 pr-4 font-sans text-foreground">{t("pointsRow24h")}</td>
+                  {[50, 36, 30, 24, 20, 16, 12, 8, 4, 2].map((points, i) => (
+                    <td key={i} className="px-2 text-right">{points}</td>
+                  ))}
+                </tr>
               </tbody>
             </table>
           </div>

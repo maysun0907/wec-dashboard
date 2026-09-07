@@ -75,6 +75,10 @@ test("language and season switches preserve navigation", async ({ page }) => {
   await page.getByRole("option", { name: "2025", exact: true }).click();
   await expect(page).toHaveURL(/\/ko\/2025\/drivers$/);
   await expect(page.getByRole("combobox", { name: "Season", exact: true })).toContainText("2025");
+  await page.getByRole("combobox", { name: "Season", exact: true }).click();
+  await page.getByRole("option", { name: "2026", exact: true }).click();
+  await expect(page).toHaveURL(/\/ko\/2026\/drivers$/);
+  await expect(page.getByRole("combobox", { name: "Season", exact: true })).toContainText("2026");
 });
 
 test("mobile navigation opens, navigates and closes", async ({ page }) => {

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Link as LinkIcon } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import { driverInRound } from "@/lib/rounds";
 import {
   Card,
   CardContent,
@@ -43,10 +44,12 @@ import {
 // WEC scoring per FIA: standard 6h races vs longer endurance rounds.
 const POINTS_LONG = [38, 27, 23, 18, 15, 12, 9, 6, 3, 2];
 const POINTS_STANDARD = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+const POINTS_24H = [50, 36, 30, 24, 20, 16, 12, 8, 4, 2];
 const POLE_POINT = 1;
 
 export function pointsFor(eventName: string): number[] {
-  if (/24 Hours|1812\s*km|8 Hours|24시간|8시간/i.test(eventName)) return POINTS_LONG;
+  if (/24\s*Hours|24\s*시간/i.test(eventName)) return POINTS_24H;
+  if (/1812\s*km|8\s*Hours|8\s*시간/i.test(eventName)) return POINTS_LONG;
   return POINTS_STANDARD;
 }
 
@@ -259,7 +262,7 @@ function* iterPicks(
   }
 }
 
-function simulateDrivers(
+export function simulateDrivers(
   current: StandingDriver[],
   picks: ClassPicks,
   drivers: DriverEntry[],
@@ -284,9 +287,13 @@ function simulateDrivers(
     if (!event) continue;
     const pts = pointsForSlot(event.name, slot);
     const winners = drivers.filter(
-      (d) => d.carNumber === carNumber && d.raceClass === raceClass,
+      (d) => d.carNumber === carNumber && d.raceClass === raceClass
+        && driverInRound(d.rounds, event.round),
     );
+    const awarded = new Set<number>();
     for (const d of winners) {
+      if (awarded.has(d.id)) continue;
+      awarded.add(d.id);
       sims.set(d.id, (sims.get(d.id) ?? 0) + pts);
     }
   }

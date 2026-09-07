@@ -16,6 +16,7 @@ import {
 import { type Season } from "@/lib/api";
 import {
   localeOrDefault,
+  parsePublicPath,
   switchSeasonInPublicHref,
 } from "@/lib/public-routing";
 
@@ -32,7 +33,11 @@ export function SeasonSwitcher({ seasons, selected }: Props) {
   const router = useRouter();
   const locale = localeOrDefault(useLocale());
   const [pending, startTransition] = useTransition();
-  const value = selected === null ? LATEST_VALUE : String(selected);
+  // Shared layouts can retain their previous server props after a rewrite.
+  // The canonical URL is authoritative for season-scoped navigation.
+  const routed = parsePublicPath(pathname);
+  const activeYear = routed ? routed.year : selected;
+  const value = activeYear === null ? LATEST_VALUE : String(activeYear);
 
   if (seasons.length === 0) return null;
   // Don't bother rendering a switcher for a single-season database.

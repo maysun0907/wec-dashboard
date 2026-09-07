@@ -125,25 +125,32 @@ def unchanged_sources(kind: str):
             # by this rebuild belong in the next dependency manifest.
             # Invalidate before running: a failed/partial refresh must never
             # leave an older success marker eligible to suppress the retry.
-            with SessionLocal() as db:
-                checkpoint = db.get(models.IngestCheckpoint, scope)
-                if checkpoint:
-                    db.delete(checkpoint)
-                    db.commit()
+            try:
+                with SessionLocal() as db:
+                    checkpoint = db.get(models.IngestCheckpoint, scope)
+                    if checkpoint:
+                        db.delete(checkpoint)
+                        db.commit()
+            except SQLAlchemyError as exc:
+                log.warning("ingest_checkpoint_invalidation_failed", scope=scope, error=str(exc))
+                return function(*args, **kwargs)
             token = inputs.set(state)
             try:
                 result = function(*args, **kwargs)
                 sources = {key: state.sources[key] for key in state.consumed
                            if key in state.sources}
                 if sources and not state.failed:
-                    with SessionLocal() as db:
-                        db.merge(models.IngestCheckpoint(
-                            scope=scope, completed_at=now,
-                            manifest={"version": FORMAT_VERSION, "invocation": invocation,
-                                      "sources": sources},
-                        ))
-                        db.commit()
-                    log.info("ingest_source_checkpoint_saved", scope=scope, sources=len(sources))
+                    try:
+                        with SessionLocal() as db:
+                            db.merge(models.IngestCheckpoint(
+                                scope=scope, completed_at=now,
+                                manifest={"version": FORMAT_VERSION, "invocation": invocation,
+                                          "sources": sources},
+                            ))
+                            db.commit()
+                        log.info("ingest_source_checkpoint_saved", scope=scope, sources=len(sources))
+                    except SQLAlchemyError as exc:
+                        log.warning("ingest_checkpoint_save_failed", scope=scope, error=str(exc))
                 elif state.failed:
                     log.warning("ingest_source_checkpoint_rejected", scope=scope,
                                 reason="incomplete_source_checks")

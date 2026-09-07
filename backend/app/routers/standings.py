@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
@@ -7,6 +8,7 @@ from app.progression import car_manufacturer, completed_class_results, estimated
 from app.race_state import is_classified
 from app.season import YearParam, resolve_season
 from app.standing_snapshot import latest_snapshot_filter
+from app.rounds import driver_in_round
 
 router = APIRouter(prefix="/standings", tags=["standings"])
 
@@ -38,30 +40,50 @@ def driver_standings(
             models.Driver,
             models.Team,
             models.Manufacturer,
+            models.CarDriver.rounds,
+            models.Car,
         )
         .join(models.Driver, models.StandingDriver.driver_id == models.Driver.id)
         .outerjoin(
             models.CarDriver,
             (models.CarDriver.driver_id == models.Driver.id)
-            & (models.CarDriver.season_id == season_id),
+            & (models.CarDriver.season_id == season_id)
+            & models.CarDriver.car.has(
+                models.Car.race_class_id == models.StandingDriver.race_class_id
+            ),
         )
         .outerjoin(models.Car, models.CarDriver.car_id == models.Car.id)
         .outerjoin(models.Team, models.Car.team_id == models.Team.id)
+        .outerjoin(models.CarModel, models.Car.car_model_id == models.CarModel.id)
         .outerjoin(
-            models.Manufacturer, models.Team.manufacturer_id == models.Manufacturer.id
+            models.Manufacturer,
+            func.coalesce(models.CarModel.manufacturer_id, models.Team.manufacturer_id)
+            == models.Manufacturer.id,
         )
         .options(joinedload(models.StandingDriver.race_class))
         .filter(models.StandingDriver.season_id == season_id)
     )
     q = q.filter(latest_snapshot_filter(models.StandingDriver))
     q = _class_filter(q, models.StandingDriver, race_class)
-    rows = q.order_by(models.StandingDriver.position).all()
+    rows = q.order_by(models.StandingDriver.position, models.Car.id.desc()).all()
 
-    # A driver could match multiple CarDriver rows if they had crew swaps;
-    # keep the first row per StandingDriver id.
+    rounds = [r for (r,) in db.query(models.Event.round).filter(
+        models.Event.season_id == season_id).order_by(models.Event.round.desc()).all()]
+    snapshot_rounds = dict(db.query(models.Event.id, models.Event.round).filter(
+        models.Event.season_id == season_id).all())
+    # For same-class transfers, select the latest eligible round no later
+    # than this standing snapshot, rather than arbitrary insertion order.
+    def latest_entry_round(row):
+        sd, _, _, _, entry_rounds, car = row
+        if car is None:
+            return -1
+        cutoff = snapshot_rounds.get(sd.after_event_id, max(rounds, default=0))
+        return next((rnd for rnd in rounds if rnd <= cutoff and driver_in_round(entry_rounds, rnd)), -1)
+
+    rows.sort(key=lambda row: (row[0].position, -latest_entry_round(row)))
     seen: set[int] = set()
     out: list[schemas.StandingDriverOut] = []
-    for sd, d, t, m in rows:
+    for sd, d, t, m, _, _ in rows:
         if sd.id in seen:
             continue
         seen.add(sd.id)

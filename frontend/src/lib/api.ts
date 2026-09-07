@@ -158,6 +158,7 @@ export type SessionResult = {
 };
 
 export type DriverEntry = {
+  rounds?: string | null;
   id: number;
   name: string;
   nationality: string | null;

@@ -73,6 +73,7 @@ class DriverEntryOut(_BaseSchema):
     manufacturer_logo_url: str | None = None
     photo_url: str | None = None
     race_class: str
+    rounds: str | None = None
 
 
 class TeamEntryOut(_BaseSchema):

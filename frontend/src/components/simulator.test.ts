@@ -11,7 +11,9 @@ describe("simulator input integrity", () => {
   });
   it("uses equal points for Korean and English race names", () => {
     expect(pointsFor("바레인 8시간")).toEqual(pointsFor("8 Hours of Bahrain"));
-    expect(pointsFor("르망 24시간")[0]).toBe(38);
+    expect(pointsFor("르망 24시간")).toEqual([50, 36, 30, 24, 20, 16, 12, 8, 4, 2]);
+    expect(pointsFor("24 Hours of Le Mans")).toEqual(pointsFor("르망 24시간"));
+    expect(pointsFor("Lone Star Le Mans")[0]).toBe(25);
     expect(pointsFor("이몰라 6시간")[0]).toBe(25);
   });
   it("moves a car between podium positions while allowing pole", () => {
