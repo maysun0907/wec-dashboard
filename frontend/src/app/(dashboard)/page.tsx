@@ -447,7 +447,7 @@ function NextRaceHero({
   startIso: string | null;
 }) {
   const startIso = raceStartIso ?? `${event.dateStart}T13:00:00Z`;
-  const circuitLayout = localCircuitLayout(event.circuit.country);
+  const circuitLayout = localCircuitLayout(event.circuit.country, event.circuit.name);
 
   return (
     <Card className="relative overflow-hidden border-transparent bg-card/40 p-0">

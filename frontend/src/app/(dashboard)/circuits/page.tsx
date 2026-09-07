@@ -13,7 +13,7 @@ import {
 import { Flag } from "@/components/flag";
 import { PageHeader } from "@/components/page-header";
 import { PublicLink } from "@/components/public-link";
-import { localCircuitLayout } from "@/lib/circuit-image";
+import { circuitLayoutImage } from "@/lib/circuit-image";
 import {
   eventStatus,
   getCircuits,
@@ -34,7 +34,7 @@ export default async function CircuitsPage() {
   ]);
   const rawLocale = await getLocale();
   const locale = isLocale(rawLocale) ? rawLocale : "en";
-  const circuits = circuitsRaw.map((c) => localizeCircuit(c, locale));
+  const circuits = circuitsRaw.map((c) => ({ ...localizeCircuit(c, locale), layout: circuitLayoutImage(c) }));
   const events = eventsRaw.map((e) => localizeEvent(e, locale));
   // One round per circuit per season — index for O(1) card lookups.
   const roundByCircuit = new Map(events.map((e) => [e.circuit.id, e]));
@@ -53,7 +53,7 @@ export default async function CircuitsPage() {
         {circuits.map((c) => {
           const ev = roundByCircuit.get(c.id);
           const status: EventStatus | null = ev ? eventStatus(ev, today) : null;
-          const layoutSvg = localCircuitLayout(c.country);
+          const layoutSvg = c.layout;
           return (
             <PublicLink
               key={c.id}
@@ -94,7 +94,7 @@ export default async function CircuitsPage() {
                           alt=""
                           fill
                           sizes="112px"
-                          className="object-contain p-2 opacity-80 [filter:brightness(0)_invert(1)]"
+                          className={`object-contain p-2 opacity-80 ${layoutSvg.startsWith("/circuits/") ? "[filter:brightness(0)_invert(1)]" : ""}`}
                         />
                       </div>
                     )}

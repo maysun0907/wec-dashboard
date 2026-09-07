@@ -22,7 +22,7 @@ import {
   type Circuit,
   type CircuitDetail,
 } from "@/lib/api";
-import { localCircuitLayout } from "@/lib/circuit-image";
+import { circuitLayoutImage } from "@/lib/circuit-image";
 import {
   JsonLd,
   breadcrumbSchema,
@@ -131,7 +131,7 @@ export default async function CircuitDetailPage({
     })),
   };
 
-  const layoutSvg = localCircuitLayout(circuit.country) ?? circuit.layoutImage;
+  const layoutSvg = circuitLayoutImage(circuitRaw);
   const t = await getTranslations("circuits");
   const schemaContext = {
     locale: localeForName,
@@ -229,7 +229,7 @@ export default async function CircuitDetailPage({
                 alt={`${circuit.name} track layout`}
                 className="h-full w-full object-contain"
                 style={{
-                  filter: "invert(1) hue-rotate(180deg)",
+                  filter: layoutSvg.startsWith("/circuits/") ? "invert(1) hue-rotate(180deg)" : undefined,
                 }}
                 loading="lazy"
               />
