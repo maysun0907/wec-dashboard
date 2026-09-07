@@ -221,6 +221,46 @@ def test_parser_rejects_a_partial_official_response() -> None:
         parse_published_standings(partial)
 
 
+def test_substitute_standings_resolve_name_across_car_numbers():
+    db, season, event = _db()
+    try:
+        driver = db.query(models.Driver).filter_by(name="Daniel Juncadella").one()
+        driver.name = "Ricky Taylor"
+        db.commit()
+        html = FIA_STANDINGS_HTML.replace("#19", "#101").replace(
+            "DANIEL JUNCADELLA", "RICKY TAYLOR")
+        counts = ingest_fiawec_standings(db, season.id, 2026, event.id, html=html)
+        assert counts["drivers"] == 4
+        assert db.query(models.StandingDriver).filter_by(driver_id=driver.id).one().points == 0
+        # Resolving standings must not rewrite the driver's actual entry.
+        assert db.query(models.CarDriver).filter_by(driver_id=driver.id).one().car.number == "19"
+    finally:
+        db.close()
+
+
+def test_cross_car_resolution_requires_unique_full_name():
+    from app.ingest.fiawec_standings import _resolve_driver
+    ricky = models.Driver(id=1, name="Ricky Taylor")
+    jordan = models.Driver(id=2, name="Jordan Taylor")
+    assert _resolve_driver("RICKY TAYLOR", [jordan], "HYPERCAR", "101", [ricky, jordan]) is ricky
+    with pytest.raises(ValueError, match="cannot resolve"):
+        _resolve_driver("R. TAYLOR", [], "HYPERCAR", "101", [ricky])
+    with pytest.raises(ValueError, match="ambiguous"):
+        _resolve_driver("RICKY TAYLOR", [], "HYPERCAR", "101",
+                        [ricky, models.Driver(id=3, name="Ricky Taylor")])
+
+
+def test_cross_class_driver_cannot_fill_missing_standing():
+    db, season, event = _db()
+    try:
+        html = FIA_STANDINGS_HTML.replace("#19", "#101").replace(
+            "DANIEL JUNCADELLA", "THOMAS FLOHR")
+        with pytest.raises(ValueError, match="cannot resolve HYPERCAR"):
+            ingest_fiawec_standings(db, season.id, 2026, event.id, html=html)
+    finally:
+        db.close()
+
+
 def test_ingest_rejects_one_missing_driver_link_from_a_crew() -> None:
     db, season, event = _db()
     try:

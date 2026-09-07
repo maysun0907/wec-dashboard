@@ -222,6 +222,7 @@ def _resolve_driver(
     candidates: list[models.Driver],
     race_class: str,
     car_number: str,
+    class_candidates: list[models.Driver] | None = None,
 ) -> models.Driver:
     normalized = _normalize_name(published_name)
     exact = [
@@ -231,6 +232,19 @@ def _resolve_driver(
     ]
     if len(exact) == 1:
         return exact[0]
+
+    # The championship can retain a former / event-specific car number for
+    # substitutes. Driver points belong to the person, not that car. Only
+    # accept an unambiguous full-name match within this season and class;
+    # never broaden the surname fallback beyond the published car's crew.
+    class_exact = {
+        driver.id: driver for driver in (class_candidates or [])
+        if _normalize_name(driver.name) == normalized
+    }
+    if len(class_exact) == 1:
+        return next(iter(class_exact.values()))
+    if len(exact) > 1 or len(class_exact) > 1:
+        raise ValueError(f"ambiguous {race_class} driver {published_name!r}")
 
     surname = normalized.split()[-1] if normalized else ""
     surname_matches = [
@@ -279,6 +293,7 @@ def ingest_fiawec_standings(
         cars_by_key[(race_class.name, car.number)] = car
 
     drivers_by_car: dict[tuple[str, str], list[models.Driver]] = {}
+    drivers_by_class: dict[str, dict[int, models.Driver]] = {}
     after_event = (
         db.query(models.Event)
         .filter(
@@ -325,6 +340,7 @@ def ingest_fiawec_standings(
             driver
         )
         driver_names[driver.id] = driver.name
+        drivers_by_class.setdefault(race_class.name, {})[driver.id] = driver
         if any(
             driver_in_round(car_driver.rounds, round_number)
             for round_number in completed_rounds
@@ -349,7 +365,8 @@ def ingest_fiawec_standings(
                 raise ValueError(f"missing car number for driver {row['name']!r}")
             candidates = drivers_by_car.get((race_class, car_number), [])
             driver = _resolve_driver(
-                row["name"], candidates, race_class, car_number
+                row["name"], candidates, race_class, car_number,
+                list(drivers_by_class.get(race_class, {}).values()),
             )
             driver_values.append(
                 (driver.id, race_class_id, row["position"], row["points"])
