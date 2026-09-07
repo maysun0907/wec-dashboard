@@ -363,6 +363,37 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+@source_snapshot
+def refresh_recent_race_results(snapshot: ScheduleSnapshot, now: datetime) -> dict:
+    """Keep post-race corrections independent of season/standings failures.
+
+    Live polling already covers the first three hours after the expected
+    finish. Beyond that window, retry up to two recent rounds hourly when
+    the full collector failed, including amendments to already-final files.
+    """
+    from app.ingest.alkamel import enrich_race_results
+
+    current = _as_utc(now)
+    events = {event.id: event for event in snapshot.events}
+    candidates = {
+        session.event_id for session in snapshot.sessions
+        if session.type == "RACE" and session.event_id in events
+        and hot_window(session, events[session.event_id])[1] < current
+        and current - _as_utc(session.start_time) <= timedelta(days=14)
+    }
+    recent = sorted((events[eid] for eid in candidates),
+                    key=lambda event: event.date_end, reverse=True)[:2]
+    if not recent:
+        return {"events": 0, "race_rows": 0}
+    with engine.connect() as connection, connection.begin():
+        with SessionLocal(bind=connection, join_transaction_mode="create_savepoint") as db:
+            db.info["require_official_timing"] = True
+            rows = sum(enrich_race_results(db, event.season_id, event.year,
+                                          event_id=event.id) for event in recent)
+            db.commit()
+    return {"events": len(recent), "race_rows": rows}
+
+
 def run_scheduled_ingest(
     *,
     year: int,
@@ -397,6 +428,7 @@ def run_scheduled_ingest(
 
         if plan.run_full_ingest:
             log.info("scheduled_full_ingest", reason=plan.reason, year=year)
+            full_failed = False
             try:
                 # Never let a season-level checkpoint suppress live-week
                 # reconciliation after independent targeted timing updates.
@@ -404,6 +436,7 @@ def run_scheduled_ingest(
                            if plan.reason == "cold_six_hour_refresh" else ingest_once)
                 refresh(year=year, url=url)
             except SourceDataError as exc:
+                full_failed = True
                 # Retain the last snapshot, but do not let a season-page
                 # failure disable independent live timing refreshes.
                 log.error(
@@ -412,10 +445,18 @@ def run_scheduled_ingest(
                     error=str(exc),
                 )
             except Exception as exc:
+                full_failed = True
                 # Network/standings validation failures also roll back the
                 # full rebuild. Live collection uses independent sources.
                 log.exception("scheduled_full_ingest_failed", year=year, error=str(exc))
             snapshot = load_schedule(year)
+            if full_failed:
+                try:
+                    recovery = refresh_recent_race_results(snapshot, _as_utc(now_fn()))
+                    if recovery["events"]:
+                        log.info("post_race_recovery_completed", **recovery)
+                except Exception as exc:
+                    log.exception("post_race_recovery_failed", error=str(exc))
         else:
             log.info("scheduled_ingest_skipped", reason=plan.reason, year=year)
 

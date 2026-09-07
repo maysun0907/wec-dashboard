@@ -325,6 +325,68 @@ def test_live_results_never_count_as_career_wins(db):
     assert [r["name"] for r in wins] == ["Substitute"]
 
 
+def test_failed_standings_refresh_recovers_post_race_results(monkeypatch):
+    now = datetime(2026, 9, 7, 10, tzinfo=timezone.utc)
+    snapshot = scheduled.ScheduleSnapshot(events=(scheduled.EventSchedule(
+        1, 1, 2026, 5, "Lone Star Le Mans", now.date(), now.date()),))
+    @contextmanager
+    def lock():
+        yield True
+    calls = []
+    def rejected(**_):
+        raise ValueError("roster mismatch")
+    monkeypatch.setattr(scheduled, "scheduler_lock", lock)
+    monkeypatch.setattr(scheduled, "load_schedule", lambda _: snapshot)
+    monkeypatch.setattr(scheduled, "refresh_recent_race_results",
+                        lambda *_: calls.append(True) or {"events": 1, "race_rows": 35})
+    scheduled.run_scheduled_ingest(year=2026, url="https://example.test",
+        ingest_once=rejected, now_fn=lambda: now)
+    assert calls == [True]
+
+
+def test_recent_race_recovery_is_bounded_and_committed(db, monkeypatch):
+    from datetime import timedelta
+    now = datetime(2026, 9, 7, 10, tzinfo=timezone.utc)
+    events = tuple(scheduled.EventSchedule(i, 1, 2026, i, "6 Hours",
+        (now-timedelta(days=days)).date(), (now-timedelta(days=days)).date())
+        for i, days in enumerate([1, 5, 10, 30, -1], 1))
+    sessions = tuple(scheduled.SessionSchedule(event.id, "RACE",
+        datetime.combine(event.date_start, datetime.min.time(), tzinfo=timezone.utc))
+        for event in events)
+    calls = []
+    monkeypatch.setattr(scheduled, "engine", db.get_bind())
+    monkeypatch.setattr(scheduled, "SessionLocal", Session)
+    def collect(session, *_args, event_id):
+        assert session.info["require_official_timing"]
+        calls.append(event_id)
+        return 35
+    monkeypatch.setattr(alkamel, "enrich_race_results", collect)
+    summary = scheduled.refresh_recent_race_results(
+        scheduled.ScheduleSnapshot(events, sessions), now)
+    assert calls == [1, 2]
+    assert summary == {"events": 2, "race_rows": 70}
+
+
+def test_recent_race_recovery_rolls_back_helper_commits(db, monkeypatch):
+    engine = db.get_bind()
+    now = datetime(2026, 9, 7, 10, tzinfo=timezone.utc)
+    event = scheduled.EventSchedule(1, 1, 2026, 5, "6 Hours",
+                                    date(2026, 9, 6), date(2026, 9, 6))
+    snapshot = scheduled.ScheduleSnapshot(events=(event,), sessions=(
+        scheduled.SessionSchedule(1, "RACE", datetime(2026, 9, 6, 18)),))
+    monkeypatch.setattr(scheduled, "engine", engine)
+    monkeypatch.setattr(scheduled, "SessionLocal", Session)
+    def fail(session, *_args, **_kwargs):
+        session.add(models.Manufacturer(name="Rolled back recovery"))
+        session.commit()
+        raise ValueError("invalid final file")
+    monkeypatch.setattr(alkamel, "enrich_race_results", fail)
+    with pytest.raises(ValueError, match="invalid final"):
+        scheduled.refresh_recent_race_results(snapshot, now)
+    with Session(engine) as check:
+        assert check.query(models.Manufacturer).filter_by(name="Rolled back recovery").count() == 0
+
+
 def test_manufacturer_uses_vehicle_brand_not_team_default(db):
     from app.routers.manufacturers import get_manufacturer
     fixture_rows(db)
