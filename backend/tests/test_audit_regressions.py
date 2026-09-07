@@ -23,6 +23,7 @@ def db():
     @event.listens_for(engine, "connect")
     def connect(connection, _):
         connection.isolation_level = None
+        connection.execute("PRAGMA foreign_keys=ON")
 
     @event.listens_for(engine, "begin")
     def begin(connection):
@@ -543,6 +544,87 @@ def test_final_file_wins_over_provisional_listing_order(monkeypatch):
         monkeypatch.setattr(alkamel, "_event_html", lambda *_: "".join(
             f'<a href="{prefix}{name}">x</a>' for name in ordering))
         assert alkamel._list_race_csvs("15_2026", "05_COTA")[1].endswith("_Final.CSV")
+
+
+def test_race_validation_rejects_unknown_tracked_cars_and_duplicate_positions(db):
+    fixture_rows(db)
+    result = db.query(models.SessionResult).first()
+    session = db.get(models.Session, result.session_id)
+    cars = {result.car.number: result.car}
+    known = {"number": "1", "position": "1", "class": "HYPERCAR"}
+    guest = {"number": "99", "position": "2", "class": "LMP2"}
+    alkamel.validate_race_snapshot(session, [], [known, guest], "final", "source", cars)
+    for row in [{**guest, "class": "HYPERCAR"}, {**guest, "class": ""}]:
+        with pytest.raises(ValueError, match="Unknown race car"):
+            alkamel.validate_race_snapshot(session, [], [known, row], "final", "source", cars)
+    with pytest.raises(ValueError, match="Duplicate classified position"):
+        alkamel.validate_race_snapshot(session, [], [known, {**guest, "position": "1"}], "final", "source", cars)
+    with pytest.raises(ValueError, match="class mismatch"):
+        alkamel.validate_race_snapshot(session, [], [{**known, "class": "LMGT3"}], "final", "source", cars)
+    guest_hypercar = {**guest, "class": "HYPERCAR", "team": "Cadillac WTR", "drivers": "Ricky Taylor"}
+    alkamel.validate_race_snapshot(session, [], [known, guest_hypercar], "final", "source", cars,
+                                   allow_guest_entries=True)
+    with pytest.raises(ValueError, match="Unknown race car"):
+        alkamel.validate_race_snapshot(session, [], [known, {**guest_hypercar, "team": ""}],
+                                       "final", "source", cars, allow_guest_entries=True)
+
+
+def test_driver_standing_team_does_not_cross_classes(db):
+    from app.routers.standings import driver_standings
+    from app.routers.drivers import list_drivers
+    season, _, rc, drivers = fixture_rows(db)
+    gt = models.RaceClass(name="LMGT3")
+    team = models.Team(name="GT Team")
+    db.add_all([gt, team]); db.flush()
+    car = models.Car(season_id=season.id, race_class_id=gt.id, team_id=team.id, number="99")
+    db.add(car); db.flush()
+    db.add(models.CarDriver(season_id=season.id, car_id=car.id, driver_id=drivers[0].id, rounds="2"))
+    for cls in (rc, gt):
+        db.add(models.StandingDriver(season_id=season.id, driver_id=drivers[0].id,
+                                   race_class_id=cls.id, position=1, points=10))
+    db.commit()
+    rows = driver_standings(race_class=None, year=2020, db=db)
+    assert {r.race_class: r.team for r in rows} == {"HYPERCAR": "Team", "LMGT3": "GT Team"}
+    assert next(r for r in list_drivers(year=2020, db=db) if r.car_number == "99").rounds == "2"
+
+
+def test_cancelled_calendar_round_removes_dependent_bop(db, monkeypatch):
+    season, circuit, _, _ = fixture_rows(db)
+    rounds = db.query(models.Event).order_by(models.Event.round).all()
+    model = models.CarModel(slug="test", name="Test")
+    db.add(model); db.flush()
+    for ev in rounds:
+        db.add(models.BopAdjustment(event_id=ev.id, car_model_id=model.id, min_weight_kg=1000))
+    db.commit()
+    keep_id, stale_id = (ev.id for ev in rounds)
+    monkeypatch.setattr(wikipedia, "find_table_by_heading", lambda *_: object())
+    monkeypatch.setattr(wikipedia, "parse_calendar", lambda *_, **__: [{
+        "round": 1, "circuit_name": circuit.name, "country": circuit.country,
+        "name": "6 Hours", "date_start": date(2020, 1, 1), "date_end": date(2020, 1, 1),
+    }])
+    wikipedia._clear_season(db, season.id)
+    wikipedia._ingest_calendar(None, db, season.id, 2020)
+    db.commit()
+    assert db.get(models.Event, stale_id) is None
+    assert [row.event_id for row in db.query(models.BopAdjustment)] == [keep_id]
+
+
+def test_standing_uses_transfer_entry_at_snapshot_round(db):
+    from app.routers.standings import driver_standings
+    season, _, rc, drivers = fixture_rows(db)
+    later_team = models.Team(name="Later Team")
+    db.add(later_team); db.flush()
+    car = models.Car(season_id=season.id, race_class_id=rc.id, team_id=later_team.id, number="2")
+    db.add(car); db.flush()
+    db.add(models.CarDriver(season_id=season.id, car_id=car.id, driver_id=drivers[0].id, rounds="2"))
+    events = db.query(models.Event).order_by(models.Event.round).all()
+    standing = models.StandingDriver(season_id=season.id, driver_id=drivers[0].id,
+        race_class_id=rc.id, after_event_id=events[0].id, position=1, points=25)
+    db.add(standing); db.commit()
+    assert driver_standings(race_class=None, year=2020, db=db)[0].team == "Team"
+    standing.after_event_id = events[1].id
+    db.commit()
+    assert driver_standings(race_class=None, year=2020, db=db)[0].team == "Later Team"
 
 
 def test_archive_rotation_keeps_previous_season_in_appeal_window():

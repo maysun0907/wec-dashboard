@@ -13,13 +13,16 @@ from app.race_state import classified_result_filter
 
 _POINTS_LONG = [38, 27, 23, 18, 15, 12, 9, 6, 3, 2]
 _POINTS_STANDARD = [25, 18, 15, 12, 10, 8, 6, 4, 2, 1]
-_LONG_RACE_RE = re.compile(r"24 Hours|1812 km|8 Hours", re.IGNORECASE)
+_POINTS_24H = [50, 36, 30, 24, 20, 16, 12, 8, 4, 2]
+_LONG_RACE_RE = re.compile(r"1812\s*km|8\s+Hours", re.IGNORECASE)
 
 
 def points_for(event_name: str, class_position: int) -> float:
-    """Points the FIA awards for a given finishing class position. Endurance
-    rounds (Le Mans 24h, Bahrain 8h, Qatar 1812 km) use the long table."""
-    table = _POINTS_LONG if _LONG_RACE_RE.search(event_name) else _POINTS_STANDARD
+    """Estimated full-distance race points, excluding pole and penalties."""
+    if re.search(r"24\s+Hours", event_name, re.IGNORECASE):
+        table = _POINTS_24H
+    else:
+        table = _POINTS_LONG if _LONG_RACE_RE.search(event_name) else _POINTS_STANDARD
     if 1 <= class_position <= len(table):
         return float(table[class_position - 1])
     return 0.0

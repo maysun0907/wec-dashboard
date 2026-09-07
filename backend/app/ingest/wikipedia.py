@@ -1279,6 +1279,8 @@ def _ingest_calendar(
                 )
             )
         else:
+            if ev.circuit_id != circuit.id:
+                ev.poster_url = None
             ev.circuit_id = circuit.id
             ev.name = rd["name"]
             ev.date_start = rd["date_start"]
@@ -1296,6 +1298,7 @@ def _ingest_calendar(
         # Results and pit stops were cleared by _clear_season. Sessions are
         # preserved for valid events, but must be removed with a cancelled
         # round before its Event parent can be deleted.
+        db.execute(delete(models.BopAdjustment).where(models.BopAdjustment.event_id == ev.id))
         db.execute(
             delete(models.Session).where(models.Session.event_id == ev.id)
         )

@@ -29,6 +29,7 @@ def list_drivers(
             models.Team,
             models.Manufacturer,
             models.RaceClass,
+            models.CarDriver.rounds,
         )
         .join(models.CarDriver, models.CarDriver.driver_id == models.Driver.id)
         .join(models.Car, models.CarDriver.car_id == models.Car.id)
@@ -53,8 +54,9 @@ def list_drivers(
             manufacturer_logo_url=m.logo_url if m else None,
             photo_url=d.photo_url,
             race_class=rc.name,
+            rounds=rounds,
         )
-        for d, c, t, m, rc in rows
+        for d, c, t, m, rc, rounds in rows
     ]
 
 

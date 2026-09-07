@@ -56,7 +56,11 @@ def main():
             elapsed = perf_counter() - started
             counts[response.status_code] += 1
             timings.append((round(elapsed * 1000, 2), path))
-            if response.status_code >= 500:
+            # Collector freshness is intentionally degraded on an offline
+            # snapshot; it is not an API crash or a data-serving failure.
+            expected_stale = (path == "/health/ingest" and response.status_code == 503
+                              and response.json().get("status") == "degraded")
+            if response.status_code >= 500 and not expected_stale:
                 failures.append((path, params, response.status_code, response.text[:200]))
             if index % 1000 == 0:
                 print(json.dumps({"checked": index, "failures": len(failures)}), flush=True)

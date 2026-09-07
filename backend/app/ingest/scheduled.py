@@ -30,6 +30,7 @@ from app.ingest.wikipedia import SourceDataError
 from app.ingest.snapshot import source_snapshot
 from app.ingest.change_detection import unchanged_sources
 from app.logging import configure_logging
+from app.ingest.status import monitored
 
 
 UTC = timezone.utc
@@ -434,7 +435,7 @@ def run_scheduled_ingest(
                 # reconciliation after independent targeted timing updates.
                 refresh = (unchanged_sources("season")(ingest_once)
                            if plan.reason == "cold_six_hour_refresh" else ingest_once)
-                refresh(year=year, url=url)
+                monitored(year, "full", refresh, year=year, url=url)
             except SourceDataError as exc:
                 full_failed = True
                 # Retain the last snapshot, but do not let a season-page
@@ -449,10 +450,13 @@ def run_scheduled_ingest(
                 # Network/standings validation failures also roll back the
                 # full rebuild. Live collection uses independent sources.
                 log.exception("scheduled_full_ingest_failed", year=year, error=str(exc))
-            snapshot = load_schedule(year)
+            try:
+                snapshot = load_schedule(year)
+            except Exception as exc:
+                log.warning("ingest_schedule_reload_failed", error=str(exc))
             if full_failed:
                 try:
-                    recovery = refresh_recent_race_results(snapshot, _as_utc(now_fn()))
+                    recovery = monitored(year, "recovery", refresh_recent_race_results, snapshot, _as_utc(now_fn()))
                     if recovery["events"]:
                         log.info("post_race_recovery_completed", **recovery)
                 except Exception as exc:
@@ -507,7 +511,7 @@ def run_scheduled_ingest(
             if not sessions:
                 continue
             try:
-                summary = refresh_active_sessions(snapshot, now)
+                summary = monitored(year, "hot", refresh_active_sessions, snapshot, now)
             except Exception as exc:
                 log.exception("hot_ingest_failed", error=str(exc))
                 continue

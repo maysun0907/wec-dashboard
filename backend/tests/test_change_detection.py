@@ -190,3 +190,19 @@ def test_future_checkpoint_does_not_suppress_rebuild(collector):
         db.commit()
     assert refresh() == {"rebuilt": True}
     assert len(calls) == 2
+
+
+@pytest.mark.parametrize("failure_call", [2, 3])
+def test_checkpoint_mutation_failure_does_not_mask_successful_collection(collector, monkeypatch, failure_call):
+    from sqlalchemy.exc import OperationalError
+    refresh, calls, _, _, _, _, sessions = collector
+    opens = 0
+    def flaky_session():
+        nonlocal opens
+        opens += 1
+        if opens == failure_call:
+            raise OperationalError("checkpoint", {}, Exception("storage unavailable"))
+        return sessions()
+    monkeypatch.setattr(changes, "SessionLocal", flaky_session)
+    assert refresh() == {"rebuilt": True}
+    assert calls == [2026]

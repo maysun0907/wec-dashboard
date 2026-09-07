@@ -900,6 +900,7 @@ def enrich_qualifying_drivers(
         # no SessionResult yet (post-race-only winners case).
         season_cars = (
             db.query(models.Car)
+            .options(joinedload(models.Car.race_class))
             .filter(models.Car.season_id == season_id)
             .all()
         )
@@ -1288,7 +1289,7 @@ def canonical_race_lineup(raw: str, candidates: list[models.Driver]) -> str:
     return " / ".join(dict.fromkeys(names))
 
 
-def validate_race_snapshot(session, existing, incoming, status, source_url, cars):
+def validate_race_snapshot(session, existing, incoming, status, source_url, cars, *, allow_guest_entries=False):
     """Reject partial/stale published snapshots before mutating good timing.
 
     A new explicit final classification may legitimately correct lap counts.
@@ -1297,10 +1298,25 @@ def validate_race_snapshot(session, existing, incoming, status, source_url, cars
     numbers = [row["number"] for row in incoming]
     if len(numbers) != len(set(numbers)):
         raise ValueError(f"Duplicate race cars: {source_url}")
+    tracked_classes = {car.race_class.name for car in cars.values()}
+    positions: set[int] = set()
     for row in incoming:
+        source_class = _normalize_class(row.get("class", ""))
+        car = cars.get(row["number"])
+        # Le Mans admits identified guest entries in season classes too.
+        # Elsewhere only a known, entirely untracked class may be omitted.
+        identified_guest = allow_guest_entries and source_class and row.get("team") and row.get("drivers")
+        if car is None and not identified_guest and (source_class is None or source_class in tracked_classes):
+            raise ValueError(f"Unknown race car {row['number']}: {source_url}")
+        if car is not None and source_class is not None and source_class != car.race_class.name:
+            raise ValueError(f"Race car class mismatch {row['number']}: {source_url}")
         if "position" in row and is_classified(row.get("status")):
             if not row["position"].isdigit() or int(row["position"]) < 1:
                 raise ValueError(f"Invalid classified position: {source_url}")
+            position = int(row["position"])
+            if position in positions:
+                raise ValueError(f"Duplicate classified position: {source_url}")
+            positions.add(position)
     if {row.car.number for row in existing} - set(numbers):
         raise ValueError(f"Race coverage decreased: {source_url}")
     states = {None: 0, "live": 1, "completed": 2, "final": 3}
@@ -1366,6 +1382,7 @@ def enrich_race_results(
         by_car_number = {r.car.number: r for r in results}
         season_cars = (
             db.query(models.Car)
+            .options(joinedload(models.Car.race_class))
             .filter(models.Car.season_id == season_id)
             .all()
         )
@@ -1402,7 +1419,13 @@ def enrich_race_results(
                 classification.get("drivers", ""), crew_by_number.get(classification["number"], [])
             )
         validate_race_snapshot(race_session, results, classification_rows,
-                               incoming_status, classification_url, car_by_number)
+                               incoming_status, classification_url, car_by_number,
+                               allow_guest_entries=bool(re.search(r"24\s+Hours", ev.name, re.I)))
+        guest_numbers = [row["number"] for row in classification_rows if row["number"] not in car_by_number]
+        if guest_numbers:
+            import structlog
+            structlog.get_logger(__name__).info("race_guest_entries_untracked", event_id=ev.id,
+                                                car_numbers=guest_numbers)
         from app.ingest.revisions import record_revision
         # Archive completed publications only; five-minute live snapshots need
         # not grow a permanent history throughout a 24-hour race.

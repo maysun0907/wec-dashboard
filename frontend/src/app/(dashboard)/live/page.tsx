@@ -20,22 +20,24 @@ import { PageHeader } from "@/components/page-header";
 import { PublicLink } from "@/components/public-link";
 import { DriverList, TeamLink } from "@/components/entity-link";
 import { RaceCountdown } from "@/components/race-countdown";
+import { RaceAutoRefresh } from "@/components/race-auto-refresh";
+import { classifySession, selectLiveEvent } from "@/lib/live-session";
 import { ScheduleRowTime } from "@/components/schedule-row-time";
 import { SessionTime } from "@/components/session-time";
 import {
   getEvent,
   getEvents,
-  getNextEvent,
   getSessionResults,
   isPlausibleSessionTime,
   RACE_CLASSES,
   type SessionResult,
-  type Session as SessionT,
 } from "@/lib/api";
 import { tzForCircuit } from "@/lib/circuit-tz";
 import { getSelectedSeason } from "@/lib/season";
 import { dashboardPageMetadata } from "@/lib/dashboard-metadata";
-import { eventDataRevalidateSeconds } from "@/lib/cache-policy";
+import { eventDataRevalidateSeconds, isRaceWeek } from "@/lib/cache-policy";
+
+type TimedSession = ReturnType<typeof classifySession>;
 
 export const generateMetadata = () => dashboardPageMetadata("live", "/live");
 
@@ -56,34 +58,12 @@ function sessionLabel(type: string, t: (k: string) => string): string {
   return k ? t(k) : type;
 }
 
-// Approximate session lengths (minutes). Used only to decide whether a
-// session is "in progress now" or already ended; we don't track exact
-// end times in the DB.
-function sessionDurationMin(type: string, eventName: string): number {
-  if (type === "RACE") {
-    if (/24 Hours/i.test(eventName)) return 24 * 60;
-    if (/8 Hours/i.test(eventName)) return 8 * 60;
-    if (/1812 km/i.test(eventName)) return 10 * 60;
-    return 6 * 60;
-  }
-  if (type === "Q") return 60;
-  return 90; // FP1/2/3
-}
-
 const ORDER: Record<string, number> = {
   FP1: 1,
   FP2: 2,
   FP3: 3,
   Q: 4,
   RACE: 5,
-};
-
-type SessionStatus = "past" | "live" | "upcoming";
-
-type TimedSession = SessionT & {
-  status: SessionStatus;
-  startMs: number | null;
-  endMs: number | null;
 };
 
 /** Build an ISO UTC string from a date plus an hour-of-day in a given
@@ -119,43 +99,20 @@ function circuitLocalToIso(
   return new Date(probe.getTime() - offsetMin * 60_000).toISOString();
 }
 
-function classifySession(
-  s: SessionT,
-  eventName: string,
-  now: number,
-): TimedSession {
-  if (!s.startTime) {
-    return { ...s, status: "past", startMs: null, endMs: null };
-  }
-  const startMs = new Date(s.startTime).getTime();
-  const endMs =
-    startMs + sessionDurationMin(s.type, eventName) * 60_000;
-  let status: SessionStatus;
-  if (now < startMs) status = "upcoming";
-  else if (now <= endMs) status = "live";
-  else status = "past";
-  return { ...s, status, startMs, endMs };
-}
-
 export default async function LivePage() {
   const year = await getSelectedSeason();
   const eventsRaw = await getEvents(year);
   await connection();
   const now = new Date().getTime();
-  const todayIso = new Date(now).toISOString().slice(0, 10);
   const rawLocale = await getLocale();
   const localeForName = isLocale(rawLocale) ? rawLocale : "en";
 
-  // Pick the active weekend (today between dates) or the next upcoming.
-  const live = eventsRaw.find(
-    (e) => e.dateStart <= todayIso && todayIso <= e.dateEnd,
-  );
-  const nextRaw = live ?? getNextEvent(eventsRaw, new Date(now)) ?? null;
+  const nextRaw = selectLiveEvent(eventsRaw, new Date(now));
   const isCota = nextRaw?.circuit.name === "Circuit of the Americas";
   const next = nextRaw ? localizeEvent(nextRaw, localeForName) : null;
 
   const t = await getTranslations("live");
-  if (next === null) {
+  if (next === null || nextRaw === null) {
     return (
       <div className="space-y-6">
         <PageHeader
@@ -174,11 +131,11 @@ export default async function LivePage() {
   const eventRevalidate = eventDataRevalidateSeconds(next, new Date(now));
 
   const detail = await getEvent(next.id);
-  const tz = tzForCircuit(next.circuit.name);
+  const tz = tzForCircuit(nextRaw.circuit.name);
 
   const sessions = detail.sessions
     .filter((s) => isPlausibleSessionTime(next, s))
-    .map((s) => classifySession(s, next.name, now))
+    .map((s) => classifySession(s, nextRaw.name, now))
     .sort((a, b) => (ORDER[a.type] ?? 99) - (ORDER[b.type] ?? 99));
 
   const liveSession = sessions.find((s) => s.status === "live") ?? null;
@@ -207,6 +164,7 @@ export default async function LivePage() {
 
   return (
     <div className="space-y-6">
+      <RaceAutoRefresh dateStart={next.dateStart} dateEnd={next.dateEnd} />
       <PageHeader
         eyebrow={t("eyebrow")}
         title={t("title")}
@@ -240,7 +198,7 @@ export default async function LivePage() {
                   round: next.round,
                 })}
               </>
-            ) : live ? (
+            ) : isRaceWeek(next, new Date(now)) ? (
               <>{t("raceWeekendRound", { round: next.round })}</>
             ) : (
               <>{t("nextRaceWeekendRound", { round: next.round })}</>

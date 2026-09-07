@@ -9,10 +9,7 @@ from app.scoring import class_position_for, points_for, preload_class_positions
 
 
 class TestPointsFor:
-    """The FIA awards two distinct points tables: the standard one for
-    6-hour rounds (25/18/15/…) and the "long" one for endurance rounds
-    — Le Mans, Bahrain 8h, Qatar 1812 km — where P1 takes 38 instead
-    of 25."""
+    """6-hour, 8–10-hour and 24-hour races have distinct points tables."""
 
     # --- standard 6h table -----------------------------------------
 
@@ -29,10 +26,10 @@ class TestPointsFor:
     # --- long table (endurance rounds) -----------------------------
 
     def test_le_mans_p1(self) -> None:
-        assert points_for("24 Hours of Le Mans", 1) == 38
+        assert points_for("24 Hours of Le Mans", 1) == 50
 
     def test_le_mans_p3(self) -> None:
-        assert points_for("24 Hours of Le Mans", 3) == 23
+        assert points_for("24 Hours of Le Mans", 3) == 30
 
     def test_qatar_1812_p1(self) -> None:
         # The season-opening 1812 km race at Lusail is on the long table.
@@ -51,7 +48,15 @@ class TestPointsFor:
     def test_long_table_keyword_is_case_insensitive(self) -> None:
         # The matcher uses `re.IGNORECASE` so all-caps event names
         # still pick the long table.
-        assert points_for("24 HOURS OF LE MANS", 1) == 38
+        assert points_for("24 HOURS OF LE MANS", 1) == 50
+
+    def test_full_le_mans_table(self) -> None:
+        assert [points_for("24 Hours of Le Mans", p) for p in range(1, 12)] == [
+            50, 36, 30, 24, 20, 16, 12, 8, 4, 2, 0
+        ]
+
+    def test_lone_star_is_not_a_24_hour_race(self) -> None:
+        assert points_for("Lone Star Le Mans", 1) == 25
 
 
 def test_preload_class_positions_batches_multiple_sessions() -> None:

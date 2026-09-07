@@ -51,6 +51,7 @@ import {
 import { eventDataRevalidateSeconds } from "@/lib/cache-policy";
 import { pageMetadataUrls } from "@/lib/page-metadata";
 import { RaceSessionTabs } from "./race-session-tabs";
+import { RaceAutoRefresh } from "@/components/race-auto-refresh";
 import { loadSelectedRaceSession } from "./race-session";
 import { raceMetadataCopy } from "./race-metadata";
 
@@ -220,6 +221,7 @@ export default async function RaceDetailPage({
   return (
     <div className="space-y-6">
       <JsonLd schema={schemas} />
+      <RaceAutoRefresh dateStart={event.dateStart} dateEnd={event.dateEnd} />
       <PublicLink
         href="/races"
         seasonYear={seasonYear ?? new Date().getUTCFullYear()}
