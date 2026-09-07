@@ -38,6 +38,7 @@ from app import models
 from app.race_state import is_classified
 from app.circuit_tz import tz_for_circuit
 from app.ingest.snapshot import documents
+from app.ingest.change_detection import fetch_text
 
 
 def _timestamp_to_utc(stamp: str, circuit_tz: str | None) -> datetime | None:
@@ -62,17 +63,15 @@ def _fetch(url: str) -> str:
     cache = documents.get()
     if cache is not None and url in cache:
         return cache[url]
-    r = httpx.get(
+    body = fetch_text(
         url,
         headers={"User-Agent": USER_AGENT, "Accept-Language": "en",
                  "Cache-Control": "no-cache"},
-        follow_redirects=True,
         timeout=20.0,
     )
-    r.raise_for_status()
     if cache is not None:
-        cache[url] = r.text
-    return r.text
+        cache[url] = body
+    return body
 
 
 def _event_html(season: str, event: str) -> str:

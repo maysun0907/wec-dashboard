@@ -14,13 +14,13 @@ import re
 import unicodedata
 from typing import Literal, TypedDict
 
-import httpx
 from bs4 import BeautifulSoup, Tag
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app import models
 from app.rounds import driver_in_round
+from app.ingest.change_detection import fetch_text
 
 BASE_URL = "https://www.fiawec.com"
 USER_AGENT = "wec-dashboard/0.1 (open-source dashboard for FIA WEC fans)"
@@ -46,17 +46,14 @@ _REQUIRED_TABLES: set[tuple[StandingKind, str]] = {
 
 
 def fetch_season_page(year: int) -> str:
-    response = httpx.get(
+    return fetch_text(
         f"{BASE_URL}/en/season/{year}",
         headers={
             "User-Agent": USER_AGENT,
             "Accept-Language": "en",
         },
-        follow_redirects=True,
         timeout=30,
     )
-    response.raise_for_status()
-    return response.text
 
 
 def _table_identity(title: str) -> tuple[StandingKind, str] | None:

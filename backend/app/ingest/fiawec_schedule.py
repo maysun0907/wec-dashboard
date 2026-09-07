@@ -31,6 +31,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from app.circuit_tz import tz_for_circuit
+from app.ingest.change_detection import fetch_text
 
 USER_AGENT = "wec-dashboard/0.1 (https://github.com/maysun0907/wec-dashboard)"
 
@@ -43,14 +44,11 @@ RACE_URL_RE = re.compile(r"/en/race/([a-z0-9][a-z0-9-]*?)-(\d{4})(?:-\d+)?$")
 
 
 def _fetch(url: str) -> str:
-    r = httpx.get(
+    return fetch_text(
         url,
         headers={"User-Agent": USER_AGENT, "Accept-Language": "en"},
-        follow_redirects=True,
         timeout=15.0,
     )
-    r.raise_for_status()
-    return r.text
 
 
 def discover_race_slugs(year: int) -> dict[str, str]:

@@ -28,6 +28,7 @@ from app import models
 from app.db import SessionLocal, engine
 from app.ingest.wikipedia import SourceDataError
 from app.ingest.snapshot import source_snapshot
+from app.ingest.change_detection import unchanged_sources
 from app.logging import configure_logging
 
 
@@ -397,7 +398,11 @@ def run_scheduled_ingest(
         if plan.run_full_ingest:
             log.info("scheduled_full_ingest", reason=plan.reason, year=year)
             try:
-                ingest_once(year=year, url=url)
+                # Never let a season-level checkpoint suppress live-week
+                # reconciliation after independent targeted timing updates.
+                refresh = (unchanged_sources("season")(ingest_once)
+                           if plan.reason == "cold_six_hour_refresh" else ingest_once)
+                refresh(year=year, url=url)
             except SourceDataError as exc:
                 # Retain the last snapshot, but do not let a season-page
                 # failure disable independent live timing refreshes.

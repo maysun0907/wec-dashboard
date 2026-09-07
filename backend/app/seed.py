@@ -254,6 +254,7 @@ def _clear(db) -> None:
     # are FK-children of Session/Event/Car/CarModel — must drop before
     # the parents.
     for model in [
+        models.IngestCheckpoint,
         models.SourceRevision,
         models.PitStopEvent,
         models.BopAdjustment,

@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 from app import models
 from app.db import SessionLocal, engine
 from app.ingest.snapshot import source_snapshot
+from app.ingest.change_detection import fetch_text
 from app.race_state import completed_race_filter
 from app.ingest._common import (
     get_or_create_race_class,
@@ -130,14 +131,11 @@ MANUFACTURER_LOGO_OVERRIDE: dict[str, str] = {
 
 
 def fetch_html(url: str) -> str:
-    r = httpx.get(
+    return fetch_text(
         url,
         headers={"User-Agent": USER_AGENT},
-        follow_redirects=True,
         timeout=30.0,
     )
-    r.raise_for_status()
-    return r.text
 
 
 def fetch_manufacturer_logo(name: str) -> str | None:

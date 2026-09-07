@@ -5,7 +5,7 @@ what Alembic introspects for autogenerate.
 """
 from datetime import date, datetime
 
-from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -17,6 +17,14 @@ class Season(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     year: Mapped[int] = mapped_column(unique=True, index=True)
     championship_name: Mapped[str] = mapped_column(String(100))
+
+
+class IngestCheckpoint(Base):
+    __tablename__ = "ingest_checkpoints"
+
+    scope: Mapped[str] = mapped_column(String(100), primary_key=True)
+    manifest: Mapped[dict] = mapped_column(JSON)
+    completed_at: Mapped[datetime]
 
 
 class SourceRevision(Base):

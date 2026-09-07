@@ -23,6 +23,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app import models
+from app.ingest.change_detection import fetch_text
 
 USER_AGENT = "wec-dashboard/0.1 (open-source dashboard for FIA WEC fans)"
 BASE = "https://www.fiawec.com"
@@ -125,14 +126,11 @@ def _fetch(url: str) -> str:
     # follow_redirects=True is required: fiawec.com 301-redirects
     # `/en` to `/en/`; without follow we'd get an empty body and the
     # race-slug resolver would silently return zero matches.
-    r = httpx.get(
+    return fetch_text(
         url,
         headers={"User-Agent": USER_AGENT, "Accept-Language": "en"},
         timeout=20,
-        follow_redirects=True,
     )
-    r.raise_for_status()
-    return r.text
 
 
 def _wayback_closest(target_url: str, year: int) -> tuple[str, str] | None:

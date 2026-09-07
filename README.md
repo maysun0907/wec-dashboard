@@ -150,6 +150,14 @@ wec-dashboard/
   app.ingest.wikipedia` hourly. The process skips most full off-week pulls,
   keeps hourly race-week metadata/standings refreshes, and polls only the
   active event's Al Kamel timing files every five minutes around sessions.
+  Outside race week, six-hour checks revalidate the source pages and timing
+  files used by the last successful rebuild. ETag/Last-Modified validators
+  avoid unchanged downloads where supported; otherwise content hashes detect
+  in-place corrections. Identical inputs skip parsing and season replacement.
+  A full rebuild is still required at least every 24 hours, after any failed
+  source read, or when no successful checkpoint exists. Race-week/live pulls
+  and daily archive checks do not use this skip gate. Explicit one-shot CLI
+  ingestion also bypasses it for repairs.
 
 ## License
 
