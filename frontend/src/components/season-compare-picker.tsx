@@ -22,6 +22,7 @@ export function SeasonComparePicker({ selected, catalog }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const t = useTranslations("seasons");
+  const common = useTranslations("common");
   const remaining = catalog
     .map((s) => s.year)
     .filter((y) => !selected.includes(y))
@@ -59,7 +60,7 @@ export function SeasonComparePicker({ selected, catalog }: Props) {
           <button
             type="button"
             onClick={() => remove(y)}
-            aria-label={`Remove ${y}`}
+            aria-label={common("removeNamed", { name: String(y) })}
             className="ml-0.5 rounded p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             <X className="size-3.5" />

@@ -28,7 +28,12 @@ export function LocaleSwitcher() {
           const locale = event.target.value;
           if (!isLocale(locale) || locale === current) return;
           startTransition(async () => {
-            await setLocale(locale);
+            try {
+              await setLocale(locale);
+            } catch {
+              // An old tab can outlive its Server Action deployment. The
+              // explicit locale URL still works even if preference saving fails.
+            }
             const href = `${pathname}${window.location.search}${window.location.hash}`;
             track("Locale Changed", { from: current, to: locale });
             // A locale changes the root provider and html lang. A document

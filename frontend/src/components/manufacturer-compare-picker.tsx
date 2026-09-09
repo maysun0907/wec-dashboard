@@ -35,6 +35,7 @@ export function ManufacturerComparePicker({ selected, catalog }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const t = useTranslations("manufacturers");
+  const common = useTranslations("common");
   const tc = useTranslations("nav");
 
   const selectedIds = useMemo(
@@ -91,7 +92,7 @@ export function ManufacturerComparePicker({ selected, catalog }: Props) {
           <button
             type="button"
             onClick={() => remove(m.manufacturerId)}
-            aria-label={`Remove ${m.manufacturerName}`}
+            aria-label={common("removeNamed", { name: m.manufacturerName })}
             className="ml-0.5 rounded p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             <X className="size-3.5" />

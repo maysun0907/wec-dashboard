@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { LOCALES } from "../src/i18n/config";
+import { catalogTranslator } from "../src/i18n/catalog";
 
 // Isolated local API only. One worker; no parallel crawl against production.
 test("all new languages render page families with self-canonical SEO", async ({ page, request }) => {
@@ -21,11 +22,41 @@ test("all new languages render page families with self-canonical SEO", async ({ 
       await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `https://www.wecdash.com${url}`);
       await expect(page.locator('link[rel="alternate"][hreflang]')).toHaveCount(10);
       await expect(page.locator('meta[name="description"]')).toHaveAttribute("content", /\S{2}/);
+      await expect(page.locator('meta[name="keywords"]')).toHaveCount(0);
       await expect(page.locator('select')).toHaveValue(locale);
       await expect(page.locator("body")).not.toContainText(/MISSING_MESSAGE|INVALID_MESSAGE|Application error/);
     }
   }
   expect(failures).toEqual([]);
+});
+
+test("language navigation survives a failed preference action", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto("/en/2025/drivers/compare?ids=#form");
+  let failedActions = 0;
+  await page.route("**/*", async (route) => {
+    if (route.request().method() === "POST" && route.request().headers()["next-action"]) {
+      failedActions++;
+      await route.fulfill({ status: 503, body: "Temporarily unavailable" });
+    } else {
+      await route.continue();
+    }
+  });
+  await page.locator("select").selectOption("ja");
+  await expect(page).toHaveURL(/\/ja\/2025\/drivers\/compare\?ids=#form$/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "ja");
+  expect(failedActions).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test("comparison controls use each selected language", async ({ page }) => {
+  for (const locale of LOCALES) {
+    await page.goto(`/${locale}/seasons/compare?years=2025,2024`);
+    const label = catalogTranslator(locale)("common.removeNamed", { name: "2024" });
+    await page.getByRole("button", { name: label, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/${locale}/seasons/compare\\?years=2025$`));
+  }
 });
 
 test("language menu preserves deep links and saves the preferred landing language", async ({ page }) => {
