@@ -5,7 +5,7 @@ import { LOCALES } from "../src/i18n/config";
 test("all new languages render page families with self-canonical SEO", async ({ page, request }) => {
   test.setTimeout(360000);
   const failures: string[] = [];
-  page.on("pageerror", (error) => failures.push(error.message));
+  page.on("pageerror", (error) => failures.push(`${page.url()}: ${error.message}`));
   const api = "http://127.0.0.1:8000/api/v1";
   const drivers = await (await request.get(`${api}/drivers?year=2026`)).json();
   const teams = await (await request.get(`${api}/teams?year=2026`)).json();

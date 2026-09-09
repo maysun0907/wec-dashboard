@@ -57,7 +57,7 @@ export function ScheduleRowTime({ iso, circuitTz, now, status }: Props) {
         </>
       )}
       <span className="text-muted-foreground/50">·</span>
-      <span>{relative(diffMin, status, locale)}</span>
+      <span>{viewerTz === null ? `${diffMin} min` : relative(diffMin, status, locale)}</span>
     </span>
   );
 }
