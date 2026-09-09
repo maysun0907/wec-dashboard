@@ -70,6 +70,11 @@ export default async function RulesPage() {
         title={t("title")}
         description={t("description")}
       />
+      <p className="text-sm text-muted-foreground">
+        <a href="https://www.fia.com/regulation/category/118" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">FIA · WEC · 2026</a>
+        {" · "}
+        <a href="https://www.fiawec.com/en/page/regulations-1" target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">FIA WEC</a>
+      </p>
 
       <Card>
         <CardHeader>
@@ -115,12 +120,12 @@ export default async function RulesPage() {
             />
             <Spec
               label={t("specMaxPower")}
-              value="500 kW"
+              value="BoP"
               detail={t("specMaxPowerDetail")}
             />
             <Spec
               label={t("specFrontErs")}
-              value="≥ 190 km/h"
+              value="BoP"
               detail={t("specFrontErsDetail")}
             />
             <Spec

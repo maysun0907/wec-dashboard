@@ -17,6 +17,19 @@ function argumentsOf(elements: MessageFormatElement[], names = new Set<string>()
   return [...names].sort();
 }
 describe("translation catalogs", () => {
+  it.each(LOCALES)("%s keeps the verified 2026 sporting facts", (locale) => {
+    const rules = read(locale).rules;
+    // FIA WEC 2026 sporting regulations: 10.2.1 and 13.3.3.
+    expect(rules.qualifyingStage2).toContain("10");
+    expect(rules.qualifyingStage2).not.toMatch(/\b8\b/);
+    expect(rules.tiresDetail).toContain("Goodyear");
+    expect(rules.tiresDetail).not.toContain("LMP2");
+    // LMH 2026 technical regulations 5.3.2 use BoP deployment speeds.
+    expect(rules.specFrontErsDetail).toContain("BoP");
+    expect(rules.qualifyingDesc).not.toContain("2022");
+    expect(rules.lifecycleBodyMid).not.toContain("2032");
+    expect(rules.pointsDesc).not.toMatch(/Two tables|두 가지/);
+  });
   it.each(LOCALES)("%s has all UI messages with valid ICU and matching arguments", (locale) => {
     const messages = read(locale);
     for (const [section, entries] of Object.entries(base)) {

@@ -36,8 +36,9 @@ test("all page families render in both languages", async ({ page, request }) => 
 
 test("compare removal preserves Korean and season, including empty selection", async ({ page }) => {
   await page.goto("/ko/2025/drivers/compare");
-  while (await page.getByRole("button", { name: /^Remove / }).count()) {
-    const buttons = page.getByRole("button", { name: /^Remove / });
+  await expect(page.getByRole("button", { name: / 제거$/ }).first()).toBeVisible();
+  while (await page.getByRole("button", { name: / 제거$/ }).count()) {
+    const buttons = page.getByRole("button", { name: / 제거$/ });
     const count = await buttons.count();
     await buttons.first().click();
     await expect(buttons).toHaveCount(count - 1);

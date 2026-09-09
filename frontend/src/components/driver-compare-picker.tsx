@@ -48,6 +48,7 @@ type Props = {
 
 export function DriverComparePicker({ selected, catalog, raceClass }: Props) {
   const t = useTranslations("drivers");
+  const common = useTranslations("common");
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -137,7 +138,7 @@ export function DriverComparePicker({ selected, catalog, raceClass }: Props) {
           <button
             type="button"
             onClick={() => remove(d.id)}
-            aria-label={`Remove ${d.name}`}
+            aria-label={common("removeNamed", { name: d.name })}
             className="ml-0.5 rounded p-0.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
           >
             <X className="size-3.5" />

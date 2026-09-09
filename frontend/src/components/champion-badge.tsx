@@ -1,4 +1,5 @@
 import { Trophy } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -12,9 +13,10 @@ type Props = {
 /** Pill rendered next to driver/manufacturer/team names that signals
  *  career championship totals. Goes "Nx champion" with a trophy. */
 export function ChampionBadge({ titles, size = "sm", className }: Props) {
+  const t = useTranslations("common");
   if (titles <= 0) return null;
   const iconSize = size === "md" ? "size-3.5" : "size-3";
-  const text = `${titles}× champion`;
+  const text = t("championTitles", { count: titles });
   return (
     <span
       className={cn(

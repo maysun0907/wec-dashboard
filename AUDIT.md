@@ -1,4 +1,31 @@
-# Reliability review — 2026-09-07
+# Reliability review — 2026-09-09
+
+## Multilingual follow-up
+
+- Review nine-language metadata, canonical/hreflang links, navigation,
+  comparison controls and shared rule explanations. This pass does not
+  claim independent verification of every historical race or local search volume.
+- Localize champion badges and comparison removal labels in all nine languages.
+  Continue to the explicit language URL when saving the preference fails,
+  including an old tab whose Server Action is no longer available after deployment.
+- Remove the inherited English/Korean keyword list from other languages.
+  Localized titles, descriptions, canonical URLs and hreflang remain in place.
+- Correct rules using FIA WEC 2026 Sporting Regulations v1.2, articles 6.2.2,
+  10.2.1 and 13.3.3, and LMH Technical Regulations article 5.3.2: ten cars
+  advance per class; LMGT3 requires Bronze plus another Bronze/Silver;
+  front-axle deployment speed follows BoP; success handicap can affect mass
+  and/or power. Retain the verified new-homologation ERS requirement (5.3).
+- Remove unsupported shared tyre-compound and blanket 2032 validity claims,
+  explain all three points tables, and link the current official regulations.
+  Apply these corrections to all nine translations and generated FAQ text.
+- Sources: https://www.fia.com/regulation/category/118 and
+  https://www.fiawec.com/en/page/regulations-1; Goodyear supplier confirmation:
+  https://www.fiawec.com/en/news/goodyear-extends-lmgt3-tyre-partnership-with-long-term-commitment/13610
+- Local checks: 144 backend tests, 163 frontend tests, ESLint, TypeScript,
+  production build and npm production dependency audit passed. Production
+  DB and collection health endpoints returned healthy during the review.
+  No collection frequency, database contents or infrastructure settings changed.
+
 
 ## Race integrity and browser follow-up
 
