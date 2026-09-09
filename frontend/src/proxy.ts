@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 
 import {
   DEFAULT_LOCALE,
+  LOCALES,
   LOCALE_COOKIE,
   type Locale,
-  isLocale,
 } from "@/i18n/config";
 import {
   PUBLIC_ROUTE_LOCALE_HEADER,
@@ -20,17 +20,14 @@ import {
   shouldBypassPublicRouting,
 } from "@/lib/public-routing";
 import { LATEST_SENTINEL, SEASON_COOKIE } from "@/lib/season";
+import { preferredLocale } from "@/i18n/negotiation";
 
 function landingLocale(request: NextRequest): Locale {
-  const cookieLocale = request.cookies.get(LOCALE_COOKIE)?.value;
-  if (isLocale(cookieLocale)) return cookieLocale;
-  const accepted = request.headers.get("accept-language") ?? "";
-  return accepted
-    .split(",")
-    .map((part) => part.split(";")[0]?.trim().toLowerCase())
-    .some((tag) => tag === "ko" || tag?.startsWith("ko-"))
-    ? "ko"
-    : DEFAULT_LOCALE;
+  return preferredLocale(
+    request.cookies.get(LOCALE_COOKIE)?.value,
+    process.env.VERCEL === "1" ? request.headers.get("x-vercel-ip-country") : null,
+    request.headers.get("accept-language"),
+  );
 }
 
 function landingSeason(request: NextRequest): number {
@@ -45,7 +42,7 @@ function redirectLanding(request: NextRequest, pathname: string) {
   destination.pathname = pathname;
   const response = NextResponse.redirect(destination, 307);
   response.headers.set("cache-control", "private, no-store");
-  response.headers.set("vary", "Accept-Language, Cookie");
+  response.headers.set("vary", "Accept-Language, Cookie, X-Vercel-IP-Country");
   return response;
 }
 
@@ -85,7 +82,7 @@ function rewritePublicRoute(
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (shouldBypassPublicRouting(pathname)) return NextResponse.next();
-  const legacyBop = pathname.match(/^\/(?:(en|ko)\/)?bop\/?$/);
+  const legacyBop = pathname.match(new RegExp(`^/(?:(` + LOCALES.join("|") + `)/)?bop/?$`));
   if (legacyBop) {
     return redirectToPublicPath(request, `/${legacyBop[1] ?? DEFAULT_LOCALE}/rules`, 308);
   }

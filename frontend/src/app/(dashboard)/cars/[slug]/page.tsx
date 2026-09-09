@@ -1,9 +1,10 @@
+import { localizedDetailMetadata } from "@/lib/localized-detail-metadata";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
-import { isLocale } from "@/i18n/config";
+import { openGraphLocales, isLocale } from "@/i18n/config";
 import {
   Card,
   CardContent,
@@ -70,6 +71,7 @@ export async function generateMetadata({
       openGraph: { url: urls.canonical, type: "article" },
     };
   }
+  if (locale !== "en" && locale !== "ko") return localizedDetailMetadata("car", car.name, path, locale, metadataYear);
   const primaryClass = car.teams.length > 0 ? raceClassLabel(car.teams[0].raceClass) : null;
   const factParts: string[] = [];
   if (car.manufacturer) factParts.push(car.manufacturer);
@@ -114,8 +116,7 @@ export async function generateMetadata({
       description: desc,
       url: urls.canonical,
       type: "article",
-      locale: locale === "ko" ? "ko_KR" : "en_US",
-      alternateLocale: [locale === "ko" ? "en_US" : "ko_KR"],
+      ...openGraphLocales(locale),
     },
     twitter: {
       card: "summary_large_image",
@@ -165,11 +166,11 @@ export default async function CarDetailPage({
     carSchema(car, schemaContext),
     breadcrumbSchema([
       {
-        name: locale === "ko" ? "홈" : "Home",
+        name: (await getTranslations("nav"))("home"),
         url: buildSiteUrl("/", schemaContext),
       },
       {
-        name: locale === "ko" ? "차량" : "Cars",
+        name: (await getTranslations("nav"))("cars"),
         url: buildSiteUrl("/cars", schemaContext),
       },
       {

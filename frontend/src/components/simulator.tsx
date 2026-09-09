@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Link as LinkIcon } from "lucide-react";
-import { format, parseISO } from "date-fns";
+import { CalendarDate } from "@/components/calendar-date";
 import { driverInRound } from "@/lib/rounds";
 import {
   Card,
@@ -669,7 +669,7 @@ function ClassPanel({
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="font-mono text-xs text-muted-foreground">
-                        R{e.round} · {format(parseISO(e.dateStart), "MMM d")}
+                        R{e.round} · <CalendarDate iso={e.dateStart} style="short" />
                       </div>
                       <CardTitle className="text-base">{e.name}</CardTitle>
                     </div>

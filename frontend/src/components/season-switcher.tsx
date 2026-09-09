@@ -2,8 +2,7 @@
 
 import { useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useLocale } from "next-intl";
-import { ChevronDown } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { track } from "@vercel/analytics";
 import { setSelectedSeason } from "@/app/_actions/season";
 import {
@@ -32,6 +31,7 @@ export function SeasonSwitcher({ seasons, selected }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const locale = localeOrDefault(useLocale());
+  const t = useTranslations("common");
   const [pending, startTransition] = useTransition();
   // Shared layouts can retain their previous server props after a rewrite.
   // The canonical URL is authoritative for season-scoped navigation.
@@ -64,14 +64,14 @@ export function SeasonSwitcher({ seasons, selected }: Props) {
   return (
     <Select value={value} onValueChange={handleChange} disabled={pending}>
       <SelectTrigger
-        className="h-8 gap-1.5 text-xs"
-        aria-label="Season"
+        className="h-8 w-[72px] gap-1 px-2 text-xs"
+        aria-label={t("seasonLabel")}
+        data-season-switcher
       >
-        <SelectValue />
-        <ChevronDown className="size-3 opacity-60" />
+        <SelectValue>{activeYear ?? latest.year}</SelectValue>
       </SelectTrigger>
       <SelectContent align="end">
-        <SelectItem value={LATEST_VALUE}>Latest ({latest.year})</SelectItem>
+        <SelectItem value={LATEST_VALUE}>{t("latest")} ({latest.year})</SelectItem>
         {seasons.map((s) => (
           <SelectItem key={s.id} value={String(s.year)}>
             {s.year}

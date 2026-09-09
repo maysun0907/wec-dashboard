@@ -23,16 +23,17 @@ function fmt(date: Date, tz: string, locale: string): string {
   }).format(date);
 }
 
-function relative(diffMin: number, status: Props["status"]): string {
-  if (status === "live") return "now";
-  const dir = status === "upcoming" ? "in" : "ago";
+function relative(diffMin: number, status: Props["status"], locale: string): string {
+  const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto", style: "short" });
+  if (status === "live") return formatter.format(0, "second");
+  const sign = status === "upcoming" ? 1 : -1;
   const minutes = Math.abs(diffMin);
-  if (minutes < 60) return `${dir === "in" ? "in " : ""}${minutes}m${dir === "ago" ? " ago" : ""}`;
+  if (minutes < 60) return formatter.format(sign * minutes, "minute");
   const hours = Math.round(minutes / 60);
   if (hours < 48)
-    return `${dir === "in" ? "in " : ""}${hours}h${dir === "ago" ? " ago" : ""}`;
+    return formatter.format(sign * hours, "hour");
   const days = Math.round(hours / 24);
-  return `${dir === "in" ? "in " : ""}${days}d${dir === "ago" ? " ago" : ""}`;
+  return formatter.format(sign * days, "day");
 }
 
 /** Renders the schedule-row time line: circuit local datetime, viewer
@@ -56,7 +57,7 @@ export function ScheduleRowTime({ iso, circuitTz, now, status }: Props) {
         </>
       )}
       <span className="text-muted-foreground/50">·</span>
-      <span>{relative(diffMin, status)}</span>
+      <span>{relative(diffMin, status, locale)}</span>
     </span>
   );
 }

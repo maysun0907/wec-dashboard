@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import type { Locale } from "@/i18n/config";
+import { LOCALES, openGraphLocales, type Locale } from "@/i18n/config";
 import { buildPublicPath } from "@/lib/public-routing";
 
 const SITE_NAME = "WEC Dashboard";
@@ -16,13 +16,12 @@ export function pageMetadataUrls({
   locale,
   year,
 }: Pick<PageMetadataOptions, "path" | "locale" | "year">) {
-  const en = buildPublicPath(path, "en", year) ?? path;
-  const ko = buildPublicPath(path, "ko", year) ?? path;
-  const canonical = locale === "ko" ? ko : en;
+  const languages = Object.fromEntries(LOCALES.map((language) => [language, buildPublicPath(path, language, year) ?? path]));
+  const canonical = languages[locale];
 
   return {
     canonical,
-    languages: { en, ko, "x-default": en },
+    languages: { ...languages, "x-default": languages.en } as Record<string, string>,
   };
 }
 
@@ -34,7 +33,6 @@ export function pageMetadata({
   locale,
   year,
 }: PageMetadataOptions): Metadata {
-  const alternateLocale = locale === "ko" ? "en_US" : "ko_KR";
   const urls = pageMetadataUrls({ path, locale, year });
 
   return {
@@ -50,8 +48,7 @@ export function pageMetadata({
       siteName: SITE_NAME,
       title: `${title} · ${SITE_NAME}`,
       description,
-      locale: locale === "ko" ? "ko_KR" : "en_US",
-      alternateLocale: [alternateLocale],
+      ...openGraphLocales(locale),
     },
     twitter: {
       card: "summary_large_image",

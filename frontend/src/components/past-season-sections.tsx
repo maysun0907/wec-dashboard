@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { format, parseISO } from "date-fns";
+import { CalendarDate } from "@/components/calendar-date";
 import {
   Card,
   CardContent,
@@ -292,7 +292,7 @@ export function LeMansSpotlight({
           <div>
             <CardTitle className="text-2xl">{event.name}</CardTitle>
             <CardDescription>
-              {format(parseISO(event.dateStart), "MMM d, yyyy")} ·{" "}
+              <CalendarDate iso={event.dateStart} style="medium" /> ·{" "}
               {event.circuit.name}
             </CardDescription>
           </div>
@@ -392,7 +392,7 @@ export function RoundsGrid({
                       <Flag code={e.circuit.country} flagOnly />
                       {e.circuit.name}
                       <span className="text-muted-foreground/40">·</span>
-                      {format(parseISO(e.dateStart), "MMM d")}
+                      <CalendarDate iso={e.dateStart} style="short" />
                     </span>
                   </span>
                   {winnersList.length > 0 && (

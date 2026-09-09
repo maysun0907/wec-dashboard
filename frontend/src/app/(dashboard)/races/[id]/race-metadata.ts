@@ -1,5 +1,6 @@
 import type { Locale } from "@/i18n/config";
 import type { EventStatus } from "@/lib/api";
+import { catalogTranslator } from "@/i18n/catalog";
 
 type RaceMetadataEvent = {
   name: string;
@@ -58,6 +59,23 @@ export function raceMetadataCopy(
   const eventTitlePrefix = [year, event.name].filter(Boolean).join(" ");
   const austinEvent = isAustinEvent(event);
   const completed = status === "completed";
+  if (locale !== "en" && locale !== "ko") {
+    const t = catalogTranslator(locale);
+    const fuji = year === "2026" && /fuji|富士/i.test(`${event.name} ${event.circuit?.name ?? ""}`) && !completed;
+    return {
+      title: t(`seo.${fuji ? "fujiTitle" : completed ? "raceCompletedTitle" : "raceUpcomingTitle"}`, { name: titlePrefix }),
+      description: t(fuji ? "seo.fujiDescription" : "seo.raceDescription", { name: titlePrefix, circuit: event.circuit?.name ?? "" }),
+    };
+  }
+  if (year === "2026" && /fuji|후지/i.test(`${event.name} ${event.circuit?.name ?? ""}`) && !completed) {
+    return locale === "ko" ? {
+      title: `${titlePrefix} 한국시간 일정·중계 안내·결과`,
+      description: "2026 WEC 후지 6시간 연습·예선·결승 한국시간 일정, FIA WEC 공식 중계 안내와 참가 팀·챔피언십 순위를 확인하세요. 경기 기록은 수집 후 같은 페이지에서 제공합니다.",
+    } : {
+      title: `${titlePrefix} Schedule, How to Watch & Results`,
+      description: "2026 WEC 6 Hours of Fuji practice, qualifying and race schedule in Japan time, official viewing options, season teams and championship standings. Session results appear here as they are collected.",
+    };
+  }
   const title = locale === "ko"
     ? austinEvent
       ? `${eventTitlePrefix} ${completed ? "결과·순위" : "일정·결과"} – WEC 오스틴/COTA`

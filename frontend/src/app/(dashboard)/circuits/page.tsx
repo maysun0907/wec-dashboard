@@ -1,4 +1,4 @@
-import { format, parseISO } from "date-fns";
+import { CalendarDate } from "@/components/calendar-date";
 import Image from "next/image";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizeCircuit, localizeEvent } from "@/lib/locale-names";
@@ -119,7 +119,7 @@ export default async function CircuitsPage() {
                       <>
                         <dt className="text-muted-foreground">{t("raceDay")}</dt>
                         <dd className="text-right font-mono tabular-nums">
-                          {format(parseISO(ev.dateStart), "MMM d, yyyy")}
+                          <CalendarDate iso={ev.dateStart} style="medium" />
                         </dd>
                       </>
                     )}

@@ -1,10 +1,11 @@
+import { localizedDetailMetadata } from "@/lib/localized-detail-metadata";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizeEventName } from "@/lib/locale-names";
-import { isLocale } from "@/i18n/config";
+import { openGraphLocales, isLocale } from "@/i18n/config";
 import {
   Card,
   CardContent,
@@ -86,6 +87,7 @@ export async function generateMetadata({
       openGraph: { url: urls.canonical, type: "article" },
     };
   }
+  if (locale !== "en" && locale !== "ko") return localizedDetailMetadata("team", t.name, path, locale, metadataYear);
   const mfr = t.manufacturer ? ` (${t.manufacturer})` : "";
   const classes = Array.from(new Set(t.cars.map((c) => raceClassLabel(c.raceClass))));
   const numbers = Array.from(new Set(t.cars.map((c) => `#${c.number}`)));
@@ -127,8 +129,7 @@ export async function generateMetadata({
       description: desc,
       url: urls.canonical,
       type: "article",
-      locale: locale === "ko" ? "ko_KR" : "en_US",
-      alternateLocale: [locale === "ko" ? "en_US" : "ko_KR"],
+      ...openGraphLocales(locale),
     },
     twitter: {
       card: "summary_large_image",
@@ -189,11 +190,11 @@ export default async function TeamDetailPage({
     teamSchema(team, "team", schemaContext),
     breadcrumbSchema([
       {
-        name: localeForName === "ko" ? "홈" : "Home",
+        name: (await getTranslations("nav"))("home"),
         url: buildSiteUrl("/", schemaContext),
       },
       {
-        name: localeForName === "ko" ? "팀" : "Teams",
+        name: (await getTranslations("nav"))("teams"),
         url: buildSiteUrl("/teams", schemaContext),
       },
       {

@@ -25,12 +25,14 @@ LMP2 / LMGTE Pro / LMGTE Am).
   Commons), country-keyed, served straight from `public/circuits/`.
 - **Rules / BoP** — 2026 regulations summary, success-handicap
   explainer, points tables.
-- **Bilingual (EN / KO)** — full Korean translation catalog covering
-  every page, component, table header, race/circuit/event name, and
-  data label. Toggle via the header switcher (cookie-persisted); first
-  visit auto-detects from `Accept-Language` so Korean searchers land
-  on Korean content. See `frontend/messages/{en,ko}.json` +
-  `frontend/src/i18n/`.
+- **Nine languages** — English, Korean, Japanese, Simplified Chinese,
+  French, German, Italian, Spanish and Brazilian Portuguese. The header
+  menu saves the visitor's choice. The bare home URL uses that preference,
+  then Vercel's country code, then weighted browser languages. Explicit
+  language URLs always win. No external geolocation requests or IP storage.
+  Catalogs and SEO copy live in `frontend/messages/` and `frontend/src/i18n/`.
+- **Fuji 2026 guide** — collected session timetable with explicit UTC+9
+  labels, official viewing links and current championship context.
 - **Mobile / tablet / desktop** — responsive end-to-end (320 px → 4K).
   Mobile-first Tailwind v4 breakpoints, header logo / hero / table /
   card grids tuned per viewport.
@@ -42,8 +44,8 @@ LMP2 / LMGTE Pro / LMGTE Am).
   2022-2025 today. See `backend/app/ingest/fiawec_assets.py`.
 - **SEO** — full sitemap of every static + dynamic route (events,
   drivers, teams, cars, circuits) across all seasons, robots.txt,
-  per-page OG / Twitter cards with rich descriptions, bilingual
-  keywords, canonical URLs, hreflang.
+  localized page descriptions, OG / Twitter metadata, self-canonical
+  URLs and reciprocal nine-language hreflang links (English x-default).
 
 ## Architecture
 
@@ -63,7 +65,7 @@ LMP2 / LMGTE Pro / LMGTE Am).
 ```
 
 - **`frontend/`** — Next.js 16 (App Router), Tailwind v4, shadcn/ui,
-  Recharts, next-intl (EN/KO). Server components fetch from the backend
+  Recharts, next-intl (nine locales). Server components fetch from the backend
   with race-aware per-resource caching (60 s around an active weekend,
   1 hr between rounds, and 24 hr for completed archives).
 - **`backend/`** — FastAPI 0.115, SQLAlchemy 2, Alembic, Postgres on
@@ -118,7 +120,7 @@ wec-dashboard/
 │   ├── railway.toml             # Deploy config (alembic + curators)
 │   └── requirements.txt
 └── frontend/
-    ├── messages/                # next-intl catalogs (en.json, ko.json)
+    ├── messages/                # Nine next-intl translation catalogs
     ├── public/
     │   ├── cars/                # Car-model PNGs/WebPs (slug-keyed)
     │   ├── circuits/            # Track layout SVGs (ISO-3-keyed)

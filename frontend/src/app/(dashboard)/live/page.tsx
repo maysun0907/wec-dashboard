@@ -1,6 +1,6 @@
 import { connection } from "next/server";
 import type { ReactNode } from "react";
-import { format, parseISO } from "date-fns";
+import { CalendarDate } from "@/components/calendar-date";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { Check, ExternalLink, Trophy } from "lucide-react";
@@ -221,9 +221,8 @@ export default async function LivePage() {
               {next.circuit.name}
             </PublicLink>
             {" · "}
-            {format(parseISO(next.dateStart), "MMM d")}
-            {next.dateEnd !== next.dateStart &&
-              ` – ${format(parseISO(next.dateEnd), "MMM d, yyyy")}`}
+            <CalendarDate iso={next.dateStart} style="short" />
+            {next.dateEnd !== next.dateStart && <>{" – "}<CalendarDate iso={next.dateEnd} /></>}
           </CardDescription>
         </CardHeader>
         <CardContent className="relative space-y-4">

@@ -6,6 +6,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { JsonLd, websiteSchema } from "@/lib/json-ld";
 import { siteUrl } from "@/lib/site-url";
+import { openGraphLocales } from "@/i18n/config";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -123,8 +124,7 @@ export const metadata: Metadata = {
     siteName: SITE_NAME,
     title: `${SITE_NAME} — FIA WEC Schedule, Results & Standings`,
     description: SITE_DESCRIPTION,
-    locale: "en_US",
-    alternateLocale: ["ko_KR"],
+    ...openGraphLocales("en"),
   },
   twitter: {
     card: "summary_large_image",
@@ -181,7 +181,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Resolves from the wec_locale cookie via src/i18n/request.ts.
+  // Public locale URL takes precedence over stored and inferred preferences.
   const locale = await getLocale();
   const messages = await getMessages();
   return (
