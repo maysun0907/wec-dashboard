@@ -5,6 +5,7 @@ import { getSelectedSeason } from "@/lib/season";
 import { getSeasons } from "@/lib/api";
 import { pageMetadata } from "@/lib/page-metadata";
 import { matchInternalPublicRoute } from "@/lib/public-routing";
+import { catalogTranslator } from "@/i18n/catalog";
 
 export type DashboardPage =
   | "home"
@@ -34,6 +35,10 @@ export function dashboardMetadataCopy(
   locale: Locale,
   year: number,
 ): MetadataCopy {
+  if (locale !== "en" && locale !== "ko") {
+    const t = catalogTranslator(locale);
+    return { title: t(`seo.${page}Title`, { year }), description: t(`seo.${page}Description`, { year }) };
+  }
   const en: Record<DashboardPage, MetadataCopy> = {
     home: {
       title: `${year} FIA WEC Schedule, Standings & Results`,

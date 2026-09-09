@@ -90,7 +90,7 @@ describe("public URL proxy", () => {
     expect(response.headers.get("location")).toMatch(
       /^https:\/\/www\.wecdash\.com\/ko\/\d{4}$/,
     );
-    expect(response.headers.get("vary")).toBe("Accept-Language, Cookie");
+    expect(response.headers.get("vary")).toBe("Accept-Language, Cookie, X-Vercel-IP-Country");
   });
 
   it("canonicalizes localized shims and misplaced detail years", () => {

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getSitemapSnapshot, type SitemapSnapshot } from "@/lib/api";
 import sitemap from "./sitemap";
+import { LOCALES } from "@/i18n/config";
 
 vi.mock("@/lib/api", () => ({
   getSitemapSnapshot: vi.fn(),
@@ -117,8 +118,7 @@ describe("sitemap", () => {
     );
 
     const expected = {
-      en: "https://www.wecdash.com/en/2026/standings",
-      ko: "https://www.wecdash.com/ko/2026/standings",
+      ...Object.fromEntries(LOCALES.map((locale) => [locale, `https://www.wecdash.com/${locale}/2026/standings`])),
       "x-default": "https://www.wecdash.com/en/2026/standings",
     };
     expect(en?.alternates?.languages).toEqual(expected);

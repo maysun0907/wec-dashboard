@@ -1,4 +1,4 @@
-import { format, parseISO } from "date-fns";
+import { CalendarDate } from "@/components/calendar-date";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizeEvent } from "@/lib/locale-names";
 import { isLocale } from "@/i18n/config";
@@ -95,7 +95,7 @@ export default async function RacesPage() {
                         {event.circuit.name}
                       </span>
                       <span className="block text-[10px] text-muted-foreground">
-                        {format(parseISO(event.dateStart), "MMM d")}
+                        <CalendarDate iso={event.dateStart} style="short" />
                       </span>
                     </PublicLink>
                   </li>
@@ -149,7 +149,7 @@ export default async function RacesPage() {
                       </span>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {format(parseISO(e.dateStart), "MMM d, yyyy")}
+                      <CalendarDate iso={e.dateStart} style="medium" />
                     </TableCell>
                     <TableCell className="pr-4 text-right">
                       <Badge variant={STATUS_VARIANT[status]}>

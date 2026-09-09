@@ -1,10 +1,11 @@
+import { localizedDetailMetadata } from "@/lib/localized-detail-metadata";
 import type { Metadata } from "next";
 import { positionSummary } from "@/lib/result-position";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizeEventName } from "@/lib/locale-names";
-import { isLocale } from "@/i18n/config";
+import { openGraphLocales, isLocale } from "@/i18n/config";
 import {
   Card,
   CardContent,
@@ -86,6 +87,7 @@ export async function generateMetadata({
       openGraph: { url: urls.canonical, type: "profile" },
     };
   }
+  if (locale !== "en" && locale !== "ko") return localizedDetailMetadata("driver", d.name, path, locale, metadataYear);
   const nat = d.nationality ? ` (${d.nationality})` : "";
   const classLabel = d.raceClass ? raceClassLabel(d.raceClass) : null;
   const titles = d.seasons.filter((s) => s.championshipPosition === 1).length;
@@ -133,8 +135,7 @@ export async function generateMetadata({
       description: desc,
       url: urls.canonical,
       type: "profile",
-      locale: locale === "ko" ? "ko_KR" : "en_US",
-      alternateLocale: [locale === "ko" ? "en_US" : "ko_KR"],
+      ...openGraphLocales(locale),
     },
     twitter: {
       card: "summary_large_image",
@@ -175,11 +176,11 @@ export default async function DriverDetailPage({
     personSchema(driver, schemaContext),
     breadcrumbSchema([
       {
-        name: localeForName === "ko" ? "홈" : "Home",
+        name: (await getTranslations("nav"))("home"),
         url: buildSiteUrl("/", schemaContext),
       },
       {
-        name: localeForName === "ko" ? "드라이버" : "Drivers",
+        name: (await getTranslations("nav"))("drivers"),
         url: buildSiteUrl("/drivers", schemaContext),
       },
       {

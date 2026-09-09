@@ -4,8 +4,7 @@ import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizeEvent } from "@/lib/locale-names";
-import { isLocale } from "@/i18n/config";
-import { format, parseISO } from "date-fns";
+import { openGraphLocales, isLocale } from "@/i18n/config";
 import {
   Card,
   CardContent,
@@ -54,6 +53,8 @@ import { RaceSessionTabs } from "./race-session-tabs";
 import { RaceAutoRefresh } from "@/components/race-auto-refresh";
 import { loadSelectedRaceSession } from "./race-session";
 import { raceMetadataCopy } from "./race-metadata";
+import { FujiWeekendGuide } from "@/components/fuji-weekend-guide";
+import { hasFujiGuide } from "@/lib/fuji-guide";
 
 type Params = { id: string };
 
@@ -115,8 +116,7 @@ export async function generateMetadata({
         description: copy.description,
         url: urls.canonical,
         type: "article",
-        locale: locale === "ko" ? "ko_KR" : "en_US",
-        alternateLocale: [locale === "ko" ? "en_US" : "ko_KR"],
+        ...openGraphLocales(locale),
       },
       twitter: {
         card: "summary_large_image",
@@ -204,11 +204,11 @@ export default async function RaceDetailPage({
     eventSchema(event, schemaContext),
     breadcrumbSchema([
       {
-        name: localeForName === "ko" ? "홈" : "Home",
+        name: (await getTranslations("nav"))("home"),
         url: buildSiteUrl("/", schemaContext),
       },
       {
-        name: localeForName === "ko" ? "레이스" : "Races",
+        name: (await getTranslations("nav"))("races"),
         url: buildSiteUrl("/races", schemaContext),
       },
       {
@@ -250,7 +250,7 @@ export default async function RaceDetailPage({
         <div className="min-w-0 flex-1 space-y-2">
           <div className="flex flex-wrap items-center gap-3 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
             <span>
-              {`Round ${event.round} · ${parseISO(event.dateStart).getFullYear()}`}
+              {t("roundN", { round: event.round })} · {new Date(event.dateStart).getUTCFullYear()}
             </span>
             <StatusBadge status={status} label={tStatus(status)} />
           </div>
@@ -268,12 +268,16 @@ export default async function RaceDetailPage({
             {event.format && <> · {event.format}</>}
           </CardDescription>
           <p className="text-sm text-muted-foreground">
-            {format(parseISO(event.dateStart), "EEEE, MMMM d, yyyy")}
+            {new Intl.DateTimeFormat(localeForName, { dateStyle: "full", timeZone: "UTC" }).format(new Date(event.dateStart))}
             {event.dateEnd !== event.dateStart &&
-              ` – ${format(parseISO(event.dateEnd), "MMMM d, yyyy")}`}
+              ` – ${new Intl.DateTimeFormat(localeForName, { dateStyle: "long", timeZone: "UTC" }).format(new Date(event.dateEnd))}`}
           </p>
         </div>
       </Card>
+
+      {hasFujiGuide(event) && status === "upcoming" && (
+        <FujiWeekendGuide sessions={sessions} locale={localeForName} completed={false} />
+      )}
 
       {selectedSession ? (
         <RaceSessionTabs
@@ -327,6 +331,10 @@ export default async function RaceDetailPage({
             </CardDescription>
           </CardHeader>
         </Card>
+      )}
+
+      {hasFujiGuide(event) && status !== "upcoming" && (
+        <FujiWeekendGuide sessions={sessions} locale={localeForName} completed={status === "completed"} />
       )}
 
       {nearbyRounds.length > 0 && (

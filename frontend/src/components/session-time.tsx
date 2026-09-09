@@ -1,6 +1,6 @@
 "use client";
 
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useViewerTimeZone } from "@/components/use-viewer-time-zone";
 
 /** Render the same instant in two timezones — circuit-local on top
@@ -16,6 +16,7 @@ export function SessionTime({
   className?: string;
 }) {
   const locale = useLocale();
+  const t = useTranslations("common");
   const viewerTz = useViewerTimeZone();
 
   const date = new Date(iso);
@@ -36,13 +37,13 @@ export function SessionTime({
     <div className={className}>
       <div className="text-sm tabular-nums">{viewerTz === null ? `${date.toISOString().slice(0, 16).replace("T", " ")} UTC` : fmt(circuitTz)}</div>
       <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-        {viewerTz === null ? "UTC" : "Circuit local"}
+        {viewerTz === null ? "UTC" : t("circuitLocal")}
       </div>
       {showViewer && (
         <>
           <div className="mt-1.5 text-sm tabular-nums">{fmt(viewerTz!)}</div>
           <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
-            Your local
+            {t("viewerLocal")}
           </div>
         </>
       )}

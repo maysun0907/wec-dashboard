@@ -20,9 +20,6 @@
     "navigationDescription": "Search or browse the available site sections.",
     "openMenu": "Open menu",
     "closeMenu": "Close menu",
-    "drivers": "Drivers",
-    "teams": "Teams",
-    "circuits": "Circuits",
     "loading": "Loading…"
   },
   "home": {
@@ -174,7 +171,12 @@
     "tryAgain": "Try again",
     "goHome": "Go home",
     "officialRacingSite": "Official racing site",
-    "ref": "ref"
+    "ref": "ref",
+    "footer": "Unofficial fan dashboard · Not affiliated with FIA WEC or Al Kamel Systems · Data from",
+    "latest": "Latest",
+    "seasonLabel": "Season",
+    "circuitLocal": "Circuit local",
+    "viewerLocal": "Your local"
   },
   "races": {
     "title": "Schedule",
@@ -602,5 +604,21 @@
     "colNow": "Now",
     "colSim": "Sim",
     "colDelta": "Δ"
+  },
+  "fuji": {
+    "title": "2026 WEC 6 Hours of Fuji schedule · Japan time",
+    "intro": "Round 6 of the 2026 FIA WEC is a six-hour race at Fuji Speedway. All times here are Japan time (JST, UTC+9).",
+    "raceStart": "Race start: {time} JST. Check the timetable for organiser updates.",
+    "qualifying": "Qualifying starts (LMGT3)",
+    "note": "Qualifying begins with LMGT3. Hypercar qualifying and each class’s Hyperpole run separately; check the official timetable. Times may change.",
+    "official": "Official FIA WEC Fuji timetable →",
+    "watch": "Where to watch WEC",
+    "watchBody": "Check FIAWEC+ and the official broadcaster directory for viewing options in your country and coverage of individual sessions.",
+    "rights": "Rights, subscriptions and availability vary by country. This dashboard does not stream video or guarantee free access or availability.",
+    "broadcasters": "Official broadcasters",
+    "teams": "Teams and championship context",
+    "teamsBody": "Hypercar and LMGT3 share the track but compete separately. Season teams and drivers can differ from the final Fuji entry list; confirm entries with the organiser.",
+    "leaders": "Current Hypercar manufacturer leaders (not Fuji results)",
+    "results": "Session tabs show qualifying and race records as collected. Provisional classifications and later corrections can change results."
   }
 }

@@ -1,4 +1,5 @@
-import { format, parseISO } from "date-fns";
+import { parseISO } from "date-fns";
+import { CalendarDate } from "@/components/calendar-date";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
@@ -581,7 +582,7 @@ function NextRaceFooter({ eventId, dateStart }: { eventId: number; dateStart: st
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-5 text-sm">
       <span className="font-medium text-muted-foreground">
-        {format(parseISO(dateStart), "EEEE, MMMM d, yyyy")}
+        <CalendarDate iso={dateStart} style="full" />
       </span>
       <PublicLink
         href={`/races/${eventId}`}
@@ -636,7 +637,7 @@ function UpcomingCard({
                 </span>
                 <span className="hidden text-right text-xs text-muted-foreground sm:block">
                   <span className="block">
-                    {format(parseISO(e.dateStart), "MMM d, yyyy")}
+                    <CalendarDate iso={e.dateStart} style="medium" />
                   </span>
                   {e.format && <span className="block">{e.format}</span>}
                 </span>

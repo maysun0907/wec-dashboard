@@ -1,71 +1,44 @@
 "use client";
 
 import { useTransition } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import { useLocale } from "next-intl";
+import { usePathname } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { track } from "@vercel/analytics";
-
+import { Globe } from "lucide-react";
 import { setLocale } from "@/i18n/actions";
-import {
-  getDefaultSeasonYear,
-  switchLocaleInPublicHref,
-} from "@/lib/public-routing";
-import { cn } from "@/lib/utils";
+import { LOCALES, LANGUAGE_NAMES, isLocale } from "@/i18n/config";
+import { getDefaultSeasonYear, switchLocaleInPublicHref } from "@/lib/public-routing";
 
-const OPTIONS = [
-  { code: "en", label: "EN" },
-  { code: "ko", label: "KO" },
-] as const;
-
-/** Segmented EN / KO toggle for the header. Visible affordance (both
- *  labels shown) so users who don't read either language can still
- *  recognise it as a language switcher. Writes the chosen locale into
- *  a cookie via a server action; next-intl re-renders the tree on the
- *  response. */
+/** Native names remain recognisable even when the current UI is unfamiliar. */
 export function LocaleSwitcher() {
   const current = useLocale();
+  const t = useTranslations("common");
   const pathname = usePathname();
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
 
   return (
-    <div
-      className="inline-flex h-8 items-center overflow-hidden rounded-sm border border-border bg-secondary/40 text-[11px] font-semibold"
-      aria-label="Language"
-    >
-      {OPTIONS.map((opt) => {
-        const active = current === opt.code;
-        return (
-          <button
-            key={opt.code}
-            type="button"
-            disabled={pending || active}
-            onClick={() =>
-              startTransition(async () => {
-                await setLocale(opt.code);
-                const currentHref = `${pathname}${window.location.search}${window.location.hash}`;
-                const nextHref = switchLocaleInPublicHref(
-                  currentHref,
-                  opt.code,
-                  getDefaultSeasonYear(),
-                );
-                track("Locale Changed", { from: current, to: opt.code });
-                router.replace(nextHref, { scroll: false });
-              })
-            }
-            aria-pressed={active}
-            className={cn(
-              "h-full px-2 transition-colors",
-              active
-                ? "bg-foreground text-background"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground",
-              pending && !active && "opacity-50",
-            )}
-          >
-            {opt.label}
-          </button>
-        );
-      })}
-    </div>
+    <label className="relative inline-flex h-8 shrink-0 items-center gap-1 rounded-sm border border-border bg-secondary/40 pl-2">
+      <Globe size={13} aria-hidden="true" className="text-muted-foreground" />
+      <select
+        aria-label={t("language")}
+        value={current}
+        disabled={pending}
+        className="h-full w-16 cursor-pointer bg-transparent pr-1 text-[11px] font-semibold disabled:opacity-50 sm:w-24 [&>option]:bg-background [&>option]:text-foreground"
+        onChange={(event) => {
+          const locale = event.target.value;
+          if (!isLocale(locale) || locale === current) return;
+          startTransition(async () => {
+            await setLocale(locale);
+            const href = `${pathname}${window.location.search}${window.location.hash}`;
+            track("Locale Changed", { from: current, to: locale });
+            // A locale changes the root provider and html lang. A document
+            // navigation avoids retained layouts from a previous rewritten URL.
+            window.location.assign(switchLocaleInPublicHref(href, locale, getDefaultSeasonYear()));
+          });
+        }}
+      >
+        {LOCALES.map((locale) => <option key={locale} value={locale} lang={locale}>{LANGUAGE_NAMES[locale]}</option>)}
+      </select>
+    </label>
   );
 }

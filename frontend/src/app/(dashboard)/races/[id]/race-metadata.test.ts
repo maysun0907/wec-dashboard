@@ -9,6 +9,13 @@ const completedEvent = {
 };
 
 describe("raceMetadataCopy", () => {
+  it("targets Fuji schedule searches before the race and results afterwards", () => {
+    const event = { name: "후지 6시간", round: 6, dateStart: "2026-09-27", circuit: { name: "후지 스피드웨이" } };
+    expect(raceMetadataCopy(event, "ko", "upcoming").title).toContain("한국시간 일정·중계 안내");
+    expect(raceMetadataCopy(event, "ko", "completed").title).toBe("2026 후지 6시간 결과·순위");
+    expect(raceMetadataCopy({ ...event, name: "6 Hours of Fuji" }, "en", "upcoming").title).toContain("How to Watch");
+    expect(raceMetadataCopy({ ...event, dateStart: "2025-09-28" }, "ko", "upcoming").title).not.toContain("중계 안내");
+  });
   it("uses results intent for a completed race", () => {
     const copy = raceMetadataCopy(completedEvent, "en", "completed");
 

@@ -1,10 +1,11 @@
+import { localizedDetailMetadata } from "@/lib/localized-detail-metadata";
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizeEventName } from "@/lib/locale-names";
-import { isLocale } from "@/i18n/config";
+import { openGraphLocales, isLocale } from "@/i18n/config";
 import { BrandLinkPills } from "@/components/brand-link-pills";
 import {
   Card,
@@ -92,6 +93,7 @@ export async function generateMetadata({
       openGraph: { url: urls.canonical, type: "article" },
     };
   }
+  if (locale !== "en" && locale !== "ko") return localizedDetailMetadata("manufacturer", m.name, path, locale, metadataYear);
   const country = m.country ? ` (${m.country})` : "";
   const titles = m.seasons.filter((s) => s.championshipPosition === 1).length;
   const totalWins = m.seasons.reduce((a, s) => a + s.wins, 0);
@@ -133,8 +135,7 @@ export async function generateMetadata({
       description: desc,
       url: urls.canonical,
       type: "article",
-      locale: locale === "ko" ? "ko_KR" : "en_US",
-      alternateLocale: [locale === "ko" ? "en_US" : "ko_KR"],
+      ...openGraphLocales(locale),
     },
     twitter: {
       card: "summary_large_image",
@@ -200,11 +201,11 @@ export default async function ManufacturerDetailPage({
     manufacturerSchema(manufacturer, schemaContext),
     breadcrumbSchema([
       {
-        name: localeForName === "ko" ? "홈" : "Home",
+        name: (await getTranslations("nav"))("home"),
         url: buildSiteUrl("/", schemaContext),
       },
       {
-        name: localeForName === "ko" ? "매뉴팩처" : "Manufacturers",
+        name: (await getTranslations("common"))("manufacturers"),
         url: buildSiteUrl("/standings", schemaContext),
       },
       {

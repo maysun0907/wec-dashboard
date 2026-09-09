@@ -78,8 +78,7 @@ function localizedEntries({
     LOCALES.map((locale) => [locale, publicPath(internalPath, locale, year)]),
   ) as Record<Locale, string>;
   const languages = {
-    en: `${base}${paths.en}`,
-    ko: `${base}${paths.ko}`,
+    ...Object.fromEntries(LOCALES.map((locale) => [locale, `${base}${paths[locale]}`])),
     "x-default": `${base}${paths.en}`,
   };
 

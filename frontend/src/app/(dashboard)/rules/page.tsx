@@ -55,7 +55,7 @@ export default async function RulesPage() {
     faqSchema(faqItems),
     breadcrumbSchema([
       {
-        name: locale === "ko" ? "홈" : "Home",
+        name: (await getTranslations("nav"))("home"),
         url: buildSiteUrl("/", schemaContext),
       },
       { name: t("title"), url: buildSiteUrl("/rules", schemaContext) },

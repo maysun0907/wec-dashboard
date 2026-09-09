@@ -69,16 +69,16 @@ test("homepage has no serious accessibility violations or mobile overflow", asyn
 
 test("language and season switches preserve navigation", async ({ page }) => {
   await page.goto("/en/2026/drivers");
-  await page.getByRole("button", { name: "KO", exact: true }).click();
+  await page.getByRole("combobox", { name: "Language", exact: true }).selectOption("ko");
   await expect(page).toHaveURL(/\/ko\/2026\/drivers$/);
-  await page.getByRole("combobox", { name: "Season", exact: true }).click();
+  await page.locator("[data-season-switcher]").click();
   await page.getByRole("option", { name: "2025", exact: true }).click();
   await expect(page).toHaveURL(/\/ko\/2025\/drivers$/);
-  await expect(page.getByRole("combobox", { name: "Season", exact: true })).toContainText("2025");
-  await page.getByRole("combobox", { name: "Season", exact: true }).click();
+  await expect(page.locator("[data-season-switcher]")).toContainText("2025");
+  await page.locator("[data-season-switcher]").click();
   await page.getByRole("option", { name: "2026", exact: true }).click();
   await expect(page).toHaveURL(/\/ko\/2026\/drivers$/);
-  await expect(page.getByRole("combobox", { name: "Season", exact: true })).toContainText("2026");
+  await expect(page.locator("[data-season-switcher]")).toContainText("2026");
 });
 
 test("mobile navigation opens, navigates and closes", async ({ page }) => {

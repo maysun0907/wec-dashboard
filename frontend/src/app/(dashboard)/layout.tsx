@@ -1,10 +1,12 @@
 import { SiteHeader } from "@/components/site-header";
+import { getTranslations } from "next-intl/server";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const t = await getTranslations("common");
   return (
     <>
       <SiteHeader />
@@ -15,8 +17,7 @@ export default function DashboardLayout({
       </main>
       <footer className="mt-8 border-t border-border/60 bg-background/70 py-6 text-center text-[10px] uppercase tracking-[0.12em] text-muted-foreground/55">
         <div className="mx-auto max-w-[96rem] px-4 sm:px-6 lg:px-8">
-          Unofficial fan dashboard · Not affiliated with FIA WEC or Al Kamel
-          Systems · Data from{" "}
+          {t("footer")}{" "}
           <a
             href="https://en.wikipedia.org/wiki/2026_FIA_World_Endurance_Championship"
             target="_blank"

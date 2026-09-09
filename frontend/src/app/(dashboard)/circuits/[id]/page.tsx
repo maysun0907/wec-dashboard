@@ -1,9 +1,10 @@
+import { localizedDetailMetadata } from "@/lib/localized-detail-metadata";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { format, parseISO } from "date-fns";
+import { CalendarDate } from "@/components/calendar-date";
 import { getLocale, getTranslations } from "next-intl/server";
 import { localizeCircuitName, localizeEventName } from "@/lib/locale-names";
-import { isLocale } from "@/i18n/config";
+import { openGraphLocales, isLocale } from "@/i18n/config";
 import {
   Card,
   CardContent,
@@ -67,6 +68,7 @@ export async function generateMetadata({
     ...circuit,
     name: localizeCircuitName(circuit.name, locale),
   };
+  if (locale !== "en" && locale !== "ko") return localizedDetailMetadata("circuit", c.name, path, locale, metadataYear);
   const lengthPart = c.lengthKm ? `${c.lengthKm.toFixed(3)} km` : null;
   const lapPart = c.lapRecord
     ? locale === "ko"
@@ -100,8 +102,7 @@ export async function generateMetadata({
       description: desc,
       url: urls.canonical,
       type: "article",
-      locale: locale === "ko" ? "ko_KR" : "en_US",
-      alternateLocale: [locale === "ko" ? "en_US" : "ko_KR"],
+      ...openGraphLocales(locale),
     },
     twitter: {
       card: "summary",
@@ -166,11 +167,11 @@ export default async function CircuitDetailPage({
     placeSchema(circuit, schemaContext),
     breadcrumbSchema([
       {
-        name: localeForName === "ko" ? "홈" : "Home",
+        name: (await getTranslations("nav"))("home"),
         url: buildSiteUrl("/", schemaContext),
       },
       {
-        name: localeForName === "ko" ? "서킷" : "Circuits",
+        name: (await getTranslations("nav"))("circuits"),
         url: buildSiteUrl("/circuits", schemaContext),
       },
       {
@@ -291,7 +292,7 @@ export default async function CircuitDetailPage({
                     {e.seasonYear} · R{e.round}
                   </span>
                   <span>·</span>
-                  <span>{format(parseISO(e.dateStart), "MMM d, yyyy")}</span>
+                  <span><CalendarDate iso={e.dateStart} style="medium" /></span>
                 </div>
                 <PublicLink
                   href={`/races/${e.eventId}`}

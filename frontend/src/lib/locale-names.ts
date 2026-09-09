@@ -1,5 +1,28 @@
 import type { Locale } from "@/i18n/config";
 
+const PLACE_ASIAN: Record<string, [string, string]> = {
+  Fuji: ["富士", "富士"], "Le Mans": ["ル・マン", "勒芒"],
+  "Spa-Francorchamps": ["スパ・フランコルシャン", "斯帕-弗朗科尔尚"], Spa: ["スパ", "斯帕"],
+  Bahrain: ["バーレーン", "巴林"], Qatar: ["カタール", "卡塔尔"], Imola: ["イモラ", "伊莫拉"],
+  "São Paulo": ["サンパウロ", "圣保罗"], "Sao Paulo": ["サンパウロ", "圣保罗"],
+  Monza: ["モンツァ", "蒙扎"], Sebring: ["セブリング", "赛百灵"], Shanghai: ["上海", "上海"],
+  Barcelona: ["バルセロナ", "巴塞罗那"],
+  Silverstone: ["シルバーストン", "银石"], "Nürburgring": ["ニュルブルクリンク", "纽博格林"],
+  "Portimão": ["ポルティマオ", "波尔蒂芒"], Austin: ["オースティン", "奥斯汀"],
+};
+
+function multilingualEventName(name: string, locale: Exclude<Locale, "en" | "ko">): string {
+  const match = name.match(/^(\d+)\s*Hours of\s+(.+)$/i);
+  if (!match) return name;
+  const [, hours, place] = match;
+  if (locale === "ja" || locale === "zh-CN") {
+    const localPlace = PLACE_ASIAN[place!]?.[locale === "ja" ? 0 : 1] ?? place;
+    return `${localPlace}${hours}${locale === "ja" ? "時間" : "小时"}`;
+  }
+  if (place === "Le Mans") return `${hours} ${ { fr: "Heures du Mans", de: "Stunden von Le Mans", it: "Ore di Le Mans", es: "Horas de Le Mans", "pt-BR": "Horas de Le Mans" }[locale]}`;
+  return `${hours} ${{ fr: "Heures de", de: "Stunden von", it: "Ore di", es: "Horas de", "pt-BR": "Horas de" }[locale]} ${place}`;
+}
+
 /** Korean equivalents for circuit names. Keyed by the English form
  *  exactly as it appears in the DB. Missing entries fall back to the
  *  English name. */
@@ -69,7 +92,8 @@ const EVENT_KO_VERBATIM: Record<string, string> = {
  *  display reads natural in Korean. Special-cased names go through
  *  EVENT_KO_VERBATIM first; anything else falls back to the original. */
 export function localizeEventName(name: string, locale: Locale): string {
-  if (locale !== "ko") return name;
+  if (locale === "en") return name;
+  if (locale !== "ko") return multilingualEventName(name, locale);
   const verbatim = EVENT_KO_VERBATIM[name];
   if (verbatim) return verbatim;
   // "6 Hours of Spa-Francorchamps" → "스파-프랑코샹 6시간"
@@ -92,6 +116,19 @@ export function localizeEventName(name: string, locale: Locale): string {
 /** Translate a circuit name. Falls back to the English form when no
  *  Korean variant is registered. */
 export function localizeCircuitName(name: string, locale: Locale): string {
+  if (locale === "ja" || locale === "zh-CN") {
+    const names: Record<string, [string, string]> = {
+      "Fuji Speedway": ["富士スピードウェイ", "富士赛车场"],
+      "Circuit de la Sarthe": ["サルト・サーキット", "萨尔特赛道"],
+      "Circuit of the Americas": ["サーキット・オブ・ジ・アメリカズ", "美洲赛道"],
+      "Circuit de Spa-Francorchamps": ["スパ・フランコルシャン", "斯帕-弗朗科尔尚赛道"],
+      "Bahrain International Circuit": ["バーレーン・インターナショナル・サーキット", "巴林国际赛道"],
+      "Shanghai International Circuit": ["上海インターナショナル・サーキット", "上海国际赛车场"],
+      "Autodromo Nazionale Monza": ["モンツァ・サーキット", "蒙扎国家赛道"],
+      "Autodromo Enzo e Dino Ferrari": ["イモラ・サーキット", "伊莫拉赛道"],
+    };
+    return names[name]?.[locale === "ja" ? 0 : 1] ?? PLACE_ASIAN[name]?.[locale === "ja" ? 0 : 1] ?? name;
+  }
   if (locale !== "ko") return name;
   return CIRCUIT_KO[name] ?? name;
 }
@@ -104,7 +141,7 @@ export function localizeEvent<T extends { name: string; circuit: { name: string 
   e: T,
   locale: Locale,
 ): T {
-  if (locale !== "ko") return e;
+  if (locale === "en") return e;
   return {
     ...e,
     name: localizeEventName(e.name, locale),
@@ -113,6 +150,6 @@ export function localizeEvent<T extends { name: string; circuit: { name: string 
 }
 
 export function localizeCircuit<T extends { name: string }>(c: T, locale: Locale): T {
-  if (locale !== "ko") return c;
+  if (locale === "en") return c;
   return { ...c, name: localizeCircuitName(c.name, locale) };
 }

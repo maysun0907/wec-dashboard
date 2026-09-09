@@ -41,7 +41,7 @@ export async function SiteHeader() {
           </span>
         </PublicLink>
         <SiteNav seasonYear={publicSeasonYear} />
-        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
           <LocaleSwitcher />
           <SeasonSwitcher seasons={seasons} selected={selected} />
           <SiteSearch key={publicSeasonYear} year={publicSeasonYear} />
