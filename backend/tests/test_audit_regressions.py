@@ -546,6 +546,56 @@ def test_final_file_wins_over_provisional_listing_order(monkeypatch):
         assert alkamel._list_race_csvs("15_2026", "05_COTA")[1].endswith("_Final.CSV")
 
 
+def test_missing_final_listing_keeps_known_source_and_accepts_amendments(monkeypatch):
+    prefix = "Results/15_2026/06_FUJI%20SPEEDWAY/679_FIA%20WEC/202609271100_Race/"
+    known = f"{alkamel.BASE}/{prefix}06_Hour%206/03_Classification_Race_Hour%206_Final.CSV"
+    partial = f'{prefix}05_Hour%205/03_Classification_Race_Hour%205.CSV'
+    analysis = f'{prefix}06_Hour%206/23_Analysis_Race.CSV'
+    monkeypatch.setattr(alkamel, "_event_html", lambda *_:
+                        f'<a href="{partial}">H5</a><a href="{analysis}">laps</a>')
+    stamp, selected, laps = alkamel._list_race_csvs("15_2026", "06_FUJI SPEEDWAY", known)
+    assert stamp == "202609271100"
+    assert selected == known
+    assert laps == f"{alkamel.BASE}/{analysis}"
+    amended = f'{prefix}06_Hour%206/90_Classification_Race_Amended_2.CSV'
+    monkeypatch.setattr(alkamel, "_event_html", lambda *_:
+                        f'<a href="{partial}">H5</a><a href="{amended}">correction</a>')
+    assert alkamel._list_race_csvs("15_2026", "06_FUJI SPEEDWAY", known)[1].endswith("Amended_2.CSV")
+    assert alkamel.race_result_status(f"{alkamel.BASE}/{amended}", "6 Hours of Fuji") == "final"
+
+
+@pytest.mark.parametrize("source", [
+    "https://example.test/Results/15_2026/05_COTA/673_FIA%20WEC/202609061300_Race/06_Hour%206/03_Classification_Race_Final.CSV",
+    f"{alkamel.BASE}/Results/14_2025/05_COTA/673_FIA%20WEC/202609061300_Race/06_Hour%206/03_Classification_Race_Final.CSV",
+    f"{alkamel.BASE}/Results/15_2026/06_FUJI/673_FIA%20WEC/202609061300_Race/06_Hour%206/03_Classification_Race_Final.CSV",
+])
+def test_known_race_source_must_belong_to_official_event(monkeypatch, source):
+    monkeypatch.setattr(alkamel, "_event_html", lambda *_: "")
+    assert alkamel._list_race_csvs("15_2026", "05_COTA", source) is None
+
+
+def test_race_refresh_refetches_final_omitted_from_listing(db, monkeypatch):
+    season, *_ = fixture_rows(db)
+    race = db.query(models.Session).join(models.Event).filter(models.Event.round == 1).one()
+    known = f"{alkamel.BASE}/Results/15_2020/01_SPA/673_FIA%20WEC/202001011100_Race/06_Hour%206/03_Classification_Race_Final.CSV"
+    race.result_status = "final"
+    race.result_source_url = known
+    db.commit()
+    monkeypatch.setattr(alkamel, "_season_param_for_year", lambda *_: "15_2020")
+    monkeypatch.setattr(alkamel, "_event_options_for_season", lambda *_: [(1, "01_SPA")])
+    monkeypatch.setattr(alkamel, "_event_html", lambda *_: "")
+    fetched = []
+    def fetch(url):
+        fetched.append(url)
+        return "POSITION;NUMBER;LAPS;CLASS;TEAM;DRIVER_1\n1;1;101;HYPERCAR;Team;Full Season\n"
+    monkeypatch.setattr(alkamel, "_fetch", fetch)
+    alkamel.enrich_race_results(db, season.id, 2020, event_id=race.event_id)
+    assert fetched == [known]
+    assert race.result_status == "final"
+    assert race.results_updated_at is not None
+    assert db.query(models.SessionResult).filter_by(session_id=race.id).one().laps == 101
+
+
 def test_race_validation_rejects_unknown_tracked_cars_and_duplicate_positions(db):
     fixture_rows(db)
     result = db.query(models.SessionResult).first()

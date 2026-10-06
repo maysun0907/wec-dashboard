@@ -26,7 +26,7 @@ import io
 import re
 from datetime import datetime, timezone
 from typing import Iterable
-from urllib.parse import quote, unquote, urlencode
+from urllib.parse import quote, unquote, urlencode, urlsplit
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
@@ -328,7 +328,7 @@ _RACE_HOUR_RE = re.compile(
 
 
 def _list_race_csvs(
-    season_param: str, evvent_param: str
+    season_param: str, evvent_param: str, known_classification_url: str | None = None,
 ) -> tuple[str, str, str] | None:
     """Find the final-hour Classification + Analysis CSVs for the race
     weekend's main race. Returns (timestamp, classification_url,
@@ -340,6 +340,22 @@ def _list_race_csvs(
     by_hour: dict[int, tuple[str, str, str]] = {}
     classifications: dict[int, str] = {}
     analyses: dict[int, str] = {}
+    # The portal can temporarily omit a previously published final-hour file.
+    # Revalidate its actual contents instead of falling back to a live hour.
+    # Only accept a stored URL owned by this exact official season/event.
+    if known_classification_url:
+        source = urlsplit(known_classification_url)
+        match = re.fullmatch(
+            re.escape(f"/Results/{season_param}/{evvent_param}/")
+            + r"\d+_FIA WEC/(\d{12})_Race/\d{2}_Hour (\d+)/"
+              r"(?:03|90)_Classification_Race[^/]*\.CSV",
+            unquote(source.path), re.IGNORECASE,
+        )
+        if (source.scheme == "https" and source.netloc == urlsplit(BASE).netloc
+                and not source.query and not source.fragment and match):
+            hour = int(match.group(2))
+            classifications[hour] = known_classification_url
+            by_hour[hour] = (match.group(1), "", "")
     for href in re.findall(r'href="(Results/[^"]+\.CSV)"', html):
         decoded = href.replace("%20", " ")
         slash = decoded.rfind("/")
@@ -389,7 +405,7 @@ def race_result_status(url: str, event_name: str) -> str:
     Do not infer completion merely because the scheduled finish has passed:
     red flags can extend a race, and the last available file may be mid-race.
     """
-    if re.search(r"[_ /]Final(?:\.|_)", unquote(url), re.IGNORECASE):
+    if re.search(r"[_ /](?:Final|Amended|Revised)(?:\.|_|[ -]\d)", unquote(url), re.IGNORECASE):
         return "final"
     from app.ingest.scheduled import _race_duration
     match = _RACE_HOUR_RE.search(url)
@@ -1396,7 +1412,11 @@ def enrich_race_results(
         ):
             crew_by_number.setdefault(car.number, []).append(driver)
 
-        race_csvs = _list_race_csvs(season_param, evvent_param)
+        race_csvs = _list_race_csvs(
+            season_param, evvent_param,
+            race_session.result_source_url
+            if race_session.result_status in ("completed", "final") else None,
+        )
         if race_csvs is None:
             continue
         _ts, classification_url, analysis_url = race_csvs
