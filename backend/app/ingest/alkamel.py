@@ -217,7 +217,10 @@ def _list_session_csvs(
         timestamp = m.group(2)
         folders.setdefault(folder, (kind, cls_name, timestamp))
         if re.match(r"^(03|90)_Classification_", fname, re.IGNORECASE):
-            classifications.setdefault(folder, f"{BASE}/{href}")
+            candidate = f"{BASE}/{href}"
+            previous = classifications.get(folder)
+            if previous is None or classification_priority(candidate) > classification_priority(previous):
+                classifications[folder] = candidate
         elif re.match(r"^23_Analysis_", fname, re.IGNORECASE):
             analyses.setdefault(folder, f"{BASE}/{href}")
     out: list[tuple[str, str, str, str, str]] = []

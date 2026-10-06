@@ -70,6 +70,21 @@ def test_le_mans_multistage_and_combined_class_folders(monkeypatch):
     ]
 
 
+@pytest.mark.parametrize("folder", ["Free%20Practice%201", "Qualifying%20HYPERCAR", "Hyperpole%20HYPERCAR"])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_session_classification_prefers_latest_revision(monkeypatch, folder, reverse):
+    prefix = f"Results/15_2026/06_FUJI%20SPEEDWAY/679_FIA%20WEC/202609251015_{folder}/"
+    files = ["03_Classification.CSV", "03_Classification_Final.CSV",
+             "03_Classification_Amended_1.CSV", "03_Classification_Amended_2.CSV"]
+    if reverse:
+        files.reverse()
+    html = "".join(f'<a href="{prefix}{file}">x</a>' for file in files)
+    monkeypatch.setattr(a, "_fetch", lambda _: html)
+    rows = a._list_session_csvs("15_2026", "06_FUJI SPEEDWAY")
+    assert len(rows) == 1
+    assert rows[0][2].endswith("03_Classification_Amended_2.CSV")
+
+
 def test_official_grid_restores_distinct_q_hp_and_penalty_order(monkeypatch):
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
