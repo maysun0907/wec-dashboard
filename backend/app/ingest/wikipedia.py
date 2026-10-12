@@ -94,6 +94,9 @@ CIRCUIT_INFO: dict[str, tuple[str, float]] = {
     "Fuji Speedway": ("JPN", 4.563),
     "Losail International Circuit": ("QAT", 5.419),
     "Bahrain International Circuit": ("BHR", 5.412),
+    # Published 2026 WEC race pages: /en/race/6-hours-of-{venue}-2026.
+    "Circuit de Barcelona-Catalunya": ("ESP", 4.657),
+    "Monza Circuit": ("ITA", 5.793),
 }
 
 # Wikipedia article title per manufacturer. We resolve the article first to
@@ -1225,7 +1228,7 @@ def _clear_season(db: Session, season_id: int) -> None:
 
 def _upsert_circuit(db: Session, name: str, country: str | None) -> models.Circuit:
     fallback_country, fallback_length = CIRCUIT_INFO.get(name, (None, 0.0))
-    resolved_country = country or fallback_country or "UNK"
+    resolved_country = (country if country and country != "UNK" else fallback_country) or "UNK"
     obj = db.query(models.Circuit).filter_by(name=name).first()
     if obj is None:
         obj = models.Circuit(
@@ -2070,6 +2073,16 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             # Wikipedia was rebuilt above; accepting a failed official pass
             # would replace good timing with incomplete fallback records.
             raise SourceDataError("Official timing refresh failed; previous season retained") from exc
+
+        # Optional profile metadata is independent of result validity and
+        # refreshes weekly rather than on every timing poll.
+        try:
+            from app.ingest.fiawec_profiles import enrich_driver_profiles
+
+            if year == current_utc_year():
+                enrich_driver_profiles(db, year)
+        except (httpx.HTTPError, ValueError) as exc:
+            log.warning("driver_profiles_unavailable", error=str(exc))
 
         # Mirror FIA-blessed asset URLs (manufacturer logos, car
         # renders, circuit maps) into the DB. Pure URL refresh — no

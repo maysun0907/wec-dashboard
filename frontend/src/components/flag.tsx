@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 // lists or circuit calendars are listed here; the component falls back to
 // the alpha-3 code as text when a code isn't mapped.
 const ALPHA3_TO_ALPHA2: Record<string, string> = {
+  AGO: "AO",
   ARG: "AR",
   AUS: "AU",
   AUT: "AT",
@@ -24,6 +25,7 @@ const ALPHA3_TO_ALPHA2: Record<string, string> = {
   GBR: "GB",
   GRC: "GR",
   HUN: "HU",
+  HKG: "HK",
   IDN: "ID",
   IND: "IN",
   IRL: "IE",
@@ -42,6 +44,7 @@ const ALPHA3_TO_ALPHA2: Record<string, string> = {
   PRT: "PT",
   QAT: "QA",
   RUS: "RU",
+  ROU: "RO",
   SAU: "SA",
   SGP: "SG",
   SVK: "SK",
