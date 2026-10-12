@@ -81,9 +81,11 @@ CAR_SPECS: dict[str, CarSpec] = {
         "year_introduced": 2025,
         **_HYPERCAR_BOP,
     },
-    # Genesis GMR-001 — 2026 debut, public spec details still scarce.
+    # Genesis' 2026 launch release specifies the G8MR 3.2 L Turbo V8.
+    # https://newsroom.genesis.com/genesis-magma-racing-reveals-gmr-001-hypercar-for-2026-fia-wec-season/
     "genesis-gmr-001": {
         "category": "LMDh",
+        "engine": "3.2 L twin-turbo V8 hybrid",
         "year_introduced": 2026,
         **_HYPERCAR_BOP,
     },
@@ -140,18 +142,24 @@ CAR_SPECS: dict[str, CarSpec] = {
         "engine": "4.0 L twin-turbo V8",
         "power_hp": 580,
         "weight_kg": 1310,
+        # SRO: /news/2474/mclaren-confirms-new-720s-gt3-evo-for-2023-debut
+        "year_introduced": 2023,
     },
     "mercedes-amg-gt3-evo": {
         "category": "LMGT3",
         "engine": "6.3 L naturally aspirated V8",
         "power_hp": 550,
         "weight_kg": 1300,
+        # Mercedes-AMG's 2020 customer-racing programme introduced the update.
+        "year_introduced": 2020,
     },
     "lexus-rc-f-gt3": {
         "category": "LMGT3",
         "engine": "5.4 L naturally aspirated V8",
         "power_hp": 530,
         "weight_kg": 1300,
+        # Lexus USA: /lexus-closes-out-debut-season-rc-f-gt3-road-atlanta/
+        "year_introduced": 2017,
     },
     "ford-mustang-gt3-evo": {
         "category": "LMGT3",
