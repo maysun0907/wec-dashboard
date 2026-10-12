@@ -31,8 +31,12 @@ const CIRCUIT_KO: Record<string, string> = {
   "Circuit of the Americas": "서킷 오브 디 아메리카스",
   "Fuji Speedway": "후지 스피드웨이",
   "Imola": "이몰라",
+  "Imola Circuit": "이몰라 서킷",
   "Autodromo Enzo e Dino Ferrari": "이몰라 (엔초 에 디노 페라리)",
   "Interlagos": "인터라고스",
+  "Interlagos Circuit": "인터라고스 서킷",
+  "Circuit de Barcelona-Catalunya": "바르셀로나-카탈루냐 서킷",
+  "Monza Circuit": "몬차 서킷",
   "Autódromo José Carlos Pace": "인터라고스 (조제 카를로스 파스)",
   "Losail International Circuit": "로사일 인터내셔널 서킷",
   "Lusail International Circuit": "로사일 인터내셔널 서킷",
@@ -75,6 +79,7 @@ const PLACE_KO: Record<string, string> = {
   "Nürburgring": "뉘르부르크링",
   "Nurburgring": "뉘르부르크링",
   "Austin": "오스틴",
+  "Barcelona": "바르셀로나",
   "Buenos Aires": "부에노스아이레스",
   "Mexico City": "멕시코시티",
 };
@@ -126,6 +131,10 @@ export function localizeCircuitName(name: string, locale: Locale): string {
       "Shanghai International Circuit": ["上海インターナショナル・サーキット", "上海国际赛车场"],
       "Autodromo Nazionale Monza": ["モンツァ・サーキット", "蒙扎国家赛道"],
       "Autodromo Enzo e Dino Ferrari": ["イモラ・サーキット", "伊莫拉赛道"],
+      "Imola Circuit": ["イモラ・サーキット", "伊莫拉赛道"],
+      "Interlagos Circuit": ["インテルラゴス・サーキット", "英特拉格斯赛道"],
+      "Circuit de Barcelona-Catalunya": ["バルセロナ・カタルーニャ・サーキット", "巴塞罗那-加泰罗尼亚赛道"],
+      "Monza Circuit": ["モンツァ・サーキット", "蒙扎赛道"],
     };
     return names[name]?.[locale === "ja" ? 0 : 1] ?? PLACE_ASIAN[name]?.[locale === "ja" ? 0 : 1] ?? name;
   }

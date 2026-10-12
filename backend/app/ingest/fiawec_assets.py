@@ -20,6 +20,7 @@ from __future__ import annotations
 import re
 
 import httpx
+from bs4 import BeautifulSoup
 from sqlalchemy.orm import Session
 
 from app import models
@@ -400,19 +401,42 @@ def _scrape_grid_wayback(
     return mfr_logos, car_renders_by_model, car_renders_by_number
 
 
-def _scrape_race_assets(race_slug: str) -> tuple[str | None, str | None]:
-    """Return ``(track_map_url, poster_url)`` from a per-race page.
+def parse_track_length(html: str) -> float | None:
+    """Read only the race's Track info block, not other calendar cards.
+
+    Missing or changed markup must preserve the last verified value. Reject
+    implausible numbers rather than silently storing a unit/format error.
+    """
+    soup = BeautifulSoup(html, "lxml")
+    label = soup.find(string=lambda value: value and value.strip().casefold() == "track info")
+    if label is None:
+        return None
+    block = label.parent.parent
+    match = re.search(r"\bLength\s+(\d+(?:[.,]\d+)?)\s*Km\b", block.get_text(" ", strip=True), re.I)
+    if match is None:
+        return None
+    # Some pages round Imola's 4.909 km to "4.9". Do not replace a
+    # previously verified precise length with that presentation shorthand.
+    if not re.fullmatch(r"\d+[.,]\d{3}", match.group(1)):
+        return None
+    length = float(match.group(1).replace(",", "."))
+    return length if 2 <= length <= 20 else None
+
+
+def _scrape_race_assets(race_slug: str) -> tuple[str | None, str | None, float | None]:
+    """Return ``(track_map_url, poster_url, length_km)`` from a per-race page.
     Either may be None when FIA hasn't uploaded that asset yet for
     the round (e.g. a future season's pages)."""
     try:
         html = _fetch(f"{BASE}/en/race/{race_slug}")
     except httpx.HTTPError:
-        return None, None
+        return None, None, None
     track = _TRACK_RE.search(html)
     poster = _POSTER_RE.search(html)
     return (
         BASE + track.group() if track else None,
         BASE + poster.group() if poster else None,
+        parse_track_length(html),
     )
 
 
@@ -551,17 +575,22 @@ def ingest_fiawec_assets(
         race_slug = slug_for_event(event.name, year, race_slugs)
         if race_slug is None:
             continue
-        track_url, poster_url = _scrape_race_assets(race_slug)
+        track_url, poster_url, length_km = _scrape_race_assets(race_slug)
         if verbose:
             print(
                 f"  {event.name}: track={'ok' if track_url else 'no'}, "
                 f"poster={'ok' if poster_url else 'no'}"
             )
-        if track_url is not None:
-            circuit = db.get(models.Circuit, event.circuit_id)
-            if circuit is not None and circuit.layout_image != track_url:
+        circuit = db.get(models.Circuit, event.circuit_id)
+        if circuit is not None:
+            changed = False
+            if track_url is not None and circuit.layout_image != track_url:
                 circuit.layout_image = track_url
-                updated_circuits += 1
+                changed = True
+            if length_km is not None and circuit.length_km != length_km:
+                circuit.length_km = length_km
+                changed = True
+            updated_circuits += int(changed)
         if poster_url is not None:
             if event is not None and event.poster_url != poster_url:
                 event.poster_url = poster_url
