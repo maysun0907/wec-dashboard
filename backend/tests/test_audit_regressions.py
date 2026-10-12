@@ -151,12 +151,21 @@ def test_race_assets_match_event_not_first_circuit_in_country(db, monkeypatch):
     db.commit()
     monkeypatch.setattr(fiawec_assets, "_scrape_grid", lambda year: ({}, {}, {}))
     monkeypatch.setattr(fiawec_schedule, "discover_race_slugs", lambda year: {"imola": "6-hours-of-imola-2026", "monza": "6-hours-of-monza-2026"})
-    monkeypatch.setattr(fiawec_assets, "_scrape_race_assets", lambda slug: (f"https://example.test/{slug}.png", f"https://example.test/{slug}-poster.png"))
+    monkeypatch.setattr(fiawec_assets, "_scrape_race_assets", lambda slug: (f"https://example.test/{slug}.png", f"https://example.test/{slug}-poster.png", 5.793 if "monza" in slug else 4.909))
     result = fiawec_assets.ingest_fiawec_assets(db, 2026)
     assert result["circuits"] == 2
     assert "imola" in circuit.layout_image
     assert "monza" in other.layout_image
     assert "monza" in events[1].poster_url
+    assert (circuit.length_km, other.length_km) == (4.909, 5.793)
+
+
+@pytest.mark.parametrize("value, expected", [("4.657", 4.657), ("5,793", 5.793), ("4.9", None), ("0", None), ("4657", None)])
+def test_track_length_reads_only_track_info(value, expected):
+    from app.ingest.fiawec_assets import parse_track_length
+    html = f'<div>Calendar Length 13.626 Km</div><section><div>Track info</div><div>Length <span>{value} Km</span></div></section>'
+    assert parse_track_length(html) == expected
+    assert parse_track_length('<div>Calendar Length 13.626 Km</div>') is None
 
 
 def test_championship_titles_count_only_latest_snapshot(db):
