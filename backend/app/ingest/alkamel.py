@@ -1,7 +1,8 @@
 """Scrape per-session driver attribution from Al Kamel timing CSVs.
 
-fiawec.alkamelsystems.com hosts the official lap-by-lap data behind the
-WEC results portal. The Wikipedia qualifying tables only carry the lap
+The WEC results portal publishes official lap-by-lap data through
+files.alkamelcloud.com. Older seasons also use the legacy portal's
+HTML listings. The Wikipedia qualifying tables only carry the lap
 *time*; Al Kamel's Analysis CSVs include DRIVER_NAME for every recorded
 lap, which lets us identify who actually drove Q1 vs the Hyperpole
 shootout for each car.
@@ -23,8 +24,10 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import re
 from datetime import datetime, timezone
+from html import escape
 from typing import Iterable
 from urllib.parse import quote, unquote, urlencode, urlsplit
 from uuid import uuid4
@@ -57,9 +60,64 @@ def _timestamp_to_utc(stamp: str, circuit_tz: str | None) -> datetime | None:
 
 USER_AGENT = "wec-dashboard/0.1 (open-source dashboard for FIA WEC fans)"
 BASE = "https://fiawec.alkamelsystems.com"
+CLOUD = "https://files.alkamelcloud.com"
+CLOUD_INDEX = f"{CLOUD}/wec/manifests/results.json"
+
+
+def _cloud_url(value: str, *, manifest: bool = False) -> str:
+    url = urlsplit(value)
+    path = unquote(url.path).lstrip("/")
+    prefix = "wec/manifests/" if manifest else "wec/results/"
+    if (url.scheme not in ("", "https") or url.netloc not in ("", "files.alkamelcloud.com")
+            or url.query or url.fragment or not path.startswith(prefix)
+            or any(part in (".", "..") for part in path.split("/"))):
+        raise ValueError("Unexpected Al Kamel cloud document URL")
+    return f"{CLOUD}/{quote(path, safe='/')}"
+
+
+def _cloud_seasons() -> list[dict]:
+    data = json.loads(_fetch(CLOUD_INDEX))
+    if data.get("type") != "seasons_index" or not isinstance(data.get("seasons"), list):
+        raise ValueError("Invalid Al Kamel season index")
+    return data["seasons"]
+
+
+def _cloud_paths(season: str) -> list[str]:
+    entry = next((row for row in _cloud_seasons() if row.get("id") == season), None)
+    if entry is None:
+        raise ValueError(f"Al Kamel season missing: {season}")
+    data = json.loads(_fetch(_cloud_url(entry["manifestUrl"], manifest=True)))
+    if not isinstance(data.get("folders"), list):
+        raise ValueError("Invalid Al Kamel result manifest")
+    paths = []
+    def walk(nodes):
+        for node in nodes:
+            if node.get("url"):
+                url = _cloud_url(node["url"])
+                path = unquote(urlsplit(url).path).removeprefix("/wec/results/")
+                if path.startswith(season + "/"):
+                    paths.append("Results/" + quote(path, safe="/"))
+            walk(node.get("children") or [])
+    walk(data["folders"])
+    if not paths:
+        raise ValueError("Empty Al Kamel result manifest")
+    return paths
+
+
+def _is_cloud_portal(html: str) -> bool:
+    return bool(re.search(r"<app-root\b|data-beasties-container", html, re.I))
+
+
+def _document_url(html: str, href: str) -> str:
+    if '<!-- alkamel-cloud -->' in html:
+        return _cloud_url("wec/results/" + href.removeprefix("Results/"))
+    return f"{BASE}/{href}"
 
 
 def _fetch(url: str) -> str:
+    # The replacement portal does not redirect previously published CSV URLs.
+    if url.startswith(BASE + "/Results/"):
+        url = _cloud_url("wec/results/" + url.removeprefix(BASE + "/Results/"))
     cache = documents.get()
     if cache is not None and url in cache:
         return cache[url]
@@ -100,6 +158,9 @@ def _event_html(season: str, event: str) -> str:
                 else 'href=""',
                 html,
             )
+        if _is_cloud_portal(html):
+            paths = [p for p in _cloud_paths(season) if unquote(p).startswith(expected)]
+            return '<!-- alkamel-cloud -->' + "".join(f'<a href="{escape(p, quote=True)}">file</a>' for p in paths)
         if not links:
             return html  # no published documents yet
     raise ValueError(f"Al Kamel returned files for another event: {season}/{event}; observed={sorted(observed)}")
@@ -121,7 +182,11 @@ def _season_param_for_year(year: int) -> str | None:
     soup = BeautifulSoup(html, "lxml")
     sel = soup.find("select", {"name": "season"})
     if sel is None:
-        return None
+        if not _is_cloud_portal(html):
+            raise ValueError("Al Kamel season selector missing")
+        entries = _cloud_seasons()
+        exact = next((row["id"] for row in entries if row.get("name") == str(year)), None)
+        return exact or next((row["id"] for row in entries if str(year) in row.get("name", "")), None)
     needle = str(year)
     best: str | None = None
     for opt in sel.find_all("option"):
@@ -144,7 +209,11 @@ def _event_options_for_season(season_param: str) -> list[tuple[int, str]]:
     soup = BeautifulSoup(html, "lxml")
     sel = soup.find("select", {"name": "evvent"})
     if sel is None:
-        return []
+        if not _is_cloud_portal(html):
+            raise ValueError("Al Kamel event selector missing")
+        names = {unquote(p).split("/")[2] for p in _cloud_paths(season_param)}
+        return sorted((int(m.group(1)), name) for name in names
+                      if (m := re.match(r"^(\d{1,2})_", name)))
     out: list[tuple[int, str]] = []
     for opt in sel.find_all("option"):
         value = opt.get("value") or opt.get("Value") or ""
@@ -217,12 +286,12 @@ def _list_session_csvs(
         timestamp = m.group(2)
         folders.setdefault(folder, (kind, cls_name, timestamp))
         if re.match(r"^(03|90)_Classification_", fname, re.IGNORECASE):
-            candidate = f"{BASE}/{href}"
+            candidate = _document_url(html, href)
             previous = classifications.get(folder)
             if previous is None or classification_priority(candidate) > classification_priority(previous):
                 classifications[folder] = candidate
         elif re.match(r"^23_Analysis_", fname, re.IGNORECASE):
-            analyses.setdefault(folder, f"{BASE}/{href}")
+            analyses.setdefault(folder, _document_url(html, href))
     out: list[tuple[str, str, str, str, str]] = []
     for folder, (kind, cls_name, timestamp) in folders.items():
         cl = classifications.get(folder)
@@ -257,7 +326,7 @@ def find_weather_url(
             race_match = _RACE_HOUR_RE.search(href + "/")
             if race_match is not None:
                 race_candidates.append(
-                    (int(race_match.group(4)), f"{BASE}/{href}")
+                    (int(race_match.group(4)), _document_url(html, href))
                 )
             continue
         m = _SESSION_FOLDER_RE.search(href + "/")
@@ -265,7 +334,7 @@ def find_weather_url(
             continue
         folder_kind = _name_to_kind(m.group(3).replace("%20", " "))
         if folder_kind == kind:
-            return f"{BASE}/{href}"
+            return _document_url(html, href)
     if race_candidates:
         return max(race_candidates, key=lambda item: item[0])[1]
     return None
@@ -348,16 +417,20 @@ def _list_race_csvs(
     # Only accept a stored URL owned by this exact official season/event.
     if known_classification_url:
         source = urlsplit(known_classification_url)
+        source_path = unquote(source.path)
+        if source.netloc == "files.alkamelcloud.com":
+            source_path = source_path.replace("/wec/results/", "/Results/", 1)
         match = re.fullmatch(
             re.escape(f"/Results/{season_param}/{evvent_param}/")
             + r"\d+_FIA WEC/(\d{12})_Race/\d{2}_Hour (\d+)/"
               r"(?:03|90)_Classification_Race[^/]*\.CSV",
-            unquote(source.path), re.IGNORECASE,
+            source_path, re.IGNORECASE,
         )
-        if (source.scheme == "https" and source.netloc == urlsplit(BASE).netloc
+        if (source.scheme == "https" and source.netloc in (urlsplit(BASE).netloc, "files.alkamelcloud.com")
                 and not source.query and not source.fragment and match):
             hour = int(match.group(2))
-            classifications[hour] = known_classification_url
+            classifications[hour] = (_cloud_url("wec/results/" + source_path.removeprefix("/Results/"))
+                                     if '<!-- alkamel-cloud -->' in html else known_classification_url)
             by_hour[hour] = (match.group(1), "", "")
     for href in re.findall(r'href="(Results/[^"]+\.CSV)"', html):
         decoded = href.replace("%20", " ")
@@ -372,14 +445,14 @@ def _list_race_csvs(
         timestamp = m.group(2)
         by_hour.setdefault(hour, (timestamp, "", ""))
         if re.match(r"^(03|90)_Classification_Race", fname, re.IGNORECASE):
-            candidate = f"{BASE}/{href}"
+            candidate = _document_url(html, href)
             previous = classifications.get(hour)
             # Prefer an explicitly amended/final document over a provisional
             # sibling regardless of the order of links in the listing.
             if previous is None or classification_priority(candidate) > classification_priority(previous):
                 classifications[hour] = candidate
         elif re.match(r"^23_Analysis_Race", fname, re.IGNORECASE):
-            analyses[hour] = f"{BASE}/{href}"
+            analyses[hour] = _document_url(html, href)
     if not classifications:
         return None
     # A new hour's weather/analysis can appear before its classification.
@@ -411,7 +484,7 @@ def race_result_status(url: str, event_name: str) -> str:
     if re.search(r"[_ /](?:Final|Amended|Revised)(?:\.|_|[ -]\d)", unquote(url), re.IGNORECASE):
         return "final"
     from app.ingest.scheduled import _race_duration
-    match = _RACE_HOUR_RE.search(url)
+    match = _RACE_HOUR_RE.search(url.replace("/wec/results/", "/Results/"))
     if match and int(match.group(4)) >= _race_duration(event_name).total_seconds() / 3600:
         return "completed"
     return "live"
@@ -427,6 +500,8 @@ def _parse_csv(text: str) -> list[dict[str, str]]:
     around field names is inconsistent (some headers have a leading
     space), so we strip header keys."""
     text = text.lstrip("﻿")
+    if re.match(r"\s*<(?:!doctype|html|head)\b", text, re.I):
+        raise ValueError("Al Kamel returned HTML instead of timing CSV")
     reader = csv.reader(io.StringIO(text), delimiter=";")
     rows = list(reader)
     if not rows:
