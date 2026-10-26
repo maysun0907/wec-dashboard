@@ -29,14 +29,15 @@ export async function FujiWeekendGuide({ sessions, locale, completed }: {
           <p>{t("fuji.intro")} {raceTime ? t("fuji.raceStart", { time: raceTime }) : t("live.timeNotYet")}</p>
           <dl className="divide-y divide-border">
             {Object.entries(labels).map(([type, label]) => {
-              const time = fujiSessionTime(sessions.find((s) => s.type === type)?.startTime ?? null, locale);
+              const session = sessions.find((s) => s.type === type);
+              const time = fujiSessionTime(session?.startTime ?? null, locale);
               return <div key={type} className="flex flex-wrap justify-between gap-x-4 gap-y-1 py-2">
                 <dt className="font-medium">{label}</dt>
-                <dd className="tabular-nums text-muted-foreground">{time ? `${time} ${locale === "ko" ? "KST" : "JST"}` : t("live.timeNotYet")}</dd>
+                <dd className="tabular-nums text-muted-foreground">{session?.resultStatus === "cancelled" ? t("raceDetail.sessionCancelled") : time ? `${time} ${locale === "ko" ? "KST" : "JST"}` : t("live.timeNotYet")}</dd>
               </div>;
             })}
           </dl>
-          <p className="text-muted-foreground">{t("fuji.note")}</p>
+          <p className="text-muted-foreground">{t(sessions.some((s) => s.type === "Q" && s.resultStatus === "cancelled") ? "raceDetail.qualifyingCancelledDescription" : "fuji.note")}</p>
           <a href={official} className="underline underline-offset-4">{t("fuji.official")}</a>
         </CardContent>
       </Card>

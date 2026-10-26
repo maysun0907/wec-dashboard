@@ -261,6 +261,10 @@
     "manufacturerProgressionSubtitle": "Soma estimada dos pontos dos carros de cada marca, não o sistema do campeonato de fabricantes."
   },
   "raceDetail": {
+    "practice4": "Treino livre 4",
+    "warmup": "Aquecimento",
+    "sessionCancelled": "Sessão cancelada",
+    "qualifyingCancelledDescription": "A classificação foi cancelada devido ao mau tempo. O grid oficial foi definido pelos tempos dos treinos livres; não foram registrados tempos de classificação.",
     "laps": "voltas",
     "colPts": "Pts estimados",
     "colRaceClass": "Classe",

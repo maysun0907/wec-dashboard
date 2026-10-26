@@ -316,7 +316,7 @@ def refresh_active_sessions(
     try:
         for event_id, session_types in by_event.items():
             event = events[event_id]
-            practice_types = session_types.intersection({"FP1", "FP2", "FP3"})
+            practice_types = session_types.intersection({"FP1", "FP2", "FP3", "FP4", "WARMUP"})
             if practice_types:
                 summary["practice_rows"] += ingest_practice_results(
                     db,

@@ -117,7 +117,8 @@ def enrich_driver_profiles(db, year: int, *, force: bool = False) -> dict[str, i
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     scope = f"profiles:{year}"
     drivers = (db.query(models.Driver).join(models.CarDriver).join(models.Season)
-               .filter(models.Season.year == year).distinct().all())
+               .join(models.Car, models.CarDriver.car_id == models.Car.id)
+               .filter(models.Season.year == year, models.Car.is_guest.is_(False)).distinct().all())
     roster = sorted(driver.id for driver in drivers)
     previous = db.get(models.IngestCheckpoint, scope)
     if (not force and previous and previous.manifest.get("roster") == roster

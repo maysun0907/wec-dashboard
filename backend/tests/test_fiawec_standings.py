@@ -161,6 +161,20 @@ def test_parses_all_modern_championship_tables_and_zero_points() -> None:
     assert len([row for row in rows if row["points"] == 0]) == 4
 
 
+def test_event_only_guests_do_not_change_required_championship_coverage():
+    db, season, event = _db()
+    cls = db.query(models.RaceClass).filter_by(name="LMGT3").one()
+    team = db.query(models.Team).first()
+    car = models.Car(season_id=season.id, team_id=team.id, race_class_id=cls.id,
+                     number="59", is_guest=True)
+    driver = models.Driver(name="Guest Driver")
+    db.add_all([car, driver]); db.flush()
+    db.add(models.CarDriver(car_id=car.id, driver_id=driver.id, season_id=season.id, rounds="3"))
+    db.commit()
+    counts = ingest_fiawec_standings(db, season.id, 2026, event.id, html=FIA_STANDINGS_HTML)
+    assert counts == {"drivers": 4, "manufacturers": 1, "teams": 2}
+
+
 def test_official_penalty_can_reduce_points_below_zero():
     from app.ingest.fiawec_standings import _parse_points
     assert _parse_points("−5") == -5

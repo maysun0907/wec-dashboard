@@ -234,8 +234,8 @@ def _event_options_for_season(season_param: str) -> list[tuple[int, str]]:
 # optional class qualifier.
 _SESSION_FOLDER_RE = re.compile(
     r"Results/[^/]+/[^/]+/(\d+_FIA%20WEC)/(\d{12})_"
-    r"(Qualifying|Hyperpole(?:%20[12])?|Free%20Practice%20[123]|Final%20Practice)"
-    r"(?:%20([A-Za-z0-9-]+))?/",
+    r"(Qualifying|Hyperpole(?:%20[12])?|Free%20Practice%20[1234]|Final%20Practice|Warm%20Up)"
+    r"(?:%20(?:-%20)?([A-Za-z0-9-]+))?/",
     re.IGNORECASE,
 )
 
@@ -252,6 +252,10 @@ def _name_to_kind(raw: str) -> str | None:
         return "FP2"
     if n.startswith("free practice 3") or n.startswith("final practice"):
         return "FP3"
+    if n.startswith("free practice 4"):
+        return "FP4"
+    if n.startswith("warm up"):
+        return "WARMUP"
     return None
 
 
@@ -1026,6 +1030,9 @@ def enrich_qualifying_drivers(
             )
             db.add(q_session)
             db.flush()
+        # An official timing publication supersedes a previously cancelled state.
+        if q_session.result_status == "cancelled":
+            q_session.result_status = None
 
         results = (
             db.query(models.SessionResult)
@@ -1220,7 +1227,7 @@ def ingest_practice_results(
             for s in db.query(models.Session)
             .filter(
                 models.Session.event_id == ev.id,
-                models.Session.type.in_(["FP1", "FP2", "FP3"]),
+                models.Session.type.in_(["FP1", "FP2", "FP3", "FP4", "WARMUP"]),
             )
             .all()
         }
@@ -1246,11 +1253,16 @@ def ingest_practice_results(
         )
 
         csvs = _list_session_csvs(season_param, evvent_param)
-        for kind, _cls, classification_url, analysis_url, timestamp in csvs:
-            if kind not in ("FP1", "FP2", "FP3") or (
+        grouped = {}
+        for entry in csvs:
+            grouped.setdefault(entry[0], []).append(entry)
+        for kind, entries in grouped.items():
+            if kind not in ("FP1", "FP2", "FP3", "FP4", "WARMUP") or (
                 session_types is not None and kind not in session_types
             ):
                 continue
+            rows, analysis, timestamp = _practice_snapshot(entries)
+            classification_url = ", ".join(entry[2] for entry in entries)
             session = sessions_by_kind.get(kind)
             if session is None:
                 # Older Wikipedia pages didn't have practice tables, so
@@ -1264,25 +1276,11 @@ def ingest_practice_results(
                 db.add(session)
                 db.flush()
                 sessions_by_kind[kind] = session
-            try:
-                rows = _parse_classification_full(_fetch(classification_url))
-            except httpx.HTTPError:
-                if db.info.get("require_official_timing"):
-                    raise
-                continue
             if not rows:
                 if db.info.get("require_official_timing"):
                     raise ValueError(f"Empty practice classification: {classification_url}")
                 continue
             session.start_time = _timestamp_to_utc(timestamp, circuit_tz)
-            analysis: dict[str, list[tuple[str, str]]] = {}
-            if analysis_url:
-                try:
-                    analysis = _parse_analysis_drivers(_fetch(analysis_url))
-                except httpx.HTTPError:
-                    if db.info.get("require_official_timing"):
-                        raise
-                    analysis = {}
             classification = {r["number"]: r["time"] for r in rows if r["time"]}
             best_lap_drivers = _drivers_for_session(classification, analysis)
 
@@ -1335,6 +1333,29 @@ def ingest_practice_results(
                     db.delete(row)
             db.commit()
     return inserted_total
+
+
+def _practice_snapshot(entries):
+    """Merge split-class publications before validating or replacing a session."""
+    rows = []
+    analysis = {}
+    numbers = set()
+    for _kind, _cls, classification_url, analysis_url, _timestamp in entries:
+        part = _parse_classification_full(_fetch(classification_url))
+        if not part:
+            raise ValueError(f"Empty practice classification: {classification_url}")
+        for row in part:
+            if row["number"] in numbers:
+                raise ValueError(f"Duplicate practice car #{row['number']}: {classification_url}")
+            numbers.add(row["number"])
+        rows.extend(part)
+        if analysis_url:
+            analysis.update(_parse_analysis_drivers(_fetch(analysis_url)))
+    if len(entries) > 1:
+        rows.sort(key=lambda row: (_lap_to_ms(row["time"]) or 10**12, row["number"]))
+        for i, row in enumerate(rows, 1):
+            row["position"] = str(i)
+    return rows, analysis, min(entry[4] for entry in entries)
 
 
 def enrich_seasons(db: Session, years: Iterable[int]) -> dict[int, int]:

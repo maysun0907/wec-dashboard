@@ -261,6 +261,10 @@
     "manufacturerProgressionSubtitle": "Somme estimée des points des voitures de chaque marque, pas le barème du championnat constructeurs."
   },
   "raceDetail": {
+    "practice4": "Essais libres 4",
+    "warmup": "Warm-up",
+    "sessionCancelled": "Séance annulée",
+    "qualifyingCancelledDescription": "Les qualifications ont été annulées en raison du mauvais temps. La grille officielle a été établie selon les temps des essais libres ; aucun temps de qualification n’a été enregistré.",
     "laps": "tours",
     "colPts": "Pts estimés",
     "colRaceClass": "Catégorie",

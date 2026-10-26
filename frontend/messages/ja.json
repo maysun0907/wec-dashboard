@@ -261,6 +261,10 @@
     "manufacturerProgressionSubtitle": "各ブランド全車両の推定ポイント合計。マニュファクチャラー選手権の採点方式ではありません。"
   },
   "raceDetail": {
+    "practice4": "フリープラクティス4",
+    "warmup": "ウォームアップ",
+    "sessionCancelled": "セッション中止",
+    "qualifyingCancelledDescription": "悪天候により予選は中止されました。公式スターティンググリッドは練習走行のタイムで決定され、予選タイムはありません。",
     "laps": "周",
     "colPts": "推定点",
     "colRaceClass": "クラス",

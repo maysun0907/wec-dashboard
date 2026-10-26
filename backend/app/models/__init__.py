@@ -172,6 +172,8 @@ class Car(Base):
     race_class_id: Mapped[int] = mapped_column(ForeignKey("race_classes.id"))
     # String — cars like Aston Martin Valkyrie use "007"/"009" as their actual number.
     number: Mapped[str] = mapped_column(String(10))
+    # Event-only entries (not eligible for the season championship grid).
+    is_guest: Mapped[bool] = mapped_column(default=False, server_default="false")
     # FIA-published per-car render (transparent-bg PNG, actual livery
     # for *this* entry's number). When a model has multiple entries
     # in different liveries (Ferrari #50/#51/#83) FIA ships one PNG
