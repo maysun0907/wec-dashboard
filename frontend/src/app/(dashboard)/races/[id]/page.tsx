@@ -58,10 +58,12 @@ import { hasFujiGuide } from "@/lib/fuji-guide";
 
 type Params = { id: string };
 
-const SESSION_LABEL_KEYS: Record<string, "practice1" | "practice2" | "practice3" | "qualifying" | "race"> = {
+const SESSION_LABEL_KEYS: Record<string, "practice1" | "practice2" | "practice3" | "practice4" | "warmup" | "qualifying" | "race"> = {
   FP1: "practice1",
   FP2: "practice2",
   FP3: "practice3",
+  FP4: "practice4",
+  WARMUP: "warmup",
   Q: "qualifying",
   RACE: "race",
 };
@@ -70,6 +72,8 @@ const SESSION_LABELS_SHORT: Record<string, string> = {
   FP1: "FP1",
   FP2: "FP2",
   FP3: "FP3",
+  FP4: "FP4",
+  WARMUP: "WU",
   Q: "Q",
   RACE: "RACE",
 };
@@ -310,9 +314,9 @@ export default async function RaceDetailPage({
           ) : (
             <Card>
               <CardHeader>
-                <CardTitle>{t("resultsNotYet")}</CardTitle>
+                <CardTitle>{t(selectedSession.resultStatus === "cancelled" ? "sessionCancelled" : "resultsNotYet")}</CardTitle>
                 <CardDescription>
-                  {status === "upcoming"
+                  {selectedSession.resultStatus === "cancelled" ? t("qualifyingCancelledDescription") : status === "upcoming"
                     ? t("resultsUpcoming")
                     : t("resultsNoData")}
                 </CardDescription>
@@ -391,7 +395,7 @@ function SelectedSessionResults({
   const isPractice =
     session.type === "FP1" ||
     session.type === "FP2" ||
-    session.type === "FP3";
+    session.type === "FP3" || session.type === "FP4" || session.type === "WARMUP";
 
   return (
     <>
@@ -410,7 +414,7 @@ function SelectedSessionResults({
         <>
           <div className="space-y-1 text-sm text-muted-foreground">
             <p>{t(session.resultStatus === "live" ? "resultStateLive" : session.resultStatus === "completed" ? "resultStateCompleted" : session.resultStatus === "final" ? "resultStateFinal" : "resultStateUnknown")}</p>
-            {session.resultSourceUrl?.startsWith("https://fiawec.alkamelsystems.com/") && (
+            {(session.resultSourceUrl?.startsWith("https://fiawec.alkamelsystems.com/") || session.resultSourceUrl?.startsWith("https://files.alkamelcloud.com/")) && (
               <a href={session.resultSourceUrl} target="_blank" rel="noopener noreferrer" className="underline">{t("resultSource")}</a>
             )}
             {session.resultsUpdatedAt && Number.isFinite(Date.parse(session.resultsUpdatedAt)) && (
@@ -627,7 +631,7 @@ function ResultsCard({
   rows: SessionResult[];
 }) {
   const t = useTranslations("raceDetail");
-  const isPractice = type === "FP1" || type === "FP2" || type === "FP3";
+  const isPractice = ["FP1", "FP2", "FP3", "FP4", "WARMUP"].includes(type);
   const isRace = type === "RACE";
 
   return (

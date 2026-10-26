@@ -261,6 +261,10 @@
     "manufacturerProgressionSubtitle": "Somma stimata dei punti delle vetture di ogni marchio, non il regolamento costruttori."
   },
   "raceDetail": {
+    "practice4": "Prove libere 4",
+    "warmup": "Warm-up",
+    "sessionCancelled": "Sessione annullata",
+    "qualifyingCancelledDescription": "Le qualifiche sono state annullate per il maltempo. La griglia ufficiale è stata stabilita con i tempi delle prove libere; non sono stati registrati tempi di qualifica.",
     "laps": "giri",
     "colPts": "Pt stimati",
     "colRaceClass": "Classe",

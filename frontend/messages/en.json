@@ -265,6 +265,10 @@
     "lmp1TeamsNote": "Privateer Trophy only — factory teams competed for the Manufacturers' Cup."
   },
   "raceDetail": {
+    "practice4": "Free Practice 4",
+    "warmup": "Warm-up",
+    "sessionCancelled": "Session cancelled",
+    "qualifyingCancelledDescription": "Qualifying was cancelled due to adverse weather. The official starting grid was set using practice times; no qualifying lap times were recorded.",
     "resultStateLive": "Live snapshot — not a final classification",
     "resultStateCompleted": "Completed-race snapshot — subject to decisions",
     "resultStateFinal": "Published final classification — later amendments remain possible",

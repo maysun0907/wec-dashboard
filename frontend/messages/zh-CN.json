@@ -261,6 +261,10 @@
     "manufacturerProgressionSubtitle": "各品牌全部赛车的估算积分之和，并非制造商锦标赛计分规则。"
   },
   "raceDetail": {
+    "practice4": "自由练习4",
+    "warmup": "热身赛",
+    "sessionCancelled": "赛段取消",
+    "qualifyingCancelledDescription": "排位赛因恶劣天气取消。正式发车顺序根据练习赛成绩确定，没有排位赛圈速。",
     "laps": "圈",
     "colPts": "估算积分",
     "colRaceClass": "组别",

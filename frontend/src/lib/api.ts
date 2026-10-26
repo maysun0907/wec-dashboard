@@ -71,7 +71,7 @@ export type Session = {
   id: number;
   type: string; // "FP1" | "FP2" | "FP3" | "Q" | "RACE"
   startTime: string | null;
-  resultStatus?: "live" | "completed" | "final" | null;
+  resultStatus?: "live" | "completed" | "final" | "cancelled" | null;
   resultSourceUrl?: string | null;
   resultsUpdatedAt?: string | null;
 };

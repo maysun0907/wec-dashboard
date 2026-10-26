@@ -232,6 +232,7 @@ def parse_driver_links(table: Tag) -> dict[str, str]:
     out: dict[str, str] = {}
     for a in table.find_all("a", href=True):
         href = a["href"]
+        href = href.removeprefix("https://en.wikipedia.org")
         if "redlink=1" in href or "action=edit" in href:
             continue
         if not href.startswith("/wiki/"):
@@ -378,6 +379,10 @@ def _session_type_for(event_text: str) -> str | None:
         return "FP2"
     if e.startswith("free practice 3") or e == "practice 3":
         return "FP3"
+    if e.startswith("free practice 4") or e == "practice 4":
+        return "FP4"
+    if e.startswith("warm up") or e.startswith("warm-up"):
+        return "WARMUP"
     if e.startswith("final practice"):
         return "FP3"
     if e.startswith("qualifying") or e.startswith("hyperpole"):
@@ -1339,6 +1344,7 @@ def _ingest_entries(
             db.add(car)
             existing[key] = car
         car.team_id = team.id
+        car.is_guest = False
         car.model = entry["car"]
         car.car_model_id = car_model.id
         db.flush()
@@ -1361,6 +1367,7 @@ def _ingest_entries(
             )
             car_drivers_count += 1
     db.execute(delete(models.Car).where(models.Car.season_id == season_id,
+                                        models.Car.is_guest.is_(False),
                                         models.Car.id.not_in(retained)))
     db.flush()
     return len(grouped), car_drivers_count
@@ -1606,6 +1613,15 @@ def _ingest_race_classifications(
             race_class_ids,
             type_to_start.get("Q"),
         )
+        qualifying_heading = race_soup.find(id="Qualifying")
+        if qualifying_heading is not None:
+            section = qualifying_heading.find_parent("section")
+            text = section.get_text(" ", strip=True) if section else ""
+            if re.search(r"Qualifying was cancel(?:led|ed) due to", text):
+                cancelled = _upsert_session(db, event.id, "Q", type_to_start.get("Q"))
+                cancelled.result_status = "cancelled"
+                cancelled.result_source_url = url
+                cancelled.results_updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
         # 4) Race classification.
         rows = parse_race_classification(race_soup)
@@ -2021,6 +2037,8 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             entry_groups,
             driver_titles,
         )
+        from app.ingest.event_entries import enrich_event_entries
+        guest_entries_n = enrich_event_entries(db, season.id, year)
         winners_n = _ingest_results_summary(
             soup, db, season.id, race_class_ids
         )
@@ -2081,6 +2099,8 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
 
             if year == current_utc_year():
                 enrich_driver_profiles(db, year)
+                from app.ingest.guest_profiles import enrich_guest_profiles
+                enrich_guest_profiles(db, year)
         except (httpx.HTTPError, ValueError) as exc:
             log.warning("driver_profiles_unavailable", error=str(exc))
 
@@ -2111,6 +2131,7 @@ def ingest(year: int = DEFAULT_YEAR, url: str = DEFAULT_URL) -> dict:
             "events": events_n,
             "cars": cars_n,
             "car_drivers": car_drivers_n,
+            "guest_entries": guest_entries_n,
             "winners": winners_n,
             "classified_rounds": len(classified),
             "classified_total": sum(classified.values()),

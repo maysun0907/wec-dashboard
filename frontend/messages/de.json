@@ -261,6 +261,10 @@
     "manufacturerProgressionSubtitle": "Geschätzte Punktesumme aller Autos einer Marke, nicht die Herstellerwertung."
   },
   "raceDetail": {
+    "practice4": "Freies Training 4",
+    "warmup": "Warm-up",
+    "sessionCancelled": "Sitzung abgesagt",
+    "qualifyingCancelledDescription": "Das Qualifying wurde wegen schlechten Wetters abgesagt. Die offizielle Startaufstellung wurde anhand der Trainingszeiten festgelegt; Qualifying-Rundenzeiten liegen nicht vor.",
     "laps": "Runden",
     "colPts": "Gesch. Pkt.",
     "colRaceClass": "Klasse",

@@ -28,7 +28,7 @@ def _resolve_alkamel_for_session(
         raise HTTPException(status_code=404, detail="Season not found")
     return alkamel.resolve_event_params(season.year, event.round)
 
-_SESSION_ORDER = {"FP1": 1, "FP2": 2, "FP3": 3, "Q": 4, "RACE": 5}
+_SESSION_ORDER = {"FP1": 1, "FP2": 2, "FP3": 3, "Q": 4, "FP4": 5, "WARMUP": 6, "RACE": 7}
 
 
 @router.get("/events", response_model=list[schemas.EventOut])

@@ -286,7 +286,7 @@ def ingest_fiawec_standings(
             models.RaceClass,
             models.Car.race_class_id == models.RaceClass.id,
         )
-        .filter(models.Car.season_id == season_id)
+        .filter(models.Car.season_id == season_id, models.Car.is_guest.is_(False))
         .all()
     ):
         cars_by_key[(race_class.name, car.number)] = car
@@ -332,7 +332,7 @@ def ingest_fiawec_standings(
             models.RaceClass,
             models.RaceClass.id == models.Car.race_class_id,
         )
-        .filter(models.CarDriver.season_id == season_id)
+        .filter(models.CarDriver.season_id == season_id, models.Car.is_guest.is_(False))
         .all()
     ):
         drivers_by_car.setdefault((race_class.name, car.number), []).append(
@@ -431,6 +431,7 @@ def ingest_fiawec_standings(
             .filter(
                 models.Car.season_id == season_id,
                 models.Car.race_class_id == lmgt3_id,
+                models.Car.is_guest.is_(False),
             )
             .all()
         )
@@ -455,6 +456,7 @@ def ingest_fiawec_standings(
             .filter(
                 models.Car.season_id == season_id,
                 models.Car.race_class_id == hypercar_id,
+                models.Car.is_guest.is_(False),
                 models.Team.manufacturer_id.is_not(None),
             )
             .distinct()

@@ -265,6 +265,10 @@
     "lmp1TeamsNote": "프라이비터 트로피 한정 — 팩토리 팀은 매뉴팩처 컵에서 경쟁."
   },
   "raceDetail": {
+    "practice4": "프리 프랙티스 4",
+    "warmup": "워밍업",
+    "sessionCancelled": "세션 취소",
+    "qualifyingCancelledDescription": "악천후로 예선이 취소되었습니다. 공식 출발 순서는 연습 주행 기록으로 결정되었으며, 예선 랩타임은 없습니다.",
     "resultStateLive": "진행 중 결과 — 최종 순위가 아닙니다",
     "resultStateCompleted": "경기 종료 시점 결과 — 판정에 따라 변경될 수 있습니다",
     "resultStateFinal": "공식 최종 발표 결과 — 이후 정정될 수 있습니다",

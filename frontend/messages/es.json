@@ -261,6 +261,10 @@
     "manufacturerProgressionSubtitle": "Suma estimada de puntos de los coches de cada marca, no el sistema del campeonato de fabricantes."
   },
   "raceDetail": {
+    "practice4": "Libres 4",
+    "warmup": "Calentamiento",
+    "sessionCancelled": "Sesión cancelada",
+    "qualifyingCancelledDescription": "La clasificación se canceló por el mal tiempo. La parrilla oficial se determinó con los tiempos de los entrenamientos libres; no se registraron tiempos de clasificación.",
     "laps": "vueltas",
     "colPts": "Pts estimados",
     "colRaceClass": "Categoría",
