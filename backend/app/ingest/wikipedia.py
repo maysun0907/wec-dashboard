@@ -134,11 +134,18 @@ MANUFACTURER_LOGO_OVERRIDE: dict[str, str] = {
 
 
 def fetch_html(url: str) -> str:
-    return fetch_text(
+    from app.ingest.snapshot import documents
+    cache = documents.get()
+    if cache is not None and url in cache:
+        return cache[url]
+    body = fetch_text(
         url,
         headers={"User-Agent": USER_AGENT},
         timeout=30.0,
     )
+    if cache is not None:
+        cache[url] = body
+    return body
 
 
 def fetch_manufacturer_logo(name: str) -> str | None:
