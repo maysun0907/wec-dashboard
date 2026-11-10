@@ -123,3 +123,55 @@ def test_official_grid_restores_distinct_q_hp_and_penalty_order(monkeypatch):
             ("51", "1:52.105", "1:52.445", "1:52.445"),
             ("50", "1:52.020", None, "1:52.020"),
         ]
+
+
+@pytest.mark.parametrize("combined_grid", [False, True])
+@pytest.mark.parametrize("all_untimed", [False, True])
+def test_qualifying_keeps_cars_without_valid_times(monkeypatch, combined_grid, all_untimed):
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        season = models.Season(year=2026, championship_name="WEC")
+        circuit = models.Circuit(name="Monza", country="Italy", length_km=5.793)
+        rc = models.RaceClass(name="LMGT3")
+        team = models.Team(name="Garage 59")
+        db.add_all([season, circuit, rc, team])
+        db.flush()
+        event = models.Event(season_id=season.id, circuit_id=circuit.id, round=8,
+                             name="6 Hours of Monza", date_start=datetime(2026, 11, 8).date(),
+                             date_end=datetime(2026, 11, 8).date())
+        db.add(event)
+        db.flush()
+        cars = [models.Car(season_id=season.id, team_id=team.id, race_class_id=rc.id,
+                           number=n) for n in ("34", "10", "21")]
+        db.add_all(cars)
+        db.commit()
+        monkeypatch.setattr(a, "_season_param_for_year", lambda _: "15_2026")
+        monkeypatch.setattr(a, "_event_options_for_season", lambda _: [(8, "08_MONZA")])
+        entries = [("Q", "LMGT3", "q", "", "202611071420")]
+        lap = "" if all_untimed else "1:48.440"
+        docs = {"q": f"POS;NUMBER;TIME;LAPS\n1;34;{lap};7\n2;10;;6\n3;21;;0"}
+        if combined_grid:
+            entries.append(("Q", "", "grid", "", "202611071600"))
+            docs["grid"] = ("POSITION;NUMBER;TIME;QP_HC;HP_HC;QP_LMGT3;HP_LMGT3\n"
+                            f"1;34;{lap};;;{lap};\n2;21;;;;;\n3;10;;;;;")
+        monkeypatch.setattr(a, "_list_session_csvs", lambda *_: entries)
+        monkeypatch.setattr(a, "_fetch", docs.__getitem__)
+        # Repeat the refresh to exercise both missing and existing rows.
+        for attempt in range(2):
+            a.enrich_qualifying_drivers(db, season.id, 2026)
+            db.expire_all()
+            rows = db.query(models.SessionResult).order_by(models.SessionResult.position).all()
+            assert len(rows) == 3
+            assert {r.car.number for r in rows} == {"34", "10", "21"}
+            for row in rows:
+                expected = (lap or None) if row.car.number == "34" else None
+                assert row.qualifying_lap == row.best_lap == expected
+                assert row.hyperpole_lap is None
+            if combined_grid:
+                assert [r.car.number for r in rows] == ["34", "21", "10"]
+            if attempt == 0:
+                # A later publication may delete all previously valid laps.
+                for row in rows:
+                    row.best_lap = row.qualifying_lap = "1:40.000"
+                db.commit()
