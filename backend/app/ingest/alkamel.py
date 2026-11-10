@@ -1048,7 +1048,9 @@ def enrich_qualifying_drivers(
         # A partial fetch must not erase the last known classification.
         for entry in sorted(csvs, key=lambda x: x[4]):
             document = _fetch(entry[2])
-            if not _parse_classification(document):
+            records = _parse_csv(document)
+            if (not records or "TIME" not in records[0]
+                    or not any(record.get("NUMBER") for record in records)):
                 raise ValueError(f"Empty qualifying classification: {entry[2]}")
             loaded.append((entry, document))
         # Published timing folders capture the actual session start, including
@@ -1061,12 +1063,36 @@ def enrich_qualifying_drivers(
                 db.delete(row)
                 updated += 1
                 continue
+            if any(value is not None for value in (
+                row.qualifying_lap, row.hyperpole_lap, row.best_lap,
+                row.qualifying_driver, row.hyperpole_driver,
+                row.s1_time, row.s2_time, row.s3_time,
+            )):
+                updated += 1
             row.qualifying_lap = row.hyperpole_lap = row.best_lap = None
             row.qualifying_driver = row.hyperpole_driver = None
             row.s1_time = row.s2_time = row.s3_time = None
 
         for (kind, _cls, classification_url, analysis_url, _ts), cl_csv in loaded:
             records = _parse_csv(cl_csv)
+            # Classification membership does not require a valid lap. Cars
+            # with deleted laps or no running still belong on the official
+            # grid; keep their times null rather than dropping their rows.
+            for record in records:
+                car_no = record.get("NUMBER")
+                if kind == "HP" and car_no:
+                    hp_stage[car_no] = _ts
+                if not car_no or car_no in by_car_number:
+                    continue
+                car = car_by_number.get(car_no)
+                if car is None:
+                    continue
+                row = models.SessionResult(
+                    session_id=q_session.id, car_id=car.id, car=car, position=0,
+                )
+                db.add(row)
+                by_car_number[car_no] = row
+                updated += 1
             if records and "QP_HC" in records[0]:
                 # Combined classification is the official grid, not another
                 # Q1 session. TIME is the grid-deciding lap, not the Q1 lap.
@@ -1110,22 +1136,9 @@ def enrich_qualifying_drivers(
             drv_field = "hyperpole_driver" if kind == "HP" else "qualifying_driver"
 
             for car_no, lap_time in classification.items():
-                if kind == "HP":
-                    hp_stage[car_no] = _ts
                 row = by_car_number.get(car_no)
                 if row is None:
-                    car = car_by_number.get(car_no)
-                    if car is None:
-                        continue
-                    row = models.SessionResult(
-                        session_id=q_session.id,
-                        car_id=car.id,
-                        car=car,
-                        position=0,  # finalized after the loops below
-                    )
-                    db.add(row)
-                    by_car_number[car_no] = row
-                    updated += 1
+                    continue
                 changed = False
                 normalized = _normalize_lap_time(lap_time)
                 if normalized and getattr(row, lap_field) != normalized:
