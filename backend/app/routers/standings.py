@@ -46,13 +46,14 @@ def driver_standings(
         .join(models.Driver, models.StandingDriver.driver_id == models.Driver.id)
         .outerjoin(
             models.CarDriver,
-            (models.CarDriver.driver_id == models.Driver.id)
+            (models.StandingDriver.car_id.is_(None))
+            & (models.CarDriver.driver_id == models.Driver.id)
             & (models.CarDriver.season_id == season_id)
             & models.CarDriver.car.has(
                 models.Car.race_class_id == models.StandingDriver.race_class_id
             ),
         )
-        .outerjoin(models.Car, models.CarDriver.car_id == models.Car.id)
+        .outerjoin(models.Car, func.coalesce(models.StandingDriver.car_id, models.CarDriver.car_id) == models.Car.id)
         .outerjoin(models.Team, models.Car.team_id == models.Team.id)
         .outerjoin(models.CarModel, models.Car.car_model_id == models.CarModel.id)
         .outerjoin(

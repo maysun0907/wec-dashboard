@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from datetime import datetime, timezone
 from typing import Literal, TypedDict
 
 from bs4 import BeautifulSoup, Tag
@@ -258,6 +259,34 @@ def _resolve_driver(
     )
 
 
+def _published_driver(db: Session, name: str, html: str, year: int) -> models.Driver:
+    """Verify an out-of-roster identity without inventing race attendance."""
+    from app.ingest.fiawec_profiles import parse_profile
+    from app.ingest.alkamel import _format_driver_name
+    normalized = _normalize_name(name)
+    # Do not use aliases or surname matching across unrelated rosters.
+    links = {
+        link["href"] for link in BeautifulSoup(html, "lxml").select("a[href]")
+        if _normalize_name(link.get_text(" ", strip=True)) == normalized
+        and re.fullmatch(rf"/en/driver/{year}/\d+", link["href"])
+    }
+    if len(links) != 1:
+        raise ValueError(f"cannot verify published driver {name!r}")
+    url = BASE_URL + next(iter(links))
+    # Profile identity must agree, not merely its link label on the table.
+    profile = fetch_text(url, headers={"User-Agent": USER_AGENT, "Accept-Language": "en"}, timeout=30)
+    parse_profile(profile, name, datetime.now(timezone.utc).date())
+    matches = [d for d in db.query(models.Driver) if _normalize_name(d.name) == normalized]
+    if len(matches) > 1:
+        raise ValueError(f"ambiguous published driver {name!r}")
+    if matches:
+        return matches[0]
+    driver = models.Driver(name=_format_driver_name(name))
+    db.add(driver)
+    db.flush()
+    return driver
+
+
 def ingest_fiawec_standings(
     db: Session,
     season_id: int,
@@ -267,7 +296,8 @@ def ingest_fiawec_standings(
     html: str | None = None,
 ) -> dict[str, int]:
     """Replace one season's standings with the current official tables."""
-    published = parse_published_standings(html or fetch_season_page(year))
+    html = html or fetch_season_page(year)
+    published = parse_published_standings(html)
 
     race_class_ids = {
         name: race_class_id
@@ -352,6 +382,9 @@ def ingest_fiawec_standings(
     }
 
     driver_values: list[tuple[int, int, int, float]] = []
+    published_cars: dict[tuple[int, int], int] = {}
+    outside_roster: dict[tuple[str, str], set[int]] = {}
+    resolved_by_car: dict[tuple[str, str], set[int]] = {}
     team_values: list[tuple[int, int, int, float, str]] = []
     manufacturer_values: list[tuple[int, int, int, float]] = []
 
@@ -363,10 +396,34 @@ def ingest_fiawec_standings(
             if car_number is None:
                 raise ValueError(f"missing car number for driver {row['name']!r}")
             candidates = drivers_by_car.get((race_class, car_number), [])
-            driver = _resolve_driver(
-                row["name"], candidates, race_class, car_number,
-                list(drivers_by_class.get(race_class, {}).values()),
-            )
+            try:
+                driver = _resolve_driver(
+                    row["name"], candidates, race_class, car_number,
+                    list(drivers_by_class.get(race_class, {}).values()),
+                )
+            except ValueError as exc:
+                key = (race_class, car_number)
+                crew_ids = {d.id for d in candidates}
+                published_crew = [r for r in published if r["kind"] == "drivers"
+                                  and (r["race_class"], r["car_number"]) == key]
+                # A verified replacement may occupy an existing crew slot.
+                # Missing links, extra drivers, unknown cars and cross-class
+                # substitutions still reject the entire snapshot.
+                other_class = any(_normalize_name(d.name) == _normalize_name(row["name"])
+                                  for cls, ds in drivers_by_class.items() if cls != race_class
+                                  for d in ds.values())
+                if (not str(exc).startswith("cannot resolve") or key not in cars_by_key
+                        or not crew_ids or len(published_crew) != len(crew_ids)
+                        or other_class):
+                    raise
+                driver = _published_driver(db, row["name"], html, year)
+                outside_roster.setdefault(key, set()).add(driver.id)
+                driver_names[driver.id] = driver.name
+            key = (race_class, car_number)
+            resolved_by_car.setdefault(key, set()).add(driver.id)
+            car = cars_by_key.get(key)
+            if car is not None:
+                published_cars[(driver.id, race_class_id)] = car.id
             driver_values.append(
                 (driver.id, race_class_id, row["position"], row["points"])
             )
@@ -409,6 +466,20 @@ def ingest_fiawec_standings(
     }
     if len(unique_driver_rows) != len(driver_values):
         raise ValueError("one driver resolved to multiple FIA WEC standings rows")
+    for key, replacements in outside_roster.items():
+        class_id = race_class_ids[key[0]]
+        crew_ids = {d.id for d in drivers_by_car[key]}
+        missing = {did for did in crew_ids if (did, class_id) not in unique_driver_rows}
+        if len(missing) != len(replacements) or len(resolved_by_car[key]) != len(crew_ids):
+            raise ValueError(f"unbalanced published driver replacement: {key}")
+        expected_driver_rows.difference_update((did, class_id) for did in missing)
+        expected_driver_rows.update((did, class_id) for did in replacements)
+        import structlog
+        structlog.get_logger(__name__).warning(
+            "standings_roster_disagreement", race_class=key[0], car_number=key[1],
+            roster_names=sorted(driver_names[did] for did in missing),
+            published_names=sorted(driver_names[did] for did in replacements),
+        )
     if unique_driver_rows != expected_driver_rows:
         missing = sorted(
             driver_names[driver_id]
@@ -506,6 +577,7 @@ def ingest_fiawec_standings(
             models.StandingDriver(
                 season_id=season_id,
                 driver_id=driver_id,
+                car_id=published_cars.get((driver_id, race_class_id)),
                 race_class_id=race_class_id,
                 after_event_id=after_event_id,
                 position=position,

@@ -339,3 +339,51 @@ def test_ingest_rejects_duplicate_team_car_and_missing_grid_car() -> None:
             )
     finally:
         db.close()
+
+
+@pytest.mark.parametrize("existing_driver", [False, True])
+def test_verified_published_replacement_does_not_rewrite_attendance(monkeypatch, existing_driver):
+    from app.ingest import fiawec_standings as f
+    from app.routers.standings import driver_standings
+    db, season, event = _db()
+    try:
+        if existing_driver:
+            db.add(models.Driver(name="Christian Ried"))
+            db.commit()
+        html = FIA_STANDINGS_HTML.replace("THOMAS FLOHR", "CHRISTIAN RIED")
+        calls = []
+        monkeypatch.setattr(f, "fetch_text", lambda url, **kw: calls.append(url) or "<h1>Christian Ried</h1>")
+        for _ in range(2):
+            counts = ingest_fiawec_standings(db, season.id, 2026, event.id, html=html)
+            db.commit()
+            assert counts["drivers"] == 4
+        driver = db.query(models.Driver).filter_by(name="Christian Ried").one()
+        standing = db.query(models.StandingDriver).filter_by(driver_id=driver.id).one()
+        assert standing.car_id == db.query(models.Car).filter_by(number="54").one().id
+        assert db.query(models.CarDriver).filter_by(driver_id=driver.id).count() == 0
+        flohr = db.query(models.Driver).filter_by(name="Thomas Flohr").one()
+        assert db.query(models.CarDriver).filter_by(driver_id=flohr.id).count() == 1
+        assert db.query(models.StandingDriver).filter_by(driver_id=flohr.id).count() == 0
+        result = next(r for r in driver_standings(race_class=None, year=2026, db=db)
+                      if r.driver_id == driver.id)
+        assert result.team == "Vista AF Corse"
+        assert calls == ["https://www.fiawec.com/en/driver/2026/3"] * 2
+    finally:
+        db.close()
+
+
+def test_published_replacement_requires_matching_official_profile(monkeypatch):
+    from app.ingest import fiawec_standings as f
+    db, season, event = _db()
+    try:
+        ingest_fiawec_standings(db, season.id, 2026, event.id, html=FIA_STANDINGS_HTML)
+        db.commit()
+        monkeypatch.setattr(f, "fetch_text", lambda *a, **kw: "<h1>Unrelated Driver</h1>")
+        with pytest.raises(ValueError, match="identity"):
+            ingest_fiawec_standings(db, season.id, 2026, event.id,
+                                   html=FIA_STANDINGS_HTML.replace("THOMAS FLOHR", "CHRISTIAN RIED"))
+        db.rollback()
+        assert db.query(models.StandingDriver).count() == 4
+        assert db.query(models.Driver).filter_by(name="Christian Ried").count() == 0
+    finally:
+        db.close()
