@@ -288,6 +288,8 @@ class StandingDriver(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     season_id: Mapped[int] = mapped_column(ForeignKey("seasons.id"), index=True)
     driver_id: Mapped[int] = mapped_column(ForeignKey("drivers.id"))
+    # Published championship attribution is not proof of race attendance.
+    car_id: Mapped[int | None] = mapped_column(ForeignKey("cars.id"), default=None)
     race_class_id: Mapped[int] = mapped_column(
         ForeignKey("race_classes.id"), index=True
     )
