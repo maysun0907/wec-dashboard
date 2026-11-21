@@ -4,9 +4,8 @@ import {
   isLocale,
 } from "@/i18n/config";
 
-export const PUBLIC_ROUTE_LOCALE_HEADER = "x-wec-locale";
-export const PUBLIC_ROUTE_SEASON_HEADER = "x-wec-season";
-export const PUBLIC_ROUTE_PATH_HEADER = "x-wec-public-path";
+export const SEASON_COOKIE = "wec_season";
+export const RACE_SESSION_TYPES = ["FP1", "FP2", "FP3", "FP4", "WARMUP", "Q", "RACE"] as const;
 
 export const MIN_SEASON_YEAR = 2012;
 
@@ -71,6 +70,7 @@ function normalizePathname(pathname: string): string {
 }
 
 export function isSeasonYear(value: string | number | undefined): boolean {
+  if (typeof value === "string" && !/^\d{4}$/.test(value)) return false;
   const year = typeof value === "number" ? value : Number(value);
   return (
     Number.isInteger(year) &&
@@ -81,6 +81,12 @@ export function isSeasonYear(value: string | number | undefined): boolean {
 
 export function getDefaultSeasonYear(now = new Date()): number {
   return Math.max(MIN_SEASON_YEAR, now.getUTCFullYear());
+}
+
+export function parsePublicId(value: string): number | null {
+  if (!/^[1-9]\d{0,9}$/.test(value)) return null;
+  const id = Number(value);
+  return id <= 2_147_483_647 ? id : null;
 }
 
 export function matchInternalPublicRoute(pathname: string): InternalRoute | null {
@@ -95,6 +101,10 @@ export function matchInternalPublicRoute(pathname: string): InternalRoute | null
   }
 
   const segments = normalized.split("/").filter(Boolean);
+  if (segments.length === 3 && segments[0] === "races" && /^[1-9]\d*$/.test(segments[1]!) &&
+      RACE_SESSION_TYPES.some((type) => type === segments[2])) {
+    return { scope: "locale", internalPath: normalized };
+  }
   if (
     segments.length === 2 &&
     (SEASON_SCOPED_DETAIL_BASES as readonly string[]).includes(segments[0]!) &&

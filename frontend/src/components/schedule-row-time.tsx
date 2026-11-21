@@ -1,12 +1,12 @@
 "use client";
 
 import { useLocale } from "next-intl";
+import { useLiveClock } from "@/components/live-clock";
 import { useViewerTimeZone } from "@/components/use-viewer-time-zone";
 
 type Props = {
   iso: string;
   circuitTz: string;
-  now: number;
   status: "past" | "live" | "upcoming";
 };
 
@@ -40,7 +40,8 @@ function relative(diffMin: number, status: Props["status"], locale: string): str
  *  local datetime (only shown when different from circuit), and the
  *  relative offset from now. Viewer tz is read from Intl in the
  *  browser to avoid hydration mismatch. */
-export function ScheduleRowTime({ iso, circuitTz, now, status }: Props) {
+export function ScheduleRowTime({ iso, circuitTz, status }: Props) {
+  const now = useLiveClock();
   const locale = useLocale();
   const viewerTz = useViewerTimeZone();
   const date = new Date(iso);

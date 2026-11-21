@@ -2,8 +2,7 @@
 
 import { cookies } from "next/headers";
 
-import { isSeasonYear } from "@/lib/public-routing";
-import { SEASON_COOKIE } from "@/lib/season";
+import { isSeasonYear, SEASON_COOKIE } from "@/lib/public-routing";
 
 /** Pin a season for this browser. Pass `null` to clear the pin and let
  *  the API auto-roll to the latest ingested season. */

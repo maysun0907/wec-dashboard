@@ -2,11 +2,14 @@ import { test, expect } from "@playwright/test";
 import { LOCALES } from "../src/i18n/config";
 import { catalogTranslator } from "../src/i18n/catalog";
 
+const thirdPartyImages = /^https:\/\/(?:www\.fiawec\.com|upload\.wikimedia\.org|thumb\.wikimedia\.org)\//;
+
 // Isolated local API only. One worker; no parallel crawl against production.
 test("all new languages render page families with self-canonical SEO", async ({ page, request }) => {
   test.setTimeout(360000);
   const failures: string[] = [];
   page.on("pageerror", (error) => failures.push(`${page.url()}: ${error.message}`));
+  await page.route(thirdPartyImages, (route) => route.abort());
   const api = "http://127.0.0.1:8000/api/v1";
   const drivers = await (await request.get(`${api}/drivers?year=2026`)).json();
   const teams = await (await request.get(`${api}/teams?year=2026`)).json();
@@ -16,7 +19,7 @@ test("all new languages render page families with self-canonical SEO", async ({ 
   for (const locale of LOCALES.filter((l) => l !== "en" && l !== "ko")) {
     for (const path of paths) {
       const url = `/${locale}${path}`;
-      expect((await page.goto(url))?.status(), url).toBe(200);
+      expect((await page.goto(url, { waitUntil: "domcontentloaded" }))?.status(), url).toBe(200);
       await expect(page.locator("h1").first(), url).toBeVisible();
       await expect(page.locator("html")).toHaveAttribute("lang", locale);
       await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", `https://www.wecdash.com${url}`);
@@ -25,6 +28,7 @@ test("all new languages render page families with self-canonical SEO", async ({ 
       await expect(page.locator('meta[name="keywords"]')).toHaveCount(0);
       await expect(page.locator('select')).toHaveValue(locale);
       await expect(page.locator("body")).not.toContainText(/MISSING_MESSAGE|INVALID_MESSAGE|Application error/);
+      if (path.startsWith("/races/")) await page.waitForLoadState("networkidle");
     }
   }
   expect(failures).toEqual([]);
@@ -75,10 +79,13 @@ test("language menu preserves deep links and saves the preferred landing languag
 });
 
 test("multilingual mobile headers and Fuji schedules fit narrow screens", async ({ page }) => {
+  // Layout uses explicit dimensions. Third-party imagery needn't finish
+  // downloading for a local navigation and schedule regression test.
+  await page.route(thirdPartyImages, (route) => route.abort());
   for (const width of [320, 390]) {
     await page.setViewportSize({ width, height: 844 });
     for (const locale of LOCALES) {
-      await page.goto(`/${locale}/races/665`);
+      expect((await page.goto(`/${locale}/races/665`, { waitUntil: "domcontentloaded" }))?.status()).toBe(200);
       await expect(page.locator("h1")).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `${locale} ${width}`).toBe(true);
       await expect(page.locator("select")).toBeVisible();

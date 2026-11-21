@@ -1,7 +1,13 @@
 import { NextRequest } from "next/server";
 import { describe, expect, it } from "vitest";
+import { unstable_doesMiddlewareMatch } from "next/experimental/testing/server";
 
-import { proxy } from "./proxy";
+import { config, proxy } from "./proxy";
+import { LOCALES } from "@/i18n/config";
+import {
+  LOCALE_ONLY_DETAIL_BASES, LOCALE_ONLY_PATHS, RACE_SESSION_TYPES,
+  SEASON_SCOPED_PATHS, buildPublicPath,
+} from "@/lib/public-routing";
 
 function request(
   pathname: string,
@@ -18,40 +24,36 @@ describe("public URL proxy", () => {
       expect(response.headers.get("location")).toBe(`https://www.wecdash.com${to}`);
     }
   });
-  it("rewrites a canonical season URL and injects route context", () => {
-    const response = proxy(request("/ko/2025/races?class=HYPERCAR"));
-
-    expect(response.headers.get("x-middleware-rewrite")).toBe(
-      "https://www.wecdash.com/races?class=HYPERCAR",
-    );
-    expect(response.headers.get("x-middleware-request-x-wec-locale")).toBe(
-      "ko",
-    );
-    expect(response.headers.get("x-middleware-request-x-wec-season")).toBe(
-      "2025",
-    );
-    expect(response.headers.get("x-middleware-request-x-wec-public-path")).toBe(
-      "/ko/2025/races",
-    );
-    expect(response.headers.get("set-cookie")).toBeNull();
+  it("does not invoke Proxy for any canonical page, including RSC requests", () => {
+    const paths = [
+      ...SEASON_SCOPED_PATHS, ...LOCALE_ONLY_PATHS,
+      ...LOCALE_ONLY_DETAIL_BASES.map((base) => `/${base}/123`),
+      ...RACE_SESSION_TYPES.map((type) => `/races/123/${type}`),
+      "/cars/ferrari-499p",
+    ];
+    for (const locale of LOCALES) {
+      for (const internal of paths) {
+        const path = buildPublicPath(internal, locale, 2025)!;
+        expect(matches(path), path).toBe(false);
+        expect(matches(`${path}?_rsc=123`), path).toBe(false);
+      }
+    }
   });
 
-  it("forces locale-only detail pages to the latest data context", () => {
-    const response = proxy(
-      request("/en/drivers/709", {
-        headers: { cookie: "wec_season=2022" },
-      }),
+  it("matches old entry points and session queries only", () => {
+    for (const path of ["/", "/ja", "/cars/ferrari-499p", "/ko/2026/races/665", "/ko/standings", "/ko/races/665?session=q"]) {
+      expect(matches(path), path).toBe(true);
+    }
+    const response = proxy(request("/ko/races/665?session=%20q%20&class=HYPERCAR"));
+    expect(response.status).toBe(307);
+    expect(new URL(response.headers.get("location")!, "https://www.wecdash.com").href).toBe(
+      "https://www.wecdash.com/ko/races/665/Q?class=HYPERCAR",
     );
-
-    expect(response.headers.get("x-middleware-rewrite")).toBe(
-      "https://www.wecdash.com/drivers/709",
-    );
-    expect(response.headers.get("x-middleware-request-x-wec-season")).toBe(
-      "latest",
-    );
+    expect(proxy(request("/ko/races/665?session=q&session=FP1")).headers.get("location"))
+      .toMatch(/\/ko\/races\/665$/);
   });
 
-  it("allows the internal destination on the second rewrite pass", () => {
+  it("does not trust headers from the old rewrite", () => {
     const response = proxy(
       request("/standings", {
         headers: {
@@ -62,8 +64,7 @@ describe("public URL proxy", () => {
       }),
     );
 
-    expect(response.headers.get("x-middleware-next")).toBe("1");
-    expect(response.headers.get("location")).toBeNull();
+    expect(response.headers.get("location")).toMatch(/\/en\/\d{4}\/standings$/);
     expect(response.headers.get("x-middleware-rewrite")).toBeNull();
   });
 
@@ -94,6 +95,7 @@ describe("public URL proxy", () => {
   });
 
   it("canonicalizes localized shims and misplaced detail years", () => {
+    expect(proxy(request("/ja")).headers.get("location")).toMatch(/\/ja\/\d{4}$/);
     const seasonShim = proxy(request("/en/races"));
     expect(seasonShim.status).toBe(307);
     expect(seasonShim.headers.get("location")).toMatch(
@@ -119,3 +121,7 @@ describe("public URL proxy", () => {
     }
   });
 });
+
+function matches(url: string): boolean {
+  return unstable_doesMiddlewareMatch({ config, url });
+}

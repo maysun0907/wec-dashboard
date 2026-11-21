@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session, joinedload
 
 from app import models, schemas
 from app.db import get_db
+from app.event_revision import REVISION_CACHE_SECONDS, get_event_revision
 from app.ingest import alkamel
 from app.rounds import driver_in_round
 from app.scoring import points_for
@@ -76,6 +77,17 @@ def get_event(event_id: int, db: Session = Depends(get_db)) -> schemas.EventDeta
         circuit=schemas.CircuitOut.model_validate(event.circuit),
         sessions=[schemas.SessionOut.model_validate(s) for s in sessions],
     )
+
+
+@router.get("/events/{event_id}/revision")
+def event_revision(event_id: int, response: Response) -> dict[str, str]:
+    if not 0 < event_id <= 2_147_483_647:
+        raise HTTPException(status_code=404, detail="Event not found")
+    version = get_event_revision(event_id)
+    if version is None:
+        raise HTTPException(status_code=404, detail="Event not found")
+    response.headers["Cache-Control"] = f"public, max-age={REVISION_CACHE_SECONDS}"
+    return {"version": version}
 
 
 @router.get(

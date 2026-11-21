@@ -30,7 +30,7 @@ describe("locale negotiation", () => {
     expect(landing.headers.get("cache-control")).toBe("private, no-store");
     const localized = proxy(request("/fr/2026/races"));
     expect(localized.headers.get("location")).toBeNull();
-    expect(localized.headers.get("x-middleware-request-x-wec-locale")).toBe("fr");
+    expect(localized.headers.get("x-middleware-rewrite")).toBeNull();
   });
   it.each(LOCALES)("keeps %s route, query, fragment and reciprocal alternates", (locale) => {
     const path = buildPublicPath("/races", locale, 2025)!;

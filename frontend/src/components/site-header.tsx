@@ -5,14 +5,10 @@ import { SeasonSwitcher } from "./season-switcher";
 import { MobileMenu, SiteNav } from "./site-nav";
 import { SiteSearch } from "./site-search";
 import { getSeasons, type Season } from "@/lib/api";
-import { getSelectedSeason } from "@/lib/season";
 
-export async function SiteHeader() {
+export async function SiteHeader({ selected }: { selected: number | null }) {
   // Best-effort — the API may be cold or down. Header should still render.
-  const [seasons, selected] = await Promise.all([
-    getSeasons().catch(() => [] as Season[]),
-    getSelectedSeason(),
-  ]);
+  const seasons = await getSeasons().catch(() => [] as Season[]);
   const publicSeasonYear =
     selected ?? seasons[0]?.year ?? new Date().getUTCFullYear();
 

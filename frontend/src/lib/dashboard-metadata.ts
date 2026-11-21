@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { getLocale } from "next-intl/server";
 import { isLocale, type Locale } from "@/i18n/config";
-import { getSelectedSeason } from "@/lib/season";
 import { getSeasons } from "@/lib/api";
 import { pageMetadata } from "@/lib/page-metadata";
 import { matchInternalPublicRoute } from "@/lib/public-routing";
@@ -183,11 +182,9 @@ export function dashboardMetadataCopy(
 export async function dashboardPageMetadata(
   page: DashboardPage,
   path: `/${string}`,
+  selectedYear: number | null = null,
 ): Promise<Metadata> {
-  const [rawLocale, selectedYear] = await Promise.all([
-    getLocale(),
-    getSelectedSeason(),
-  ]);
+  const rawLocale = await getLocale();
   const locale = isLocale(rawLocale) ? rawLocale : "en";
   const year = selectedYear ?? new Date().getUTCFullYear();
   const copy = dashboardMetadataCopy(page, locale, year);

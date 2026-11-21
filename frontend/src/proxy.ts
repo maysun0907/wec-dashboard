@@ -8,18 +8,15 @@ import {
   type Locale,
 } from "@/i18n/config";
 import {
-  PUBLIC_ROUTE_LOCALE_HEADER,
-  PUBLIC_ROUTE_PATH_HEADER,
-  PUBLIC_ROUTE_SEASON_HEADER,
+  SEASON_COOKIE,
+  RACE_SESSION_TYPES,
   buildPublicPath,
   getDefaultSeasonYear,
   isSeasonYear,
   matchInternalPublicRoute,
-  parsePublicPath,
   resolveLocalizedPath,
   shouldBypassPublicRouting,
 } from "@/lib/public-routing";
-import { LATEST_SENTINEL, SEASON_COOKIE } from "@/lib/season";
 import { preferredLocale } from "@/i18n/negotiation";
 
 function landingLocale(request: NextRequest): Locale {
@@ -58,27 +55,6 @@ function redirectToPublicPath(
   return response;
 }
 
-function rewritePublicRoute(
-  request: NextRequest,
-  route: NonNullable<ReturnType<typeof parsePublicPath>>,
-) {
-  const destination = request.nextUrl.clone();
-  destination.pathname = route.internalPath;
-
-  const requestHeaders = new Headers(request.headers);
-  requestHeaders.set(PUBLIC_ROUTE_LOCALE_HEADER, route.locale);
-  requestHeaders.set(
-    PUBLIC_ROUTE_SEASON_HEADER,
-    route.scope === "season" ? String(route.year) : LATEST_SENTINEL,
-  );
-  requestHeaders.set(PUBLIC_ROUTE_PATH_HEADER, route.publicPath);
-
-  const response = NextResponse.rewrite(destination, {
-    request: { headers: requestHeaders },
-  });
-  return response;
-}
-
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   if (shouldBypassPublicRouting(pathname)) return NextResponse.next();
@@ -87,32 +63,19 @@ export function proxy(request: NextRequest) {
     return redirectToPublicPath(request, `/${legacyBop[1] ?? DEFAULT_LOCALE}/rules`, 308);
   }
 
-  // Next 16 can run Proxy again for the internal destination of a rewrite.
-  // Let that second pass reach the App Router instead of treating `/races`,
-  // `/standings`, etc. as a fresh legacy request and redirecting forever.
-  const rewrittenPublicPath = request.headers.get(PUBLIC_ROUTE_PATH_HEADER);
-  const rewrittenRoute = rewrittenPublicPath
-    ? parsePublicPath(rewrittenPublicPath)
-    : null;
-  const rewrittenSeason =
-    rewrittenRoute?.scope === "season"
-      ? String(rewrittenRoute.year)
-      : LATEST_SENTINEL;
-  if (
-    rewrittenRoute?.internalPath === pathname &&
-    request.headers.get(PUBLIC_ROUTE_LOCALE_HEADER) === rewrittenRoute.locale &&
-    request.headers.get(PUBLIC_ROUTE_SEASON_HEADER) === rewrittenSeason
-  ) {
-    return NextResponse.next();
+  // Preserve old shared links while avoiding unbounded query-based renders.
+  const session = request.nextUrl.searchParams.getAll("session");
+  const type = session.length === 1 ? session[0]?.trim().toUpperCase() : null;
+  if (/^\/[^/]+\/races\/[1-9]\d*$/.test(pathname) && session.length > 0) {
+    const destination = request.nextUrl.clone();
+    destination.searchParams.delete("session");
+    if (RACE_SESSION_TYPES.some((allowed) => allowed === type)) {
+      destination.pathname = `${pathname}/${type}`;
+    }
+    return NextResponse.redirect(destination, 307);
   }
 
-  const canonicalPublicRoute = parsePublicPath(pathname);
-  if (canonicalPublicRoute) {
-    return rewritePublicRoute(request, canonicalPublicRoute);
-  }
-
-  // A known route with a locale but the wrong URL shape gets one permanent
-  // canonical redirect (for example `/ko/races` or `/ko/2026/races/660`).
+  // Preserve old localized entry points without rendering duplicate pages.
   const localizedShim = resolveLocalizedPath(pathname);
   if (localizedShim) {
     const canonicalPath = buildPublicPath(
@@ -120,7 +83,7 @@ export function proxy(request: NextRequest) {
       localizedShim.locale,
       localizedShim.year ?? getDefaultSeasonYear(),
     );
-    if (canonicalPath) {
+    if (canonicalPath && canonicalPath !== localizedShim.publicPath) {
       return redirectToPublicPath(
         request,
         canonicalPath,
@@ -131,8 +94,7 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  // Legacy unprefixed indexable routes are kept as permanent entry points but
-  // never rendered, preventing duplicate language/season pages in search.
+  // Legacy unprefixed entry points redirect before reaching page rendering.
   const legacyRoute = matchInternalPublicRoute(pathname);
   if (legacyRoute) {
     if (pathname === "/") {
@@ -161,7 +123,24 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
+  // Next requires literal matchers. The tests check every canonical family
+  // against this list so cacheable page and RSC traffic never runs Proxy.
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|.*\\..*).*)",
+    "/",
+    "/:section(bop|races|standings|drivers|teams|cars|circuits|manufacturers|genesis-wec|live|rules|stats|seasons)",
+    "/:section(races|drivers|teams|circuits|manufacturers)/:id(\\d+)",
+    "/cars/:slug",
+    "/:section(standings|drivers|manufacturers|seasons)/:tool(simulator|compare)",
+    "/:locale(en|ko|ja|zh-CN|fr|de|it|es|pt-BR)",
+    "/:locale(en|ko|ja|zh-CN|fr|de|it|es|pt-BR)/:section(bop|races|standings|drivers|teams|cars|circuits|genesis-wec)",
+    "/:locale(en|ko|ja|zh-CN|fr|de|it|es|pt-BR)/cars/:slug",
+    "/:locale(en|ko|ja|zh-CN|fr|de|it|es|pt-BR)/:section(standings|drivers|manufacturers)/:tool(simulator|compare)",
+    "/:locale(en|ko|ja|zh-CN|fr|de|it|es|pt-BR)/:year(\\d{4})/:section(live|rules|stats)",
+    "/:locale(en|ko|ja|zh-CN|fr|de|it|es|pt-BR)/:year(\\d{4})/:section(races|drivers|teams|circuits|manufacturers)/:id(\\d+)",
+    "/:locale(en|ko|ja|zh-CN|fr|de|it|es|pt-BR)/:year(\\d{4})/seasons/compare",
+    {
+      source: "/:locale(en|ko|ja|zh-CN|fr|de|it|es|pt-BR)/races/:id([1-9]\\d*)",
+      has: [{ type: "query", key: "session" }],
+    },
   ],
 };

@@ -1,0 +1,752 @@
+import type { Metadata } from "next";
+import Image from "next/image";
+import { notFound } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
+import { localizeEvent } from "@/lib/locale-names";
+import { openGraphLocales, isLocale } from "@/i18n/config";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Flag } from "@/components/flag";
+import { ClassBadge } from "@/components/class-badge";
+import { RaceClassFilter } from "@/components/race-class-filter";
+import { QualifyingResultsTable } from "@/components/qualifying-results-table";
+import { PitStopsCard } from "@/components/pit-stops-card";
+import { PublicLink } from "@/components/public-link";
+import { RaceLapChartLazy } from "@/components/race-lap-chart-lazy";
+import { SessionWeatherBadge } from "@/components/session-weather-badge";
+import { Dash, DriverList, TeamLink } from "@/components/entity-link";
+import {
+  eventStatus,
+  getRaceEventSnapshot,
+  getEvents,
+  getSessionResults,
+  isApiNotFound,
+  RACE_CLASSES,
+  sanitizeSessionSchedule,
+  type EventStatus,
+  type SessionResult,
+} from "@/lib/api";
+import {
+  JsonLd,
+  breadcrumbSchema,
+  buildSiteUrl,
+  eventSchema,
+} from "@/lib/json-ld";
+import { eventDataRevalidateSeconds } from "@/lib/cache-policy";
+import { pageMetadataUrls } from "@/lib/page-metadata";
+import { ogImagePath } from "@/lib/og-image-path";
+import { parsePublicId } from "@/lib/public-routing";
+import { RaceSessionTabs } from "./race-session-tabs";
+import { RaceAutoRefresh } from "@/components/race-auto-refresh";
+import { loadSelectedRaceSession } from "./race-session";
+import { raceMetadataCopy } from "./race-metadata";
+import { FujiWeekendGuide } from "@/components/fuji-weekend-guide";
+import { hasFujiGuide } from "@/lib/fuji-guide";
+
+type Params = { id: string };
+
+const SESSION_LABEL_KEYS: Record<string, "practice1" | "practice2" | "practice3" | "practice4" | "warmup" | "qualifying" | "race"> = {
+  FP1: "practice1",
+  FP2: "practice2",
+  FP3: "practice3",
+  FP4: "practice4",
+  WARMUP: "warmup",
+  Q: "qualifying",
+  RACE: "race",
+};
+
+const SESSION_LABELS_SHORT: Record<string, string> = {
+  FP1: "FP1",
+  FP2: "FP2",
+  FP3: "FP3",
+  FP4: "FP4",
+  WARMUP: "WU",
+  Q: "Q",
+  RACE: "RACE",
+};
+
+export async function raceMetadata({
+  params,
+}: {
+  params: Promise<Params>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const rawLocale = await getLocale();
+  const locale = isLocale(rawLocale) ? rawLocale : "en";
+  const metadataYear = new Date().getUTCFullYear();
+  const path = `/races/${id}` as const;
+  const urls = pageMetadataUrls({ path, locale, year: metadataYear });
+  const numId = parsePublicId(id);
+  if (numId === null) {
+    return {
+      title: "Race",
+      alternates: { canonical: urls.canonical, languages: urls.languages },
+      openGraph: { url: urls.canonical, type: "article" },
+    };
+  }
+  try {
+    const event = localizeEvent((await getRaceEventSnapshot(numId)).event, locale);
+    const copy = raceMetadataCopy(event, locale, eventStatus(event));
+    return {
+      title: copy.title,
+      description: copy.description,
+      alternates: {
+        canonical: urls.canonical,
+        languages: urls.languages,
+      },
+      openGraph: {
+        title: `${copy.title} · WEC Dashboard`,
+        description: copy.description,
+        url: urls.canonical,
+        type: "article",
+        images: [ogImagePath(path)],
+        ...openGraphLocales(locale),
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: copy.title,
+        description: copy.description,
+        images: [ogImagePath(path)],
+      },
+    };
+  } catch (error) {
+    if (!isApiNotFound(error)) throw error;
+    return {
+      title: "Race",
+      alternates: { canonical: urls.canonical, languages: urls.languages },
+      openGraph: { url: urls.canonical, type: "article" },
+    };
+  }
+}
+
+export async function RaceDetail({ id, sessionType }: { id: string; sessionType?: string }) {
+  const numId = parsePublicId(id);
+  if (numId === null) notFound();
+
+  let snapshot;
+  try {
+    snapshot = await getRaceEventSnapshot(numId);
+  } catch (error) {
+    if (isApiNotFound(error)) notFound();
+    throw error;
+  }
+  const rawLocale = await getLocale();
+  const localeForName = isLocale(rawLocale) ? rawLocale : "en";
+  const { revision } = snapshot;
+  const event = localizeEvent(snapshot.event, localeForName);
+
+  const now = new Date();
+  const status = eventStatus(event, now);
+  const sessions = sanitizeSessionSchedule(event, event.sessions);
+  if (sessionType && !sessions.some((session) => session.type === sessionType)) notFound();
+
+  // "Other rounds this season" — pull the season's full schedule and
+  // surface up to 4 chronologically nearby rounds. Best-effort; render
+  // nothing on failure so the rest of the page stays up.
+  const seasonYear = event.dateStart
+    ? new Date(event.dateStart).getUTCFullYear()
+    : null;
+  let nearbyRounds: { id: number; round: number; name: string; circuit: { country: string; name: string } }[] =
+    [];
+  try {
+    const seasonEvents = (await getEvents(seasonYear)).map((e) =>
+      localizeEvent(e, localeForName),
+    );
+    const sorted = seasonEvents
+      .filter((e) => e.id !== event.id)
+      .sort((a, b) => Math.abs(a.round - event.round) - Math.abs(b.round - event.round));
+    nearbyRounds = sorted.slice(0, 4).sort((a, b) => a.round - b.round);
+  } catch {
+    nearbyRounds = [];
+  }
+
+  // Resolve one session before loading results. Session tabs update the URL,
+  // so a navigation fetches only that session instead of fanning out across
+  // the entire race weekend during SSR or crawler renders.
+  const sessionRevalidate = eventDataRevalidateSeconds(event, now);
+  const selected = await loadSelectedRaceSession(
+    sessions,
+    sessionType,
+    (sessionId) =>
+      getSessionResults(sessionId, { revalidate: sessionRevalidate, revision }),
+    now,
+  );
+  const nextStart = sessionType ? undefined : sessions
+    .filter((session) => session.resultStatus !== "cancelled" && session.startTime)
+    .map((session) => Date.parse(session.startTime!))
+    .filter((start) => start > now.getTime())
+    .sort((a, b) => a - b)[0];
+  const selectedSession = selected?.session ?? null;
+  const selectedResults: SessionResult[] = selected?.results ?? [];
+  const t = await getTranslations("raceDetail");
+  const tStatus = await getTranslations("eventStatus");
+  const schemaContext = {
+    locale: localeForName,
+    year: seasonYear ?? new Date().getUTCFullYear(),
+  } as const;
+
+  const schemas = [
+    eventSchema(event, schemaContext),
+    breadcrumbSchema([
+      {
+        name: (await getTranslations("nav"))("home"),
+        url: buildSiteUrl("/", schemaContext),
+      },
+      {
+        name: (await getTranslations("nav"))("races"),
+        url: buildSiteUrl("/races", schemaContext),
+      },
+      {
+        name: event.name,
+        url: buildSiteUrl(`/races/${event.id}`, schemaContext),
+      },
+    ]),
+  ];
+
+  return (
+    <div className="space-y-6">
+      <JsonLd schema={schemas} />
+      <RaceAutoRefresh
+        dateStart={event.dateStart} dateEnd={event.dateEnd} eventId={event.id}
+        revision={revision} refreshAt={nextStart}
+      />
+      <PublicLink
+        href="/races"
+        seasonYear={seasonYear ?? new Date().getUTCFullYear()}
+        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
+      >
+        {t("back")}
+      </PublicLink>
+
+      <Card className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:gap-6">
+        {event.posterUrl && (
+          // FIA-published round logo (transparent-bg PNG). Mostly
+          // navy / blue ink, so we set a light backdrop to give the
+          // dark-themed page enough contrast — at 200 px the WEC
+          // brand + event title actually read.
+          <span className="relative flex h-44 w-44 shrink-0 items-center justify-center self-center rounded-lg bg-white p-3 sm:h-48 sm:w-48">
+            <Image
+              src={event.posterUrl}
+              alt={`${event.name} round poster`}
+              fill
+              sizes="192px"
+              className="object-contain p-3"
+              preload
+            />
+          </span>
+        )}
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-3 text-xs font-semibold tracking-widest text-muted-foreground uppercase">
+            <span>
+              {t("roundN", { round: event.round })} · {new Date(event.dateStart).getUTCFullYear()}
+            </span>
+            <StatusBadge status={status} label={tStatus(status)} />
+          </div>
+          <CardTitle as="h1" className="flex items-center gap-2 text-2xl sm:text-3xl">
+            <Flag code={event.circuit.country} flagOnly className="text-2xl" />
+            {event.name}
+          </CardTitle>
+          <CardDescription>
+            <PublicLink
+              href={`/circuits/${event.circuit.id}`}
+              className="hover:text-foreground"
+            >
+              {event.circuit.name}
+            </PublicLink>
+            {event.format && <> · {event.format}</>}
+          </CardDescription>
+          <p className="text-sm text-muted-foreground">
+            {new Intl.DateTimeFormat(localeForName, { dateStyle: "full", timeZone: "UTC" }).format(new Date(event.dateStart))}
+            {event.dateEnd !== event.dateStart &&
+              ` – ${new Intl.DateTimeFormat(localeForName, { dateStyle: "long", timeZone: "UTC" }).format(new Date(event.dateEnd))}`}
+          </p>
+        </div>
+      </Card>
+
+      {hasFujiGuide(event) && status === "upcoming" && (
+        <FujiWeekendGuide sessions={sessions} locale={localeForName} completed={false} />
+      )}
+
+      {selectedSession ? (
+        <RaceSessionTabs
+          sessions={sessions.map((session) => ({
+            id: session.id,
+            type: session.type,
+            shortLabel: SESSION_LABELS_SHORT[session.type] ?? session.type,
+            label: SESSION_LABEL_KEYS[session.type]
+              ? t(SESSION_LABEL_KEYS[session.type]!)
+              : session.type,
+          }))}
+          selectedType={selectedSession.type}
+          ariaLabel={t("results")}
+        >
+          {selectedResults.length > 0 ? (
+            <SelectedSessionResults
+              session={selectedSession}
+              rows={selectedResults}
+              revalidate={sessionRevalidate}
+              revision={revision}
+            />
+          ) : (
+            <Card>
+              <CardHeader>
+                <CardTitle>{t(selectedSession.resultStatus === "cancelled" ? "sessionCancelled" : "resultsNotYet")}</CardTitle>
+                <CardDescription>
+                  {selectedSession.resultStatus === "cancelled" ? t("qualifyingCancelledDescription") : status === "upcoming"
+                    ? t("resultsUpcoming")
+                    : t("resultsNoData")}
+                </CardDescription>
+              </CardHeader>
+            </Card>
+          )}
+        </RaceSessionTabs>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("resultsNotYet")}</CardTitle>
+            <CardDescription>
+              {status === "upcoming"
+                ? t("resultsUpcoming")
+                : t("resultsNoData")}
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
+
+      {hasFujiGuide(event) && status !== "upcoming" && (
+        <FujiWeekendGuide sessions={sessions} locale={localeForName} completed={status === "completed"} />
+      )}
+
+      {nearbyRounds.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("relatedTitle")}</CardTitle>
+            <CardDescription>{t("relatedSubtitle")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {nearbyRounds.map((r) => (
+                <li key={r.id}>
+                  <PublicLink
+                    href={`/races/${r.id}`}
+                    className="flex items-center gap-3 rounded-md border border-border/60 bg-secondary/20 px-3 py-2 text-sm transition-colors hover:bg-secondary/40"
+                  >
+                    <span className="w-10 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+                      R{r.round}
+                    </span>
+                    <Flag code={r.circuit.country} flagOnly />
+                    <span className="min-w-0 flex-1 truncate font-medium">
+                      {r.name}
+                    </span>
+                  </PublicLink>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+function StatusBadge({ status, label }: { status: EventStatus; label: string }) {
+  const variant: "destructive" | "outline" | "default" =
+    status === "live" ? "destructive" : status === "completed" ? "outline" : "default";
+  return <Badge variant={variant}>{label}</Badge>;
+}
+
+function SelectedSessionResults({
+  session,
+  rows,
+  revalidate,
+  revision,
+}: {
+  session: { id: number; type: string; resultStatus?: string | null; resultSourceUrl?: string | null; resultsUpdatedAt?: string | null };
+  rows: SessionResult[];
+  revalidate: number;
+  revision: string | null;
+}) {
+  const t = useTranslations("raceDetail");
+  const label = SESSION_LABEL_KEYS[session.type]
+    ? t(SESSION_LABEL_KEYS[session.type]!)
+    : session.type;
+  const isPractice =
+    session.type === "FP1" ||
+    session.type === "FP2" ||
+    session.type === "FP3" || session.type === "FP4" || session.type === "WARMUP";
+
+  return (
+    <>
+      <div className="flex justify-end">
+        <SessionWeatherBadge
+          sessionId={session.id}
+          revalidate={revalidate}
+          revision={revision}
+        />
+      </div>
+      {session.type === "Q" ? (
+        <>
+          <SessionWinnersCard type={session.type} rows={rows} />
+          <QualifyingResultsTable rows={rows} />
+        </>
+      ) : session.type === "RACE" ? (
+        <>
+          <div className="space-y-1 text-sm text-muted-foreground">
+            <p>{t(session.resultStatus === "live" ? "resultStateLive" : session.resultStatus === "completed" ? "resultStateCompleted" : session.resultStatus === "final" ? "resultStateFinal" : "resultStateUnknown")}</p>
+            {(session.resultSourceUrl?.startsWith("https://fiawec.alkamelsystems.com/") || session.resultSourceUrl?.startsWith("https://files.alkamelcloud.com/")) && (
+              <a href={session.resultSourceUrl} target="_blank" rel="noopener noreferrer" className="underline">{t("resultSource")}</a>
+            )}
+            {session.resultsUpdatedAt && Number.isFinite(Date.parse(session.resultsUpdatedAt)) && (
+              <p>{t("resultChecked")}: <time dateTime={session.resultsUpdatedAt}>{new Date(session.resultsUpdatedAt).toISOString().replace("T", " ").slice(0, 19)}</time></p>
+            )}
+          </div>
+          {session.resultStatus !== "live" && <SessionWinnersCard type={session.type} rows={rows} />}
+          <ResultsCard label={label} type={session.type} rows={rows} />
+          <RaceLapChartLazy
+            sessionId={session.id}
+            revalidate={revalidate}
+            revision={revision}
+          />
+          <PitStopsCard sessionId={session.id} revalidate={revalidate} revision={revision} />
+        </>
+      ) : isPractice && rows.length <= 3 ? (
+        <PracticeFastestCard label={label} rows={rows} />
+      ) : (
+        <ResultsCard label={label} type={session.type} rows={rows} />
+      )}
+    </>
+  );
+}
+
+function SessionWinnersCard({
+  type,
+  rows,
+}: {
+  type: string;
+  rows: SessionResult[];
+}) {
+  const t = useTranslations("raceDetail");
+  const isQuali = type === "Q";
+  const isRace = type === "RACE";
+  if (!isQuali && !isRace) return null;
+
+  // Class winner of each class. For both Q and Race, use class_position
+  // (computed by the backend per session) — Q stores `position` as the
+  // overall grid number, so filtering on `position == 1` would only ever
+  // match the Hypercar pole and miss the LMGT3 pole sitter.
+  const topByClass = new Map<string, SessionResult>();
+  for (const r of rows) {
+    const cp = r.classPosition;
+    if (cp !== 1) continue;
+    if (!topByClass.has(r.raceClass)) {
+      topByClass.set(r.raceClass, r);
+    }
+  }
+  const winners = Array.from(topByClass.values());
+  if (winners.length === 0) return null;
+
+  const heading = isQuali ? t("polePositions") : t("raceWinners");
+  const sub = isQuali ? t("poleSubtitle") : t("winnersSubtitle");
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{heading}</CardTitle>
+        <p className="text-xs text-muted-foreground">{sub}</p>
+      </CardHeader>
+      <CardContent>
+        <RaceClassFilter classes={RACE_CLASSES.filter((raceClass) => winners.some((winner) => winner.raceClass === raceClass))}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {winners.map((r) => (
+              <div
+                key={`${r.raceClass}-${r.carNumber}`}
+                data-race-class={r.raceClass}
+                className="rounded-sm border border-border bg-secondary/30 p-4"
+              >
+                <div className="mb-3 flex items-center justify-between">
+                  <ClassBadge raceClass={r.raceClass} />
+                  <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                    #{r.carNumber}
+                  </span>
+                </div>
+                <TeamLink id={r.teamId} className="block font-semibold">
+                  {r.team}
+                </TeamLink>
+                {r.drivers && (
+                  <DriverList
+                    refs={r.driverRefs}
+                    text={r.drivers}
+                    className="block text-sm text-muted-foreground"
+                  />
+                )}
+                {isQuali && (r.hyperpoleLap || r.qualifyingLap) && (
+                  <div className="mt-3 space-y-0.5">
+                    <div className="font-mono text-2xl font-bold tabular-nums">
+                      {r.hyperpoleLap ?? r.qualifyingLap}
+                    </div>
+                    {r.hyperpoleLap && r.qualifyingLap && (
+                      <div className="text-xs text-muted-foreground">
+                        <span className="font-mono tabular-nums">
+                          Q {r.qualifyingLap}
+                        </span>
+                        {" → "}
+                        <span className="font-mono tabular-nums">
+                          Hyperpole {r.hyperpoleLap}
+                        </span>
+                      </div>
+                    )}
+                    {r.poleSectors && r.poleSectors.length === 3 && (
+                      <div className="flex gap-3 pt-1 text-xs text-muted-foreground">
+                        {r.poleSectors.map((s, i) => (
+                          <span
+                            key={`s${i + 1}`}
+                            className="font-mono tabular-nums"
+                          >
+                            <span className="mr-1 text-[10px] uppercase tracking-wider">
+                              S{i + 1}
+                            </span>
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {isRace && (
+                  <div className="mt-3 flex items-baseline gap-2">
+                    {r.laps !== null && (
+                      <span className="font-mono text-2xl font-bold tabular-nums">
+                        {r.laps}
+                      </span>
+                    )}
+                    {r.laps !== null && (
+                      <span className="text-xs uppercase tracking-wider text-muted-foreground">
+                        {t("lapsLower")}
+                      </span>
+                    )}
+                    {r.gap && (
+                      <span className="ml-auto font-mono text-xs text-muted-foreground tabular-nums">
+                        {r.gap}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </RaceClassFilter>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PracticeFastestCard({
+  label,
+  rows,
+}: {
+  label: string;
+  rows: SessionResult[];
+}) {
+  const t = useTranslations("raceDetail");
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("sessionFastestSuffix", { label })}</CardTitle>
+        <p className="text-xs text-muted-foreground">
+          {t("wikiFastestNote")}
+        </p>
+      </CardHeader>
+      <CardContent>
+        {rows.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            {t("noFastestLap")}
+          </p>
+        ) : (
+          <RaceClassFilter classes={RACE_CLASSES.filter((raceClass) => rows.some((row) => row.raceClass === raceClass))}>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {rows.map((r) => (
+                <div
+                  key={`${r.raceClass}-${r.carNumber}`}
+                  data-race-class={r.raceClass}
+                  className="rounded-sm border border-border bg-secondary/30 p-4"
+                >
+                  <div className="mb-3 flex items-center justify-between">
+                    <ClassBadge raceClass={r.raceClass} />
+                    <span className="font-mono text-xs text-muted-foreground tabular-nums">
+                      #{r.carNumber}
+                    </span>
+                  </div>
+                  <TeamLink id={r.teamId} className="block font-semibold">
+                    {r.team}
+                  </TeamLink>
+                  {r.drivers && (
+                    <DriverList
+                      refs={r.driverRefs}
+                      text={r.drivers}
+                      className="block text-sm text-muted-foreground"
+                    />
+                  )}
+                  {r.bestLap && (
+                    <div className="mt-3 font-mono text-2xl font-bold tabular-nums">
+                      {r.bestLap}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </RaceClassFilter>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ResultsCard({
+  label,
+  type,
+  rows,
+}: {
+  label: string;
+  type: string;
+  rows: SessionResult[];
+}) {
+  const t = useTranslations("raceDetail");
+  const isPractice = ["FP1", "FP2", "FP3", "FP4", "WARMUP"].includes(type);
+  const isRace = type === "RACE";
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t("resultsSuffix", { label })}</CardTitle>
+      </CardHeader>
+      <CardContent className="px-0">
+        <RaceClassFilter classes={RACE_CLASSES.filter((raceClass) => rows.some((row) => row.raceClass === raceClass))}>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-12 pl-4">{t("colPos")}</TableHead>
+              {isRace && (
+                <TableHead className="hidden w-14 sm:table-cell">
+                  {t("colClassPos")}
+                </TableHead>
+              )}
+              <TableHead className="w-12">{t("colCar")}</TableHead>
+              <TableHead>{t("colTeam")}</TableHead>
+              <TableHead className="hidden md:table-cell">{t("colDrivers")}</TableHead>
+              <TableHead className="w-16">{t("colRaceClass")}</TableHead>
+              {isPractice && (
+                <>
+                  <TableHead className="hidden w-24 text-right sm:table-cell">
+                    {t("colBestLap")}
+                  </TableHead>
+                  <TableHead className="pr-4 w-20 text-right">{t("colGap")}</TableHead>
+                </>
+              )}
+              {isRace && (
+                <>
+                  <TableHead className="hidden w-14 text-right lg:table-cell">
+                    {t("colLaps")}
+                  </TableHead>
+                  <TableHead className="hidden w-24 text-right lg:table-cell">
+                    {t("colBestLap")}
+                  </TableHead>
+                  <TableHead className="hidden w-16 text-right xl:table-cell">
+                    {t("colTopSpeed")}
+                  </TableHead>
+                  <TableHead className="hidden w-12 text-right md:table-cell">
+                    {t("colPit")}
+                  </TableHead>
+                  <TableHead className="hidden w-12 text-right sm:table-cell">
+                    {t("colPts")}
+                  </TableHead>
+                  <TableHead className="pr-4 text-right">{t("colGap")}</TableHead>
+                </>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={`${row.position}-${row.carNumber}`} data-race-class={row.raceClass}>
+                <TableCell className="pl-4 font-mono tabular-nums">
+                  {row.classPosition === 0 ? (row.status || "—") : row.position}
+                </TableCell>
+                {isRace && (
+                  <TableCell className="hidden font-mono tabular-nums sm:table-cell">
+                    {row.classPosition > 0 ? `P${row.classPosition}` : "—"}
+                  </TableCell>
+                )}
+                <TableCell className="font-mono tabular-nums">
+                  {row.carNumber}
+                </TableCell>
+                <TableCell className="font-medium">
+                  <TeamLink id={row.teamId}>{row.team}</TeamLink>
+                </TableCell>
+                <TableCell className="hidden text-muted-foreground md:table-cell">
+                  <DriverList refs={row.driverRefs} text={row.drivers} />
+                </TableCell>
+                <TableCell>
+                  <ClassBadge raceClass={row.raceClass} />
+                </TableCell>
+                {isPractice && (
+                  <>
+                    <TableCell className="hidden text-right font-mono tabular-nums sm:table-cell">
+                      {row.bestLap ?? <Dash />}
+                    </TableCell>
+                    <TableCell className="pr-4 text-right font-mono tabular-nums text-muted-foreground">
+                      {row.gap ?? <Dash />}
+                    </TableCell>
+                  </>
+                )}
+                {isRace && (
+                  <>
+                    <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground lg:table-cell">
+                      {row.laps ?? <Dash />}
+                    </TableCell>
+                    <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground lg:table-cell">
+                      {row.bestLap ?? <Dash />}
+                    </TableCell>
+                    <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground xl:table-cell">
+                      {row.topSpeedKph ? Math.round(row.topSpeedKph) : <Dash />}
+                    </TableCell>
+                    <TableCell className="hidden text-right font-mono tabular-nums text-muted-foreground md:table-cell">
+                      {row.pitStops ?? <Dash />}
+                    </TableCell>
+                    <TableCell
+                      className={
+                        "hidden text-right font-mono tabular-nums sm:table-cell " +
+                        (row.pointsAwarded > 0
+                          ? "text-foreground"
+                          : "text-muted-foreground")
+                      }
+                    >
+                      {row.pointsAwarded > 0 ? row.pointsAwarded : <Dash />}
+                    </TableCell>
+                    <TableCell className="pr-4 text-right font-mono tabular-nums">
+                      {row.position === 1 || !row.gap ? <Dash /> : row.gap}
+                    </TableCell>
+                  </>
+                )}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+        </RaceClassFilter>
+      </CardContent>
+    </Card>
+  );
+}
