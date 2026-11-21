@@ -42,13 +42,15 @@ function durationTone(ms: number | null): string {
 export async function PitStopsCard({
   sessionId,
   revalidate,
+  revision,
 }: {
   sessionId: number;
   revalidate?: number;
+  revision?: string | null;
 }) {
   let stops: PitStop[] = [];
   try {
-    stops = await getPitStops(sessionId, { revalidate });
+    stops = await getPitStops(sessionId, { revalidate, revision });
   } catch {
     return null;
   }

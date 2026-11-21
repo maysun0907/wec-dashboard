@@ -9,6 +9,7 @@ type PageMetadataOptions = {
   description: string;
   locale: Locale;
   year: number;
+  image?: string;
 };
 
 export function pageMetadataUrls({
@@ -32,6 +33,7 @@ export function pageMetadata({
   description,
   locale,
   year,
+  image = "/opengraph-image",
 }: PageMetadataOptions): Metadata {
   const urls = pageMetadataUrls({ path, locale, year });
 
@@ -48,12 +50,14 @@ export function pageMetadata({
       siteName: SITE_NAME,
       title: `${title} · ${SITE_NAME}`,
       description,
+      images: [image],
       ...openGraphLocales(locale),
     },
     twitter: {
       card: "summary_large_image",
       title: `${title} · ${SITE_NAME}`,
       description,
+      images: [image],
     },
   };
 }

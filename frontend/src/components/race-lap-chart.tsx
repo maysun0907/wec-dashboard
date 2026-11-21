@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/card";
 import { ClassBadge } from "@/components/class-badge";
 import {
+  getLiveLapChart,
   RACE_CLASSES,
   raceClassLabel,
   type LapChart,
@@ -42,9 +43,11 @@ type Mode = "overall" | "class";
 export function RaceLapChart({
   sessionId,
   revalidate,
+  revision,
 }: {
   sessionId: number;
   revalidate: number;
+  revision?: string | null;
 }) {
   const t = useTranslations("raceDetail");
   const [loaded, setLoaded] = useState<{ sessionId: number; chart: LapChart } | null>(null);
@@ -59,13 +62,15 @@ export function RaceLapChart({
     let cancelled = false;
     const controller = new AbortController();
     const timeout = window.setTimeout(() => controller.abort(), 10_000);
-    fetch(`/api/lap-chart/${sessionId}?revalidate=${revalidate}`, {
-      signal: controller.signal,
-    })
-      .then((r) => {
+    const load = revision
+      ? getLiveLapChart(sessionId, controller.signal)
+      : fetch(`/api/lap-chart/${sessionId}?revalidate=${revalidate}`, {
+        signal: controller.signal,
+      }).then((r) => {
         if (!r.ok) throw new Error(String(r.status));
         return r.json() as Promise<LapChart>;
-      })
+      });
+    load
       .then((data) => {
         if (cancelled) return;
         setFailedSessionId(null);
@@ -85,7 +90,7 @@ export function RaceLapChart({
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [sessionId, revalidate]);
+  }, [sessionId, revalidate, revision]);
 
   const visibleCars = useMemo(() => {
     if (!chart) return [];

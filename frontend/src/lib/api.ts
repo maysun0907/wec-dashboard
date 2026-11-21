@@ -1,8 +1,10 @@
 import { mapWithConcurrency } from "@/lib/concurrency";
+import { parseEventRevision } from "@/lib/event-revision";
 import { cache } from "react";
 import {
   ARCHIVE_REVALIDATE_SECONDS,
   eventDataRevalidateSeconds,
+  isRaceWeek,
   seasonDataRevalidateSeconds,
 } from "@/lib/cache-policy";
 
@@ -565,7 +567,7 @@ export type Season = {
 // matches the cron cadence (race weekends) or trades freshness for
 // edge-cache hit rate (detail pages users browse between weekends).
 
-type FetchOpts = { revalidate?: number };
+type FetchOpts = { revalidate?: number; revision?: string | null };
 
 export class ApiError extends Error {
   constructor(
@@ -597,7 +599,10 @@ const readApi = cache(async (path: string, revalidate: number): Promise<unknown>
 });
 
 async function api<T>(path: string, opts: FetchOpts = {}): Promise<T> {
-  return readApi(path, opts.revalidate ?? 300) as Promise<T>;
+  const key = opts.revision
+    ? `${path}${path.includes("?") ? "&" : "?"}revision=${encodeURIComponent(opts.revision)}`
+    : path;
+  return readApi(key, opts.revalidate ?? 300) as Promise<T>;
 }
 
 /** Append `year=` to the path if specified. Falsy values omit the param so
@@ -845,14 +850,35 @@ export const getEvents = (year?: number | null) =>
 // cache even while a different round is live.
 export const getEvent = async (id: number, opts: FetchOpts = {}) =>
   api<EventDetail>(`/api/v1/events/${id}`, {
+    ...opts,
     revalidate: opts.revalidate ?? (await eventAwareRevalidate(id, 3600)),
   });
+
+export const getRaceEventSnapshot = cache(async (id: number, scheduledEvent?: Event) => {
+  const event = scheduledEvent ?? await getEvent(id);
+  const revalidate = eventDataRevalidateSeconds(event);
+  if (!isRaceWeek(event)) {
+    return { event: await getEvent(id), revision: null };
+  }
+  let revision: string | null = null;
+  try {
+    revision = parseEventRevision(await api(`/api/v1/events/${id}/revision`, { revalidate }));
+  } catch {
+    // The event and its normal cache remain usable while the revision check
+    // is unavailable (including when the frontend deploys before the API).
+  }
+  return {
+    event: await getEvent(id, { revalidate, revision }),
+    revision,
+  };
+});
 
 export const getSessionResults = (
   sessionId: number,
   opts: FetchOpts = {},
 ) =>
   api<SessionResult[]>(`/api/v1/sessions/${sessionId}/results`, {
+    ...opts,
     revalidate: opts.revalidate ?? 60,
   });
 
@@ -884,6 +910,12 @@ export const getLapChart = (sessionId: number, opts: FetchOpts = {}) =>
     revalidate: opts.revalidate ?? 300,
   });
 
+export async function getLiveLapChart(sessionId: number, signal: AbortSignal): Promise<LapChart> {
+  const response = await fetch(`${API_URL}/api/v1/sessions/${sessionId}/lap-chart`, { signal });
+  if (!response.ok) throw new ApiError("lap-chart", response.status, response.statusText);
+  return response.json();
+}
+
 export type PitStop = {
   carNumber: string;
   team: string;
@@ -895,6 +927,7 @@ export type PitStop = {
 
 export const getPitStops = (sessionId: number, opts: FetchOpts = {}) =>
   api<PitStop[]>(`/api/v1/sessions/${sessionId}/pit-stops`, {
+    ...opts,
     revalidate: opts.revalidate ?? 300,
   });
 
@@ -908,6 +941,7 @@ export type SessionWeather = {
 
 export const getSessionWeather = (sessionId: number, opts: FetchOpts = {}) =>
   api<SessionWeather>(`/api/v1/sessions/${sessionId}/weather`, {
+    ...opts,
     revalidate: opts.revalidate ?? 600,
   });
 

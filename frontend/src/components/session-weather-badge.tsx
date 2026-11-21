@@ -8,13 +8,15 @@ import { getSessionWeather } from "@/lib/api";
 export async function SessionWeatherBadge({
   sessionId,
   revalidate,
+  revision,
 }: {
   sessionId: number;
   revalidate?: number;
+  revision?: string | null;
 }) {
   let w;
   try {
-    w = await getSessionWeather(sessionId, { revalidate });
+    w = await getSessionWeather(sessionId, { revalidate, revision });
   } catch {
     return null;
   }

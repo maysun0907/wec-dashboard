@@ -101,8 +101,15 @@ test("search returns real drivers and navigates without losing language", async 
   await expect(page).toHaveURL(/\/ko\/drivers\/\d+$/);
 });
 
-test("simulator prevents duplicate podium scoring and resets", async ({ page }) => {
+test("simulator prevents duplicate podium scoring and resets, or shows the completed season", async ({ page, request }) => {
   await page.goto("/en/2026/standings/simulator");
+  const events = await (await request.get(`${api}/events?year=2026`)).json() as { dateEnd: string }[];
+  expect(events.length).toBeGreaterThan(0);
+  if (events.every(({ dateEnd }) => dateEnd < new Date().toISOString().slice(0, 10))) {
+    await expect(page.getByText("Season is complete — nothing left to simulate.")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Share picks" })).toBeDisabled();
+    return;
+  }
   const winner = page.getByRole("combobox", { name: / Winner$/ }).first();
   await winner.click();
   await page.getByRole("option").first().click();
@@ -144,6 +151,7 @@ test("historical pages, legacy redirects and invalid identifiers", async ({ page
   }
   await page.goto("/ko/bop");
   await expect(page).toHaveURL(/\/ko\/rules$/);
+  expect((await page.goto("/en/races/999999999"))?.status()).toBe(404);
   expect((await page.goto("/en/drivers/999999999"))?.status()).toBe(404);
   expect((await page.goto("/en/cars/does-not-exist"))?.status()).toBe(404);
 });

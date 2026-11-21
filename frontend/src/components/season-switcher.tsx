@@ -33,7 +33,6 @@ export function SeasonSwitcher({ seasons, selected }: Props) {
   const locale = localeOrDefault(useLocale());
   const t = useTranslations("common");
   const [pending, startTransition] = useTransition();
-  // Shared layouts can retain their previous server props after a rewrite.
   // The canonical URL is authoritative for season-scoped navigation.
   const routed = parsePublicPath(pathname);
   const activeYear = routed ? routed.year : selected;
@@ -48,7 +47,11 @@ export function SeasonSwitcher({ seasons, selected }: Props) {
   function handleChange(next: string) {
     const year = next === LATEST_VALUE ? null : Number(next);
     startTransition(async () => {
-      await setSelectedSeason(year);
+      try {
+        await setSelectedSeason(year);
+      } catch {
+        // Old tabs can outlive a Server Action deployment. The URL still works.
+      }
       const destinationYear = year ?? latest.year;
       const currentHref = `${pathname}${window.location.search}${window.location.hash}`;
       const nextHref = switchSeasonInPublicHref(

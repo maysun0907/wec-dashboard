@@ -43,6 +43,7 @@ results, weather, pit stops and lap charts independently of visitor requests.
 
 | Endpoint | What it returns |
 | --- | --- |
+| `GET /api/v1/events/{id}/revision` | Race-week change token for the event's schedule and timing data, cached for 15 seconds |
 | `GET /api/v1/sessions/{id}/lap-chart` | Per-car lap-by-lap position trajectories (race only) |
 | `GET /api/v1/sessions/{id}/pit-stops` | Pit visits with laps + durations |
 | `GET /api/v1/sessions/{id}/weather` | Median temps, humidity, wind, rain flag |

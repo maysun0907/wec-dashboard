@@ -10,9 +10,9 @@ LMP2 / LMGTE Pro / LMGTE Am).
 
 ## What's in here
 
-- **Live race weekend** — next-race countdown, adaptive five-minute session pulls
-  latest classification + Al Kamel CSVs, frontend revalidate windows
-  scoped tighter during weekends.
+- **Live race weekend** — next-race countdown and adaptive five-minute Al
+  Kamel collection. Visible race tabs check Railway directly for changes
+  during race week; unchanged data does not trigger a page refresh.
 - **Race detail page** — qualifying sector breakdown on the pole
   card, V-max column on the race classification, Al Kamel position
   chart, pit-stop log, weather emoji badge per session tab.
@@ -52,7 +52,7 @@ LMP2 / LMGTE Pro / LMGTE Am).
 ```
          ┌──────────────────┐         ┌─────────────────────┐
          │  frontend (Next) │ ──API──▶│  backend (FastAPI)  │
-         │   Vercel SSR     │         │  Railway + Postgres │
+         │ Vercel page cache│         │  Railway + Postgres │
          └──────────────────┘         └─────────────────────┘
                                               ▲
                                               │ scheduled ingest
@@ -65,9 +65,12 @@ LMP2 / LMGTE Pro / LMGTE Am).
 ```
 
 - **`frontend/`** — Next.js 16 (App Router), Tailwind v4, shadcn/ui,
-  Recharts, next-intl (nine locales). Server components fetch from the backend
-  with race-aware per-resource caching (60 s around an active weekend,
-  1 hr between rounds, and 24 hr for completed archives).
+  Recharts, next-intl (nine locales). Public pages are generated on first
+  visit, then reused by URL. Language and season come from the URL; only
+  entry points and compatibility redirects need Proxy. Query-driven
+  comparison and simulator responses do not share a page cache.
+  Result data revalidates in 60 s around an active weekend, 1 hr between
+  rounds and during the correction window, and 24 hr for older archives.
 - **`backend/`** — FastAPI 0.115, SQLAlchemy 2, Alembic, Postgres on
   Railway. Ingestion modules pull race data from Wikipedia, Al Kamel
   CSVs, fiawec.com, and the Internet Archive (for past-season images).
@@ -126,18 +129,18 @@ wec-dashboard/
     │   ├── circuits/            # Track layout SVGs (ISO-3-keyed)
     │   └── drivers/             # Optional driver-photo overrides
     ├── src/
-    │   ├── app/(dashboard)/     # Routed pages: home, races, live, ...
+    │   ├── app/[locale]/        # Public language, season and detail pages
     │   ├── app/sitemap.ts       # Dynamic sitemap (all seasons, all routes)
     │   ├── app/robots.ts        # robots.txt
     │   ├── components/          # Shared UI + cards
-    │   ├── i18n/                # next-intl config, Accept-Language sniff
+    │   ├── i18n/                # next-intl config and landing negotiation
     │   └── lib/
     │       ├── api.ts           # Typed API client
     │       ├── car-image.ts     # Server-only public/cars/ lookup
     │       ├── circuit-image.ts # Server-only public/circuits/ lookup
     │       ├── driver-image.ts  # Server-only public/drivers/ lookup
     │       ├── locale-names.ts  # EN/KO names for circuits & events
-    │       └── season.ts        # Selected-season cookie helper
+    │       └── season.ts        # Season route validation
     └── vitest.config.ts
 ```
 

@@ -1,4 +1,5 @@
 import { ApiError, getLapChart } from "@/lib/api";
+import { parsePublicId } from "@/lib/public-routing";
 
 const ALLOWED_REVALIDATE_SECONDS = new Set([60, 3_600, 86_400]);
 
@@ -23,21 +24,22 @@ export async function GET(
   { params }: { params: Promise<{ sessionId: string }> },
 ): Promise<Response> {
   const { sessionId: rawSessionId } = await params;
-  const sessionId = Number(rawSessionId);
-  if (!Number.isSafeInteger(sessionId) || sessionId <= 0) {
+  const sessionId = parsePublicId(rawSessionId);
+  if (sessionId === null) {
     return errorResponse("Invalid session ID", 400);
   }
 
-  const revalidate = parseRevalidate(
-    new URL(request.url).searchParams.get("revalidate"),
-  );
+  const query = new URL(request.url).searchParams;
+  const revalidate = parseRevalidate(query.get("revalidate"));
   if (revalidate === null) {
     return errorResponse("Invalid revalidate value", 400);
   }
 
   try {
     const chart = await getLapChart(sessionId, { revalidate });
-    return Response.json(chart);
+    return Response.json(chart, {
+      headers: { "cache-control": `public, max-age=0, s-maxage=${revalidate}` },
+    });
   } catch (error) {
     if (error instanceof ApiError) {
       return errorResponse("Lap chart unavailable", error.status);

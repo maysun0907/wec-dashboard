@@ -1,4 +1,27 @@
-# Reliability review — 2026-09-09
+# Reliability review — 2026-11-21
+
+## Public rendering and race-week refresh
+
+- Read language and season from the URL, and generate reusable public HTML
+  on demand. Root preference negotiation and compatibility redirects are
+  kept separate from canonical page traffic. User-selected comparisons and
+  simulator picks stay outside the shared page cache.
+- Cache results by race and session. Historical session query links redirect
+  to the right tab without splitting the race's search canonical. Keep the
+  existing share-image endpoints and return real 404s for missing races.
+- During race week, a visible race tab checks a compact Railway change
+  token. An unchanged minute makes no page refresh request. Clocks update
+  locally, and session transitions can refresh independently of timing
+  publications. The collector's existing schedule is unchanged.
+- Update Next.js and related dependencies to patched versions. Production
+  npm and Python dependency scans report no known advisories.
+- Local verification: 207 backend tests, 178 frontend tests, 64 browser
+  scenarios across Chromium, Firefox, WebKit and mobile WebKit. Production
+  build, lint/type checks and PostgreSQL 17 migration/schema checks passed.
+  A read-only production copy served 20,429 API checks with no unexpected
+  5xx. Cache checks confirmed separate language/season pages and private
+  tool responses. A simulated race week confirmed the 60-second page
+  cache and that an amended lap appeared in an already-open tab.
 
 ## Multilingual follow-up
 
